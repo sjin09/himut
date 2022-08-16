@@ -1,10 +1,11 @@
 ## <a name="started"></a>Getting started
 
 ```sh
-## clone github repository and install himut
-git clone https://github.com/sjin09/himut
-cd himut
-/bin/bash install.sh
+## download and install the latest release
+wget https://github.com/sjin09/himut/archive/refs/tags/v1.0.0.tar.gz
+tar -zxvf v1.0.0.tar.gz
+cd himut-1.0.0
+bash install.sh
 
 ## use miniamp2 and samtools to align, sort (and merge) PacBio CCS read alignments
 minimap2 "@RG\tSM:sample" -ax map-hifi --cs ref.fa pacbio.ccs.fastq.gz | samtools sort -o aln.sorted.bam # SM tag must be provided to retrieve sample ID
