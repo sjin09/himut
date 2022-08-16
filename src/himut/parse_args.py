@@ -364,7 +364,7 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         help="phased deepvariant VCF file",
     )
     parser_normcounts.add_argument(
-        "--sample_sbs",
+        "--sbs",
         type=str,
         required=True,
         help="himut VCF file with somatic single-base substitutions",

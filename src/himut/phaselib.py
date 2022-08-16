@@ -302,11 +302,10 @@ def get_chrom_hblock(
         version,
         out_file,
     )
-    log_file = vcf_file.replace(".vcf", ".log")
     himut.vcflib.dump_hblock_statistics(
         chrom_lst, 
         chrom2hblock_statistics, 
-        log_file
+        vcf_file.replace(".vcf", ".log")
     )
     print("himut finished returning phased hetsnps")    
     cpu_end = time.time() / 60

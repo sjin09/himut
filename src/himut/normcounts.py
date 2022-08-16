@@ -433,7 +433,7 @@ def get_normcounts(
     min_sequence_identity: float,
     min_hq_base_proportion: float,
     min_alignment_proportion: float,
-    sample_sbs: str,
+    sbs_file: str,
     common_snps: str,
     panel_of_normals: str,
     min_bq: int,
@@ -453,7 +453,7 @@ def get_normcounts(
         ref_file,
         vcf_file,
         phased_vcf_file,
-        sample_sbs,
+        sbs_file,
         common_snps,
         panel_of_normals, 
         phase,
@@ -469,7 +469,7 @@ def get_normcounts(
     refseq = pyfastx.Fasta(ref_file)
     min_base_count = min_ref_count + min_alt_count
     _, tname2tsize = himut.bamlib.get_tname2tsize(bam_file)
-    chrom_lst, sbs2count, chrom2sbs2count = himut.mutlib.load_chrom2sbs2count(sample_sbs, ref_file)
+    chrom_lst, sbs2count, chrom2sbs2count = himut.mutlib.load_chrom2sbs2count(sbs_file, ref_file)
     chrom2loci_lst = himut.reflib.load_seq_loci(ref_file, chrom_lst)
     qlen_mean, qlen_lower_limit, qlen_upper_limit, md_threshold = himut.bamlib.get_thresholds(
         bam_file, chrom_lst, tname2tsize

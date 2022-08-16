@@ -369,7 +369,7 @@ def check_normcounts_input_exists(
     ref_file: str,
     vcf_file: str,
     phased_vcf_file: str,
-    sample_sbs: str,
+    sbs_file: str,
     common_snps: str,
     panel_of_normals: str,
     phase: bool,
@@ -381,7 +381,7 @@ def check_normcounts_input_exists(
     counter += check_bam_file(bam_file)
     counter += check_ref_file(ref_file)
     counter += check_vcf_file(vcf_file, "--vcf")
-    counter += check_vcf_file(sample_sbs, "--sample_sbs")
+    counter += check_vcf_file(sbs_file, "--sbs")
     if phase:
         counter += check_phased_vcf_file(phased_vcf_file)
     

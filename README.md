@@ -19,6 +19,10 @@ deepvariant.simg /opt/deepvariant/bin/run_deepvariant --model_type=PACBIO --ref 
 ## use himut to call somatic mutations 
 himut call -i aln.primary_alignments.sorted.bam --vcf germline.vcf -o somatic.vcf --non_human_sample
 himut call -i aln.primary_alignments.sorted.bam --vcf germline.vcf --common_snps ALL.wgs.phase3_shapeit2_mvncall_integrated_v5b.20130502.sites.decomposed.normalised.common_snps.vcf.bgz --panel_of_normals b37.himut.pon.sbs.dbs.vcf.bgz -o somatic.vcf 
+
+## prepare samples for mutational signature extraction
+himut normcounts --bam aln.primary_alignments.sorted.bam --ref ref.fa --vcf germline.vcf --sample_sbs somatic.vcf -o somatic.normcounts.tsv
+himut normcounts --bam aln.primary_alignments.sorted.bam --ref ref.fa --vcf germline.vcf --common_snps ALL.wgs.phase3_shapeit2_mvncall_integrated_v5b.20130502.sites.decomposed.normalised.common_snps.vcf.bgz --panel_of_normals b37.himut.pon.sbs.dbs.vcf.bgz --sbs somatic.vcf -o somatic.normcounts.tsv
 ```
 
 ## Table of Contents
@@ -132,8 +136,8 @@ To compare SBS96 counts and to extract mutational signatures from multiple sampl
 himut normcounts --bam aln.primary_alignments.sorted.bam --ref ref.fa --vcf germline.vcf --sample_sbs somatic.vcf -o somatic.normcounts.tsv
 himut normcounts --bam aln.primary_alignments.sorted.bam --ref ref.fa --vcf germline.vcf --phased_vcf germline.phased.vcf --sample_sbs somatic.phased.vcf -o somatic.phased.normcounts.tsv --phase
 ## human sample
-himut normcounts --bam aln.primary_alignments.sorted.bam --ref ref.fa --vcf germline.vcf --common_snps ALL.wgs.phase3_shapeit2_mvncall_integrated_v5b.20130502.sites.decomposed.normalised.common_snps.vcf.bgz --panel_of_normals b37.himut.pon.sbs.dbs.vcf.bgz --sample_sbs somatic.vcf -o somatic.normcounts.tsv
-himut normcounts --bam aln.primary_alignments.sorted.bam --ref ref.fa --vcf germline.vcf --phased_vcf germline.phased.vcf --common_snps ALL.wgs.phase3_shapeit2_mvncall_integrated_v5b.20130502.sites.decomposed.normalised.common_snps.vcf.bgz --panel_of_normals b37.himut.pon.sbs.dbs.vcf.bgz --sample_sbs somatic.phased.vcf -o somatic.phased.normcounts.tsv --phase
+himut normcounts --bam aln.primary_alignments.sorted.bam --ref ref.fa --vcf germline.vcf --common_snps ALL.wgs.phase3_shapeit2_mvncall_integrated_v5b.20130502.sites.decomposed.normalised.common_snps.vcf.bgz --panel_of_normals b37.himut.pon.sbs.dbs.vcf.bgz --sbs somatic.vcf -o somatic.normcounts.tsv
+himut normcounts --bam aln.primary_alignments.sorted.bam --ref ref.fa --vcf germline.vcf --phased_vcf germline.phased.vcf --common_snps ALL.wgs.phase3_shapeit2_mvncall_integrated_v5b.20130502.sites.decomposed.normalised.common_snps.vcf.bgz --panel_of_normals b37.himut.pon.sbs.dbs.vcf.bgz --sbs somatic.phased.vcf -o somatic.phased.normcounts.tsv --phase
 ```
 
 #### DBS78 counts (experimental)
@@ -147,4 +151,3 @@ himut dbs78 -i somatic.dbs78.vcf -o somatic.dbs78.tsv
 ### Limitations
 
 PacBio CCS base accuracy is the limiting factor for somatic mutation calling using himut. PacBio circular consensus sequence (pbccs) algorithm calculates the base quality score depending on the dinucleotide sequence context and the number of supporting subread bases. Our research suggests that the base quality score does not correctly reflect the true base accuracy and that the consensus sequence caller does not account for the different substitution error rates in different trinucleotide sequence contexts. We discuss how this issue can be mitigated in our manuscript.
-
