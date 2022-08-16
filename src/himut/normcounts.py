@@ -425,6 +425,7 @@ def get_callable_tricounts(
 def get_normcounts(
     bam_file: str,
     ref_file: str,
+    sbs_file: str,
     vcf_file: str,
     phased_vcf_file: str,
     ploidy: str,
@@ -433,7 +434,6 @@ def get_normcounts(
     min_sequence_identity: float,
     min_hq_base_proportion: float,
     min_alignment_proportion: float,
-    sbs_file: str,
     common_snps: str,
     panel_of_normals: str,
     min_bq: int,
@@ -451,9 +451,9 @@ def get_normcounts(
     himut.util.check_normcounts_input_exists(
         bam_file,
         ref_file,
+        sbs_file,
         vcf_file,
         phased_vcf_file,
-        sbs_file,
         common_snps,
         panel_of_normals, 
         phase,

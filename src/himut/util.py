@@ -367,9 +367,9 @@ def check_mutpatterns_input_exists(
 def check_normcounts_input_exists(
     bam_file: str,
     ref_file: str,
+    sbs_file: str,
     vcf_file: str,
     phased_vcf_file: str,
-    sbs_file: str,
     common_snps: str,
     panel_of_normals: str,
     phase: bool,

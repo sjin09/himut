@@ -352,6 +352,12 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         help="reference FASTA file",
     )
     parser_normcounts.add_argument(
+        "--sbs",
+        type=str,
+        required=True,
+        help="himut VCF file with somatic single-base substitutions",
+    )
+    parser_normcounts.add_argument(
         "--vcf",
         type=str,
         required=True,
@@ -362,12 +368,6 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         type=str,
         required=False,
         help="phased deepvariant VCF file",
-    )
-    parser_normcounts.add_argument(
-        "--sbs",
-        type=str,
-        required=True,
-        help="himut VCF file with somatic single-base substitutions",
     )
     parser_normcounts.add_argument(
         "--common_snps",

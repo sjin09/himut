@@ -68,6 +68,7 @@ def main():
         himut.normcounts.get_normcounts(
             options.bam,
             options.ref, 
+            options.sbs,
             options.vcf,
             options.phased_vcf,
             options.ploidy,
@@ -76,7 +77,6 @@ def main():
             options.min_sequence_identity,
             options.min_hq_base_proportion,
             options.min_alignment_proportion, 
-            options.sbs,
             options.common_snps,
             options.panel_of_normals,
             options.min_bq,
