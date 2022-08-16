@@ -1,0 +1,3 @@
+[console_scripts]
+himut = himut.__main__:main
+

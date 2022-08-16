@@ -1,0 +1,6 @@
+/Users/sl666/Languages/python3/lib/python3.9/site-packages/himut-0.0.1-py3.9.egg
+/Users/sl666/Languages/python3/bin/himut
+/Users/sl666/Languages/python3/bin/f2py
+/Users/sl666/Languages/python3/bin/f2py3
+/Users/sl666/Languages/python3/bin/f2py3.9
+/Users/sl666/Languages/python3/bin/natsort
