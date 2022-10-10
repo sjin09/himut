@@ -6,8 +6,7 @@ from collections import defaultdict
 
 class BAM:
     def __init__(self, line):
-        self.qname = line.query_name
-        self.zmw = self.qname.split("/")[1]
+        self.qname = "/".join(line.query_name.split("/")[0:2])
 
 
 def parse_args(args):
@@ -41,11 +40,11 @@ def dump_zmw_counts(
     alignments = pysam.AlignmentFile(infile, "rb", check_sq=False)
     for line in alignments:
         ccs = BAM(line)
-        cnt_hsh[ccs.zmw] += 1
+        cnt_hsh[ccs.qname] += 1
         counter += 1
 
     o = open(outfile, "w")
-    o.write("zmw\tcount\n")
+    o.write("qname\tsubread_count\n")
     for zmw, cnt in cnt_hsh.items():
         o.write("{}\t{}\n".format(zmw, cnt))
     o.close()
