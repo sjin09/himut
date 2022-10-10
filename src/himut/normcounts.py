@@ -302,7 +302,7 @@ def get_callable_tricounts(
                 trimmed_qend = math.ceil((1 - min_trim) * read.qlen)
                 mismatch_lst = natsort.natsorted(ccs_somatic_tsbs_candidate_lst + read.mismatch_lst)
                 mismatch_set = set(mismatch_lst)
-                mpos_lst = [mismatch[1] for mismatch in mismatch_lst]
+                mpos_lst = [mismatch[0] for mismatch in mismatch_lst]
                 for cstuple in read.cstuple_lst:
                     state, ref, alt, ref_len, alt_len, = cstuple
                     if state == 1:  # match

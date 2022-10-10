@@ -9,29 +9,6 @@ from collections import defaultdict
 from typing import Dict, List, Set, Tuple
 
 
-ROW_NAMES = [
-    "num_reads", 
-    "num_not_primary",  
-    "num_low_mapq", 
-    "num_abnormal", 
-    "num_low_qv", 
-    "num_low_identity", 
-    "num_contamination", 
-    "num_hq_reads", 
-    "num_sub_candidates", 
-    "num_bq_filtered_sbs", 
-    "num_pon_filtered_sbs", 
-    "num_trimmed_sbs", 
-    "num_mismatch_filtered_sbs", 
-    "num_uncallable_sbs", 
-    "num_ab_filtered_sbs", 
-    "num_md_filtered_sbs", 
-    "num_sbs", 
-    "num_unphased_sbs", 
-    "num_phased_sbs"
-]
-
-
 class VCF:
     def __init__(self, line):
         arr = line.strip().split()
@@ -223,7 +200,7 @@ def get_himut_vcf_header(
 def load_snp(
     chrom: str,
     vcf_file: str
-) -> Set[Tuple[str, int, str, str]]:
+) -> Set[Tuple[int, str, str]]:
 
     snp_set = set()
     for line in open(vcf_file):
@@ -235,32 +212,32 @@ def load_snp(
         if v.is_pass:
             if v.is_biallelic:
                 if v.is_snp:
-                    snp_set.add((v.chrom, v.pos, v.ref, v.alt))
+                    snp_set.add((v.pos, v.ref, v.alt))
             else:
                 for alt in v.alt_lst:
                     if len(v.ref) == 1 and len(alt) == 1:
-                        snp_set.add((v.chrom, v.pos, v.ref, alt))
+                        snp_set.add((v.pos, v.ref, alt))
     return snp_set 
       
                      
 def load_bgz_snp(
     loci: Tuple[str, int, int],
     vcf_file: str
-) -> Set[Tuple[str, int, str, str]]:
+) -> Set[Tuple[int, str, str]]:
 
     snp_set = set()
     tb = tabix.open(vcf_file)
     records = tb.query(*loci)
     for record in records:
         v = VCF("\t".join(record))            
-        if v.is_pass:
+        if v.is_snp and v.is_pass:
             if v.is_biallelic:
                 if v.is_snp:
-                    snp_set.add((v.chrom, v.pos, v.ref, v.alt))
+                    snp_set.add((v.pos, v.ref, v.alt))
             else:
                 for alt in v.alt_lst:
                     if len(v.ref) == 1 and len(alt) == 1:
-                        snp_set.add((v.chrom, v.pos, v.ref, alt))
+                        snp_set.add((v.pos, v.ref, alt))
     return snp_set
 
 
@@ -269,7 +246,6 @@ def load_pon(
     vcf_file: str
 ) -> Tuple[Set[Tuple[str, int, str, str]], Set[Tuple[str, int, str, str]]]:
 
-    state = 0
     sbs_set = set() 
     dbs_set = set()
     if vcf_file.endswith(".vcf"):
@@ -278,18 +254,13 @@ def load_pon(
                 continue
             v = VCF(line)
             if chrom != v.chrom: 
-                if state == 0:
-                    continue
+                continue
+            if v.is_pass and v.is_biallelic:
+                if v.is_snp:
+                    sbs_set.add((v.pos, v.ref, v.alt))
                 else:
-                    break
-            else:
-                state = 1
-                if v.is_pass and v.is_biallelic:
-                    if v.is_snp:
-                        sbs_set.add((v.chrom, v.pos, v.ref, v.alt))
-                    else:
-                        if len(v.ref) == len(v.alt) == 2:
-                            dbs_set.add((v.chrom, v.pos, v.ref, v.alt))
+                    if len(v.ref) == len(v.alt) == 2:
+                        dbs_set.add((v.pos, v.ref, v.alt))
     return sbs_set, dbs_set
 
 
@@ -306,10 +277,10 @@ def load_bgz_pon(
         v = VCF("\t".join(record))            
         if v.is_pass and v.is_biallelic:
             if v.is_snp:
-                sbs_set.add((v.chrom, v.pos, v.ref, v.alt))
+                sbs_set.add((v.pos, v.ref, v.alt))
             else:
                 if len(v.ref) == len(v.alt) == 2:
-                    dbs_set.add((v.chrom, v.pos, v.ref, v.alt))
+                    dbs_set.add((v.pos, v.ref, v.alt))
     return sbs_set, dbs_set
 
 
@@ -324,15 +295,14 @@ def load_common_snp(
             if line.startswith("#"):
                 continue
             arr = line.strip().split()
-            if chrom != arr[0]:
-                continue
-            if arr[6] == "PASS":
+            if chrom != arr[0] and arr[6] == "PASS":
                 alt_lst = arr[4].split(",") 
-                if len(alt_lst) == 1:            
+                if len(alt_lst) == 1:           
+                    pos = int(arr[1])
                     ref = arr[3]
                     alt = alt_lst[0]
                     if len(ref) == 1 and len(alt) == 1:
-                        snp_set.add((chrom, int(arr[1]), ref, alt))
+                        snp_set.add((pos, ref, alt))
     return snp_set
 
 
@@ -348,10 +318,11 @@ def load_bgz_common_snp(
         alt_lst = arr[4].split(",") 
         if arr[6] == "PASS":
             if len(alt_lst) == 1:
+                pos = int(arr[1])
                 ref = arr[3]
                 alt = alt_lst[0]
                 if len(ref) == 1 and len(alt) == 1:
-                    snp_set.add((arr[0], int(arr[1]), ref, alt))
+                    snp_set.add((pos, ref, alt))
     return snp_set
 
 
@@ -370,14 +341,14 @@ def load_hetsnps(
                 continue
             v = VCF(line)
             if v.is_snp and v.is_pass and v.is_biallelic and (v.sample_gt == "0/1" or v.sample_gt == "1/0"):
-                hetsnp_lst.append((v.chrom, v.pos, v.ref, v.alt))
+                hetsnp_lst.append((v.pos, v.ref, v.alt))
     elif vcf_file.endswith(".bgz"):
         tb = tabix.open(vcf_file)
         records = tb.query(chrom, 0, chrom_len)
         for record in records:
             v = VCF("\t".join(record))            
             if v.is_snp and v.is_pass and v.is_biallelic and (v.sample_gt == "0/1" or v.sample_gt == "1/0"):
-                hetsnp_lst.append((v.chrom, v.pos, v.ref, v.alt))
+                hetsnp_lst.append((v.pos, v.ref, v.alt))
     for hidx, hetsnp in enumerate(hetsnp_lst):
         hidx2hetsnp[hidx] = hetsnp
         hetsnp2hidx[hetsnp] = hidx
@@ -391,7 +362,6 @@ def load_phased_hetsnp_index(
 ) -> Dict[str, List[List[Tuple[int, str]]]]:
 
     hidx = 0  
-    state = 0
     hidx2hetsnp = {}
     hetsnp2hidx = {}
     hblock_lst = defaultdict(list)
@@ -401,16 +371,9 @@ def load_phased_hetsnp_index(
             if line.startswith("#"):
                 continue
             v = VCF(line)
-            if chrom != v.chrom:
-                if state == 0:
-                    continue
-                elif state == 1:
-                    break
-            elif chrom == v.chrom: 
-                if state == 0:
-                    state = 1
+            if chrom == v.chrom: 
                 if v.sample_gt == "0|1" or v.sample_gt == "1|0":
-                    hetsnp = (v.chrom, v.pos, v.ref, v.alt)
+                    hetsnp = (v.pos, v.ref, v.alt)
                     hidx2hetsnp[hidx] = hetsnp
                     hetsnp2hidx[hetsnp] = hidx
                     hstate = v.sample_gt.split("|")[0]                    
@@ -422,7 +385,7 @@ def load_phased_hetsnp_index(
         for hidx, record in enumerate(records):
             v = VCF("\t".join(record))           
             if v.sample_gt == "0|1" or v.sample_gt == "1|0":
-                hetsnp = (v.chrom, v.pos, v.ref, v.alt)
+                hetsnp = (v.pos, v.ref, v.alt)
                 hidx2hetsnp[hidx] = hetsnp
                 hetsnp2hidx[hetsnp] = hidx                
                 hstate = v.sample_gt.split("|")[0]
@@ -444,7 +407,7 @@ def get_phased_hetsnps(
         ipos = 0
         filtered_hblock = []
         for (hidx, hstate) in hblock:
-            jpos = hidx2hetsnp[hidx][1]
+            jpos = hidx2hetsnp[hidx][0]
             if jpos - ipos > 1:
                 filtered_hblock.append((hidx, hstate))
             ipos = jpos
@@ -459,7 +422,7 @@ def get_phased_hetsnps(
             hetsnp2bidx[hetsnp] = bidx 
             phased_hetsnp_lst.append(hetsnp)
     phased_hetsnp_lst = natsort.natsorted(phased_hetsnp_lst) 
-    hpos_lst = [hetsnp[1] for hetsnp in phased_hetsnp_lst]
+    hpos_lst = [hetsnp[0] for hetsnp in phased_hetsnp_lst]
     return hpos_lst, filtered_hblock_lst, phased_hetsnp_lst, hidx2hetsnp, hidx2hstate, hetsnp2bidx, hetsnp2hidx
 
 
@@ -484,7 +447,7 @@ def dump_phased_hetsnps(
                 continue
             v = VCF(line)
             if v.is_snp and v.is_pass and v.is_biallelic and (v.sample_gt == "0/1" or v.sample_gt == "1/0"):
-                chrom2hetsnp_lst[v.chrom].append((v.chrom, v.pos, v.ref, v.alt))
+                chrom2hetsnp_lst[v.chrom].append((v.pos, v.ref, v.alt))
     elif vcf_file.endswith(".bgz"):
         tb = tabix.open(vcf_file)
         for chrom in chrom_lst:
@@ -492,7 +455,7 @@ def dump_phased_hetsnps(
             for record in records:
                 v = VCF("\t".join(record))            
                 if v.is_snp and v.is_pass and v.is_biallelic and (v.sample_gt == "0/1" or v.sample_gt == "1/0"):
-                    chrom2hetsnp_lst[v.chrom].append((v.chrom, v.pos, v.ref, v.alt))
+                    chrom2hetsnp_lst[v.chrom].append((v.pos, v.ref, v.alt))
     for chrom, hetsnp_lst in chrom2hetsnp_lst.items():
         for hidx, hetsnp in enumerate(hetsnp_lst):
             chrom2hidx2hetsnp[chrom][hidx] = hetsnp
@@ -501,7 +464,7 @@ def dump_phased_hetsnps(
     
     for chrom, hblock_lst in chrom2hblock_lst.items():
         for hblock in hblock_lst:
-            phase_set = chrom2hidx2hetsnp[chrom][hblock[0][0]][1]
+            phase_set = chrom2hidx2hetsnp[chrom][hblock[0][0]][0]
             for (hidx, hstate) in hblock:
                 hetsnp = chrom2hidx2hetsnp[chrom][hidx]
                 hetsnp2hstate[hetsnp] = hstate
@@ -515,7 +478,7 @@ def dump_phased_hetsnps(
                 continue
             v = VCF(line)
             if v.is_snp and v.is_pass and v.is_biallelic and (v.sample_gt == "0/1" or v.sample_gt == "1/0"):
-                hetsnp = (v.chrom, v.pos, v.ref, v.alt)
+                hetsnp = (v.pos, v.ref, v.alt)
                 fmt, sample_fmt = line.strip().split()[-2:]
                 if hetsnp in hetsnp2hstate:
                     phase_set = hetsnp2phase_set[hetsnp]
@@ -534,7 +497,7 @@ def dump_phased_hetsnps(
                 v = VCF(line)            
                 fmt, sample_fmt = line.strip().split()[-2:]
                 if v.is_snp and v.is_pass and v.is_biallelic and (v.sample_gt == "0/1" or v.sample_gt == "1/0"):
-                    hetsnp = (v.chrom, v.pos, v.ref, v.alt)
+                    hetsnp = (v.pos, v.ref, v.alt)
                     if hetsnp in hetsnp2hstate:
                         phase_set = hetsnp2phase_set[hetsnp]
                         sample_gt = "0|1" if hetsnp2hstate[hetsnp] == "0" else "1|0"
@@ -644,9 +607,32 @@ def dump_himut_statistics(
     genome_stat_hsh: Dict[str, List[int]], 
     stats_file: str
 ) -> None:
+
+
+    row_names = [
+        "ccs",
+        "low_qv_ccs", 
+        "low_mapq_ccs", 
+        "abnormal_ccs", 
+        "secondary_ccs",  
+        "contaminant_ccs", 
+        "low_seq_identity_ccs", 
+        "hq_ccs", 
+        "sub_candidates", 
+        "bq_filtered_sbs", 
+        "pon_filtered_sbs", 
+        "trimmed_sbs", 
+        "mismatch_filtered_sbs", 
+        "uncallable_sbs", 
+        "ab_filtered_sbs", 
+        "md_filtered_sbs", 
+        "sbs", 
+        "unphased_sbs", 
+        "phased_sbs"
+    ]
  
     ncol = len(chrom_lst)
-    nrow = len(ROW_NAMES)
+    nrow = len(row_names)
     dt = np.zeros((nrow, ncol))
     for idx, chrom in enumerate(chrom_lst):
         for jdx, count in enumerate(genome_stat_hsh[chrom]): 
@@ -658,5 +644,5 @@ def dump_himut_statistics(
     for kdx in range(nrow):
         row_sum =  str(int(np.sum(dt[kdx])))
         stats = "\t".join([str(int(stat)) for stat in dt[kdx].tolist()] + [row_sum])
-        o.write("{:30}{}\n".format(ROW_NAMES[kdx], stats))
+        o.write("{:30}{}\n".format(row_names[kdx], stats))
     o.close()

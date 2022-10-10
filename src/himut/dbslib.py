@@ -8,7 +8,7 @@ from collections import defaultdict, Counter
 
 def get_dbs_candidates(
    read,
-   pon_dbs_set: Set[Tuple[str, int, str, str]],
+   pon_dbs_set: Set[Tuple[int, str, str]],
    trimmed_qstart: int,
    trimmed_qend: int,
    mpos_lst: List[int],
@@ -29,8 +29,8 @@ def get_dbs_candidates(
             if tdbs in pon_dbs_set:
                 continue
 
-        tpos = tdbs[1] 
-        qpos = qdbs[1]                   
+        tpos = tdbs[0] 
+        qpos = qdbs[0]                   
         if qpos < trimmed_qstart:
             continue
         elif qpos > trimmed_qend:
@@ -82,6 +82,7 @@ def get_dbs_allelecounts(
 
 
 def get_dbs(
+    chrom: str, 
     tdbs_candidate_lst: List[Tuple[str, int, str, str]],
     read2tpos2qbase: Dict[str, Dict[int,  str]],
     tpos2allelecounts: Dict[int, np.ndarray],
@@ -93,7 +94,7 @@ def get_dbs(
 
     tdbs_lst = []
     tdbs2count = Counter(tdbs_candidate_lst) 
-    for (chrom, tpos, ref, alt), _ in tdbs2count.items():
+    for (tpos, ref, alt), _ in tdbs2count.items():
         vaf, ref_count, alt_count, ins_count, del_count, total_count, _ , _ = get_dbs_allelecounts(tpos, ref, alt, read2tpos2qbase, tpos2allelecounts, tpos2qbase2read_lst)
         if del_count != 0 or ins_count != 0:
             continue
@@ -112,7 +113,8 @@ def get_dbs(
 
 
 def get_phased_dbs(
-    chrom_tdbs_candidate_lst: List[Tuple[str, int, str, str]],
+    chrom: str,
+    chrom_tdbs_candidate_lst: List[Tuple[int, str, str]],
     read2tpos2qbase: Dict[str, Dict[int,  str]],
     tpos2allelecounts: Dict[int, np.ndarray],
     tpos2qbase2read_lst: Dict[int, Dict[int, List[str]]],
@@ -131,7 +133,7 @@ def get_phased_dbs(
     
     tdbs_lst = []
     tdbs2count = Counter(chrom_tdbs_candidate_lst) 
-    for (chrom, tpos, ref, alt), _ in tdbs2count.items():
+    for (tpos, ref, alt), _ in tdbs2count.items():
         vaf, ref_count, alt_count, ins_count, del_count, total_count, ref_read_lst, alt_read_lst = get_dbs_allelecounts(tpos, ref, alt, read2tpos2qbase, tpos2allelecounts, tpos2qbase2read_lst)
         if del_count != 0 or ins_count != 0:
             continue
@@ -172,7 +174,7 @@ def get_phased_dbs(
             ref_hap_count = hap2count[ref_hap]
             alt_hap_count = hap2count[alt_hap]  
             if ref_hap_count >= min_hap_count and alt_hap_count >= min_hap_count:
-                phase_set = hidx2hetsnp[hblock_lst[bidx][0][0]][1]
+                phase_set = hidx2hetsnp[hblock_lst[bidx][0][0]][0]
                 tdbs_lst.append(
                     (chrom, tpos, ref, alt, "93.0", total_count, ref_count, alt_count, vaf, phase_set)
                 )               

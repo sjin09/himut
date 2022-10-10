@@ -44,16 +44,16 @@ def get_edges(
         hetsnp_subset_lst = [hetsnp_lst[_kdx] for _kdx in range(_idx, _jdx)]
         for idx, snpidx in enumerate(hetsnp_subset_lst):
             i = hetsnp2hidx[snpidx]
-            ibase, ibq = tpos2qbase[snpidx[1]]
+            ibase, ibq = tpos2qbase[snpidx[0]]
             if ibq < min_bq: 
                 continue
-            idx_state = 0 if ibase == snpidx[2] else 1
+            idx_state = 0 if ibase == snpidx[1] else 1
             for snpjdx in hetsnp_subset_lst[idx + 1:]:
                 j = hetsnp2hidx[snpjdx]
-                jbase, jbq = tpos2qbase[snpjdx[1]] 
+                jbase, jbq = tpos2qbase[snpjdx[0]] 
                 if jbq < min_bq:
                     continue
-                jdx_state = 0 if jbase == snpjdx[2] else 1
+                jdx_state = 0 if jbase == snpjdx[1] else 1
                 if not idx_state and not jdx_state:  # cis1
                     edge2counts[(i, j)][0] += 1
                 elif idx_state and jdx_state:  # cis2
@@ -92,6 +92,7 @@ def build_graph(
 def get_phased_graph(
     edge_lst: List[Tuple[int, int]], 
     edge2counts: Dict[Tuple[int, int], np.ndarray],
+    min_p_value: float,
     min_phase_proportion: float
 ) -> Dict[int, List[int]]:
 
@@ -107,7 +108,7 @@ def get_phased_graph(
                 edge2p_value[(i, j)] = p_value
             else:
                 p_value = edge2p_value[(j, i)]
-            if p_value < 0.0001:
+            if p_value < min_p_value:
                 phased_edges.append(j)
                 phase_consistent_edge_count += 1
         total_edge_count = len(graph[i])
@@ -122,13 +123,14 @@ def get_phased_graph(
 def build_haplotype_block(
     edge_lst: List[Tuple[int, int]], 
     edge2counts: Dict[Tuple[int, int], np.ndarray],
+    min_p_value: float,
     min_phase_proportion: float
 ) -> List[List[Tuple[int, int]]]:
 
     bfs = [{}]
     bfs_idx = 0
     seen = set()
-    graph = get_phased_graph(edge_lst, edge2counts, min_phase_proportion)
+    graph = get_phased_graph(edge_lst, edge2counts, min_p_value, min_phase_proportion)
     for nodeA in graph: # bfs
         if nodeA in seen:
             continue
@@ -203,8 +205,8 @@ def get_hblock_statistics(
     block_distance_lst = []
     for hblock in hblock_lst:
         block_len = len(hblock)
-        posidx = hetsnp_lst[hblock[0][0]][1]
-        posjdx = hetsnp_lst[hblock[-1][0]][1]
+        posidx = hetsnp_lst[hblock[0][0]][0]
+        posjdx = hetsnp_lst[hblock[-1][0]][0]
         block_distance = posjdx - posidx
         block_len_lst.append(block_len)
         block_distance_lst.append(block_distance)
@@ -231,6 +233,7 @@ def get_hblock(
     vcf_file: str,
     min_bq,
     min_mapq,
+    min_p_value,
     min_phase_proportion, 
     chrom2hblock_lst: Dict[str, List[List[Tuple[int, int]]]],
     chrom2hblock_statistics: Dict[str, Tuple[int, int, int, int, int]],
@@ -238,12 +241,12 @@ def get_hblock(
 
 
     hetsnp_lst, _hidx2hetsnp, hetsnp2hidx = himut.vcflib.load_hetsnps(vcf_file, chrom, chrom_len) 
-    hpos_lst = [hetsnp[1] for hetsnp in hetsnp_lst]
+    hpos_lst = [hetsnp[0] for hetsnp in hetsnp_lst]
     del _hidx2hetsnp
     edge_lst, edge2counts = get_edges(
         chrom, bam_file, min_bq, min_mapq, hpos_lst, hetsnp_lst, hetsnp2hidx
     )
-    hblock_lst = build_haplotype_block(edge_lst, edge2counts, min_phase_proportion)
+    hblock_lst = build_haplotype_block(edge_lst, edge2counts, min_p_value, min_phase_proportion)
     chrom2hblock_lst[chrom] = hblock_lst 
     chrom2hblock_statistics[chrom] = get_hblock_statistics(hblock_lst, hetsnp_lst) 
 
@@ -255,6 +258,7 @@ def get_chrom_hblock(
     region_lst: str,
     min_bq: int, 
     min_mapq: int,
+    min_p_value,
     min_phase_proportion: float, 
     threads: int,
     version: str,
@@ -281,6 +285,7 @@ def get_chrom_hblock(
             vcf_file,
             min_bq,
             min_mapq,
+            min_p_value,
             min_phase_proportion, 
             chrom2hblock_lst, 
             chrom2hblock_statistics

@@ -1,4 +1,5 @@
 import re
+import sys
 import math
 import numpy as np
 from typing import Dict, List, Tuple
@@ -58,10 +59,10 @@ def cs2subindel(read):
             if ref == "N": 
                 continue
             read.qsbs_bq_lst.append(read.bq_int_lst[qpos])
-            read.tsbs_lst.append((read.tname, tpos + 1, ref, alt))
-            read.qsbs_lst.append((read.qname, qpos + 1, alt, ref))
+            read.tsbs_lst.append((tpos + 1, ref, alt))
+            read.qsbs_lst.append((qpos + 1, alt, ref))
         elif state == 3 or state == 4:  # insertion
-            read.mismatch_lst.append(read.tname, tpos, ref, alt)
+            read.mismatch_lst.append((tpos, ref, alt))
         tpos += ref_len 
         qpos += alt_len
 
@@ -69,6 +70,7 @@ def cs2subindel(read):
 def cs2mut(read):
 
     state = 0
+    counter = 0
     read.tsbs_lst = []
     read.tdbs_lst = []
     read.qsbs_lst = []
@@ -82,7 +84,6 @@ def cs2mut(read):
         mstate, ref, alt, ref_len, alt_len, = cstuple
         if state == 0 and mstate == 1:  # init # match
             state = 0
-            counter = 0
         elif state == 0 and mstate != 1:  # init # mismatch
             counter += 1
             ref_lst = [ref]
@@ -130,17 +131,18 @@ def cs2mut(read):
                 if ref == "N": 
                     continue
                 read.qsbs_bq_lst.append(read.bq_int_lst[qstart])
-                read.tsbs_lst.append((read.tname, tstart + 1, ref, alt))
-                read.qsbs_lst.append((read.qname, qstart, alt, ref))
+                read.tsbs_lst.append((tstart + 1, ref, alt))
+                read.qsbs_lst.append((qstart + 1, alt, ref))
             else:
                 if len(ref) == len(alt) == 2: # dbs
                     if ref.count("N") > 0: 
                         continue
-                    read.tdbs_lst.append((read.tname, tstart + 1, ref, alt))
-                    read.qdbs_lst.append((read.qname, qstart, alt, ref))
+                    read.tdbs_lst.append((tstart + 1, ref, alt))
+                    read.qdbs_lst.append((qstart + 1, alt, ref))
                     read.qdbs_bq_lst.append(read.bq_int_lst[qstart:qstart+2])
-                read.mismatch_lst.append((read.tname, tstart + 1, ref, alt))
-            state = 0  
+                read.mismatch_lst.append((tstart + 1, ref, alt))
+            state = 0 
+            counter = 0 
 
 
 def cs2mutation(read):
@@ -210,21 +212,21 @@ def cs2mutation(read):
             counts = len(ref_lst)
             if counts == 1 and ref_len == 1 and alt_len == 1: # snv
                 sbs_bq_lst.append(read.bq_int_lst[qstart])
-                tsbs_lst.append((read.tname, tstart + 1, ref, alt))
-                qsbs_lst.append((read.qname, qstart, alt, ref))
+                tsbs_lst.append((tstart + 1, ref, alt))
+                qsbs_lst.append((qstart + 1, alt, ref))
             elif counts == 1 and ref_len < alt_len:  # insertion
-                read.tindel_lst.append(read.tname, tstart + 1, ref, alt)
+                read.tindel_lst.append(tstart + 1, ref, alt)
             elif counts == 1 and ref_len > alt_len:  # deletion
-                read.tindel_lst.append(read.tname, tstart + 1, ref, alt)
+                read.tindel_lst.append(tstart + 1, ref, alt)
             elif counts > 1 and ref_len == alt_len:  # mbs
                 if ref_len == alt_len == 2:
-                    tdbs_lst.append(read.tname, tstart + 1, ref, alt)
-                    qdbs_lst.append(read.qname, qstart, alt, ref)
+                    tdbs_lst.append(tstart + 1, ref, alt)
+                    qdbs_lst.append(qstart, alt, ref)
                     dbs_bq_lst.append(read.bq_int_lst[qstart:qstart+2])
                 else:
-                    read.tmbs_lst.append(read.tname, tstart + 1, ref, alt)
+                    read.tmbs_lst.append(tstart + 1, ref, alt)
             elif counts > 1 and ref_len != alt_len:  # complex
-                read.tcomplex_lst.append(read.tname, tstart + 1, ref, alt)
+                read.tcomplex_lst.append(tstart + 1, ref, alt)
             state = 0  
     return tsbs_lst, qsbs_lst, sbs_bq_lst
 

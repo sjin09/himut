@@ -48,7 +48,7 @@ def parse_args(program_version, arguments=sys.argv[1:]):
     parser_call.add_argument(
         "--vcf",
         type=str,
-        required=False,
+        required=True,
         help="deepvariant VCF file with germline mutations",
     )
     parser_call.add_argument(
@@ -313,6 +313,13 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         help="minimum mapping quality score"
     )
     parser_phase.add_argument(
+        "--min_p_value",
+        type=float,
+        default=0.0001,
+        required=False,
+        help="minimum proportion of phase consistent edges"
+    )
+    parser_phase.add_argument(
         "--min_phase_proportion",
         type=float,
         default=0.2,
@@ -320,11 +327,12 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         help="minimum proportion of phase consistent edges"
     )
     parser_phase.add_argument(
+        "-t",
         "--threads",
         type=int,
         default=1,
         required=False,
-        help="maximum number of threads to use"
+        help="number of threads"
     )
     parser_phase.add_argument(
         "-o",
@@ -459,11 +467,12 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         help="maximum number of mismatches within the mismatch window",
     )
     parser_normcounts.add_argument(
+        "-t",
         "--threads",
         type=int,
         default=1,
         required=False,
-        help="maximum number of threads to be used",
+        help="number of threads",
     )
     parser_normcounts.add_argument(
         "--phase",

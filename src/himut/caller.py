@@ -1,3 +1,4 @@
+import json
 import time
 import math
 import pysam
@@ -19,65 +20,65 @@ from collections import defaultdict, Counter
 
 @dataclass
 class METRICS:
-    num_reads: int = 0
-    num_not_primary: int = 0
-    num_low_mapq: int = 0
-    num_abnormal: int = 0
-    num_low_qv: int = 0
-    num_low_identity: int = 0
-    num_contamination: int = 0
-    num_hq_reads: int = 0
-    num_sbs_candidates: int = 0
-    num_bq_filtered_sbs: int = 0
-    num_pon_filtered_sbs: int = 0
-    num_trimmed_sbs: int = 0
-    num_mismatch_filtered_sbs: int = 0
-    num_uncallable_sbs: int = 0
-    num_ab_filtered_sbs: int = 0
-    num_md_filtered_sbs: int = 0
-    num_unphased_sbs: int = 0
-    num_phased_sbs: int = 0
-    num_sbs: int = 0
+    ccs: int = 0
+    low_qv_ccs: int = 0
+    low_mapq_ccs: int = 0
+    abnormal_ccs: int = 0
+    secondary_ccs: int = 0
+    contaminant_ccs: int = 0
+    low_seq_identity_ccs: int = 0
+    hq_ccs: int = 0
+    sbs_candidates: int = 0
+    bq_filtered_sbs: int = 0
+    pon_filtered_sbs: int = 0
+    trimmed_sbs: int = 0
+    mismatch_filtered_sbs: int = 0
+    uncallable_sbs: int = 0
+    ab_filtered_sbs: int = 0
+    md_filtered_sbs: int = 0
+    unphased_sbs: int = 0
+    phased_sbs: int = 0
+    sbs: int = 0
 
 
 def update_allelecounts(
-    read,
+    ccs,
     tpos2allelecounts: Dict[int, np.ndarray],
     tpos2qbase2bq_lst: Dict[int, Dict[int, List[int]]],
-    tpos2qbase2read_lst: Dict[int, Dict[int, List[str]]]
+    tpos2qbase2ccs_lst: Dict[int, Dict[int, List[str]]]
 ) -> None:
 
     tpos2qbase = {}
-    tpos = read.tstart
-    qpos = read.qstart
-    if read.is_primary:
-        for cstuple in read.cstuple_lst:
+    tpos = ccs.tstart
+    qpos = ccs.qstart
+    if ccs.is_primary:
+        for cstuple in ccs.cstuple_lst:
             state, ref, alt, ref_len, alt_len, = cstuple
             if state == 1:  # match
                 for i, alt_base in enumerate(alt):
                     tpos2allelecounts[tpos + i + 1][himut.util.base2idx[alt_base]] += 1
-                    tpos2qbase[tpos + i + 1] = (alt_base, read.bq_int_lst[qpos + i])
-                    tpos2qbase2read_lst[tpos + i + 1][himut.util.base2idx[alt_base]].append(read.qname)
-                    tpos2qbase2bq_lst[tpos + i + 1][himut.util.base2idx[alt_base]].append(read.bq_int_lst[qpos + i])
+                    tpos2qbase[tpos + i + 1] = (alt_base, ccs.bq_int_lst[qpos + i])
+                    tpos2qbase2ccs_lst[tpos + i + 1][himut.util.base2idx[alt_base]].append(ccs.qname)
+                    tpos2qbase2bq_lst[tpos + i + 1][himut.util.base2idx[alt_base]].append(ccs.bq_int_lst[qpos + i])
             elif state == 2:  # sub
                 tpos2allelecounts[tpos + 1][himut.util.base2idx[alt]] += 1
-                tpos2qbase[tpos + 1] = (alt, read.bq_int_lst[qpos])
-                tpos2qbase2read_lst[tpos + 1][himut.util.base2idx[alt]].append(read.qname)
-                tpos2qbase2bq_lst[tpos + 1][himut.util.base2idx[alt]].append(read.bq_int_lst[qpos])
+                tpos2qbase[tpos + 1] = (alt, ccs.bq_int_lst[qpos])
+                tpos2qbase2ccs_lst[tpos + 1][himut.util.base2idx[alt]].append(ccs.qname)
+                tpos2qbase2bq_lst[tpos + 1][himut.util.base2idx[alt]].append(ccs.bq_int_lst[qpos])
             elif state == 3:  # insertion
                 tpos2allelecounts[tpos + 1][4] += 1
-                tpos2qbase2read_lst[tpos + 1][4].append(read.qname)
-                tpos2qbase2bq_lst[tpos + 1][4].append(read.bq_int_lst[qpos])
+                tpos2qbase2ccs_lst[tpos + 1][4].append(ccs.qname)
+                tpos2qbase2bq_lst[tpos + 1][4].append(ccs.bq_int_lst[qpos])
             elif state == 4:  # deletion
                 for j in range(len(ref[1:])):
                     tpos2allelecounts[tpos + j + 1][5] += 1
                     tpos2qbase[tpos + j + 1] = ("-", 0)
-                    tpos2qbase2read_lst[tpos + j + 1][5].append(read.qname)
+                    tpos2qbase2ccs_lst[tpos + j + 1][5].append(ccs.qname)
                     tpos2qbase2bq_lst[tpos + j + 1][5].append(0)
             tpos += ref_len
             qpos += alt_len
     else:
-        tpos2qbase = himut.cslib.cs2tpos2qbase(read)
+        tpos2qbase = himut.cslib.cs2tpos2qbase(ccs)
     return tpos2qbase
 
 
@@ -93,7 +94,7 @@ def get_sbs_allelecounts(
     del_count = tpos2allelecounts[tpos][5]
     total_count = sum(tpos2allelecounts[tpos]) - ins_count
     ref_count = tpos2allelecounts[tpos][himut.util.base2idx[ref]]
-    alt_count = tpos2allelecounts[tpos][himut.util.base2idx[alt]]  
+    alt_count = tpos2allelecounts[tpos][himut.util.base2idx[alt]] 
     bq = "{:.1f}".format(sum(tpos2qbase2bq_lst[tpos][himut.util.base2idx[alt]]) / float(alt_count))
     vaf = alt_count / float(total_count)
     return bq, vaf, ref_count, alt_count, ins_count, del_count, total_count
@@ -159,7 +160,6 @@ def get_somatic_substitutions(
             hetsnp2hidx,
         ) = himut.vcflib.get_phased_hetsnps(phased_vcf_file, chrom, chrom_len)
   
-    counter = 0
     alignments = pysam.AlignmentFile(bam_file, "rb")
     for loci in loci_lst:
         chunkloci_lst = himut.util.chunkloci(loci)
@@ -167,12 +167,12 @@ def get_somatic_substitutions(
             somatic_tsbs_candidate_lst = []
             somatic_tdbs_candidate_lst = []
             tsbs_annotation = defaultdict(set)
-            read2tpos2qbase = defaultdict(dict)
-            filtered_somatic_tsbs_candidate_lst = [] 
+            ccs2tpos2qbase = defaultdict(dict)
             chunk_start, chunk_end = chunkloci[1:]
+            filtered_somatic_tsbs_candidate_lst = [] 
             tpos2allelecounts = defaultdict(lambda: np.zeros(6)) 
             tpos2qbase2bq_lst = defaultdict(lambda: {0: [], 1:[], 2:[], 3:[], 4:[], 5:[]})
-            tpos2qbase2read_lst = defaultdict(lambda: {0: [], 1:[], 2:[], 3:[], 4:[], 5:[]})
+            tpos2qbase2ccs_lst = defaultdict(lambda: {0: [], 1:[], 2:[], 3:[], 4:[], 5:[]})
             if vcf_file.endswith(".bgz"):
                 sample_snp_set = himut.vcflib.load_bgz_snp((chrom, chunk_start - qlen_mean, chunk_end + qlen_mean), vcf_file)
             
@@ -183,42 +183,42 @@ def get_somatic_substitutions(
                 pon_sbs_set, pon_dbs_set = himut.vcflib.load_bgz_pon((chrom, chunk_start - qlen_mean, chunk_end + qlen_mean), panel_of_normals) 
                 
             for line in alignments.fetch(*chunkloci):
-                m.num_reads += 1
-                read = himut.bamlib.BAM(line)
+                m.ccs += 1
+                ccs = himut.bamlib.BAM(line)
                 ccs_somatic_tsbs_candidate_lst = [] 
                 ccs_somatic_qsbs_candidate_lst = [] 
                 ccs_somatic_tdbs_candidate_lst = [] 
                 ccs_somatic_qsbs_candidate_bq_lst = [] 
-                for idx, tsbs in enumerate(read.tsbs_lst):
+                for idx, tsbs in enumerate(ccs.tsbs_lst):
                     if tsbs in sample_snp_set:
                         continue
                     ccs_somatic_tsbs_candidate_lst.append(tsbs)
-                    ccs_somatic_qsbs_candidate_lst.append(read.qsbs_lst[idx])
-                    ccs_somatic_qsbs_candidate_bq_lst.append(read.qsbs_bq_lst[idx]) 
+                    ccs_somatic_qsbs_candidate_lst.append(ccs.qsbs_lst[idx])
+                    ccs_somatic_qsbs_candidate_bq_lst.append(ccs.qsbs_bq_lst[idx]) 
                 
-                read2tpos2qbase[read.qname] = update_allelecounts(read, tpos2allelecounts, tpos2qbase2bq_lst, tpos2qbase2read_lst)
-                if not read.is_primary:
-                    m.num_not_primary += 1
+                ccs2tpos2qbase[ccs.qname] = update_allelecounts(ccs, tpos2allelecounts, tpos2qbase2bq_lst, tpos2qbase2ccs_lst)
+                if not ccs.is_primary:
+                    m.secondary_ccs += 1
                     continue
 
-                if read.mapq < min_mapq:
-                    m.num_low_mapq += 1
+                if ccs.mapq < min_mapq:
+                    m.low_mapq_ccs+= 1
                     continue
 
-                if read.qlen < qlen_lower_limit or read.qlen > qlen_upper_limit:
-                    m.num_abnormal += 1
+                if ccs.qlen < qlen_lower_limit or ccs.qlen > qlen_upper_limit:
+                    m.abnormal_ccs += 1
                     continue
 
-                if read.query_alignment_proportion < min_alignment_proportion:
-                    m.num_low_identity += 1
+                if ccs.query_alignment_proportion < min_alignment_proportion:
+                    m.low_seq_identity_ccs += 1
                     continue 
 
-                if himut.bamlib.get_hq_base_proportion(read) < min_hq_base_proportion:
-                    m.num_low_qv += 1
+                if himut.bamlib.get_hq_base_proportion(ccs) < min_hq_base_proportion:
+                    m.low_qv_ccs += 1
                     continue
 
-                if himut.util.get_blast_sequence_identity(read) < min_sequence_identity:
-                    m.num_low_identity += 1
+                if himut.util.get_blast_sequence_identity(ccs) < min_sequence_identity:
+                    m.low_seq_identity_ccs  += 1
                     continue
 
                 common_cnt = 0
@@ -229,48 +229,49 @@ def get_somatic_substitutions(
                             tsbs_annotation[tsbs].add("CommonVariant")
                             filtered_somatic_tsbs_candidate_lst.append(tsbs)
                     if common_cnt > 0:
-                        m.num_contamination += 1
+                        m.contaminant_ccs += 1
                         continue
                     
-                m.num_hq_reads += 1
+                m.hq_ccs += 1
                 if len(ccs_somatic_tsbs_candidate_lst) == 0 and len(ccs_somatic_tdbs_candidate_lst) == 0:
                     continue
-                
-                m.num_sbs_candidates += len(ccs_somatic_tsbs_candidate_lst) # single base substitution candidate calling
-                trimmed_qstart = math.floor(min_trim * read.qlen)
-                trimmed_qend = math.ceil((1 - min_trim) * read.qlen)
-                mismatch_lst = natsort.natsorted(ccs_somatic_tsbs_candidate_lst + read.mismatch_lst)
+               
+                # print(ccs_somatic_tsbs_candidate_lst)
+                m.sbs_candidates += len(ccs_somatic_tsbs_candidate_lst) # single base substitution candidate calling
+                trimmed_qstart = math.floor(min_trim * ccs.qlen)
+                trimmed_qend = math.ceil((1 - min_trim) * ccs.qlen)
+                mismatch_lst = natsort.natsorted(ccs_somatic_tsbs_candidate_lst + ccs.mismatch_lst)
                 mismatch_set = set(mismatch_lst)
-                mpos_lst = [mismatch[1] for mismatch in mismatch_lst]
+                mpos_lst = [mismatch[0] for mismatch in mismatch_lst]
                 for i, (tsbs, qsbs) in enumerate(zip(ccs_somatic_tsbs_candidate_lst, ccs_somatic_qsbs_candidate_lst)):
                     bq = ccs_somatic_qsbs_candidate_bq_lst[i]
                     if bq < min_bq:
-                        m.num_bq_filtered_sbs += 1
+                        m.bq_filtered_sbs += 1
                         tsbs_annotation[tsbs].add("LowBQ")  
                         filtered_somatic_tsbs_candidate_lst.append(tsbs) 
                         continue
                     
                     if not tree_of_life_sample and not create_panel_of_normals:
                         if tsbs in pon_sbs_set:
-                            m.num_pon_filtered_sbs += 1
+                            m.pon_filtered_sbs += 1
                             tsbs_annotation[tsbs].add("PanelOfNormal")  
                             filtered_somatic_tsbs_candidate_lst.append(tsbs) 
                             continue
 
-                    tpos = tsbs[1]
-                    qpos = qsbs[1]
+                    tpos = tsbs[0]
+                    qpos = qsbs[0]
                     if qpos < trimmed_qstart:
-                        m.num_trimmed_sbs += 1
+                        m.trimmed_sbs += 1
                         tsbs_annotation[tsbs].add("Trimmed")
                         filtered_somatic_tsbs_candidate_lst.append(tsbs) 
                         continue
                     elif qpos > trimmed_qend:
-                        m.num_trimmed_sbs += 1
+                        m.trimmed_sbs += 1
                         tsbs_annotation[tsbs].add("Trimmed")
                         filtered_somatic_tsbs_candidate_lst.append(tsbs) 
                         continue
-
-                    mismatch_start, mismatch_end = himut.util.get_mismatch_range(tpos, qpos, read.qlen, mismatch_window)
+                    
+                    mismatch_start, mismatch_end = himut.util.get_mismatch_range(tpos, qpos, ccs.qlen, mismatch_window)
                     idx = bisect.bisect_left(mpos_lst, mismatch_start)
                     jdx = bisect.bisect_right(mpos_lst, mismatch_end)
                     if tsbs in mismatch_set:
@@ -279,7 +280,7 @@ def get_somatic_substitutions(
                         mismatch_count = jdx - idx 
 
                     if mismatch_count > max_mismatch_count:
-                        m.num_mismatch_filtered_sbs += 1
+                        m.mismatch_filtered_sbs += 1
                         tsbs_annotation[tsbs].add("MismatchConflict")
                         filtered_somatic_tsbs_candidate_lst.append(tsbs) 
                         continue
@@ -287,7 +288,7 @@ def get_somatic_substitutions(
                     
                 somatic_tdbs_candidate_lst.extend( # double base substitution candidate calling 
                     himut.dbslib.get_dbs_candidates(
-                        read,
+                        ccs,
                         pon_dbs_set,
                         trimmed_qstart, 
                         trimmed_qend, 
@@ -300,35 +301,34 @@ def get_somatic_substitutions(
                     )
                 )
 
-            tsbs2count = Counter(somatic_tsbs_candidate_lst)     
+            tsbs2count = Counter(somatic_tsbs_candidate_lst)    
             for tsbs, count in tsbs2count.items():
-                _, tpos, ref, alt = tsbs 
+                tpos, ref, alt = tsbs
                 if tpos <= chunk_start or tpos >= chunk_end:
                     continue
-                
                 bq, vaf, ref_count, alt_count, ins_count, del_count, total_count = get_sbs_allelecounts(tpos, ref, alt, tpos2allelecounts, tpos2qbase2bq_lst)
                 if del_count != 0 or ins_count != 0:
-                    m.num_uncallable_sbs += count
+                    m.uncallable_sbs += count
                     filtered_somatic_tsbs_candidate_lst.append(tsbs) 
                     tsbs_annotation[tsbs].add("IndelConflict")
                     continue
 
                 if total_count > md_threshold:
-                    m.num_md_filtered_sbs += count
+                    m.md_filtered_sbs += count
                     filtered_somatic_tsbs_candidate_lst.append(tsbs)
                     tsbs_annotation[tsbs].add("HighDepth")
                     continue
 
                 if ref_count >= min_ref_count and alt_count >= min_alt_count:
-                    m.num_sbs += count
+                    m.sbs += count
                     if phase: # unphased single base substitutions
                         bidx2count = defaultdict(lambda: 0)
                         alt_hap2count = defaultdict(lambda: 0)
-                        ref_read_lst = tpos2qbase2read_lst[tpos][himut.util.base2idx[ref]]
-                        alt_read_lst = tpos2qbase2read_lst[tpos][himut.util.base2idx[alt]]
+                        ref_read_lst = tpos2qbase2ccs_lst[tpos][himut.util.base2idx[ref]]
+                        alt_read_lst = tpos2qbase2ccs_lst[tpos][himut.util.base2idx[alt]]
                         for alt_read in alt_read_lst:
                             bidx, alt_hap = himut.haplib.get_read_haplotype(
-                                read2tpos2qbase[alt_read],
+                                ccs2tpos2qbase[alt_read],
                                 hpos_lst,
                                 hetsnp_lst,
                                 hidx2hstate,
@@ -341,35 +341,35 @@ def get_somatic_substitutions(
                         if len(bidx2count.keys()) == 1 and len(alt_hap2count.keys()) == 1:
                             bidx = list(bidx2count.keys())[0]
                             if bidx == ".":
-                                m.num_unphased_sbs += count 
+                                m.unphased_sbs += count 
                                 filtered_somatic_tsbs_candidate_lst.append(tsbs)
                                 tsbs_annotation[tsbs].add("UnphasedRead")
                                 continue
                             
                             alt_hap = list(alt_hap2count.keys())[0]
                             if alt_hap == ".":
-                                m.num_unphased_sbs += count 
+                                m.unphased_sbs += count 
                                 filtered_somatic_tsbs_candidate_lst.append(tsbs)
                                 tsbs_annotation[tsbs].add("UnphasedRead")
                                 continue
                         else:
-                            m.num_unphased_sbs += count 
+                            m.unphased_sbs += count 
                             filtered_somatic_tsbs_candidate_lst.append(tsbs)
                             tsbs_annotation[tsbs].add("UnphasedRead")
                             continue
 
                         ref_hap = "1" if alt_hap == "0" else "0"
                         hap2count = himut.haplib.get_region_hap2count( 
-                            ref_read_lst, read2tpos2qbase, hblock_lst[bidx], hidx2hetsnp,
+                            ref_read_lst, ccs2tpos2qbase, hblock_lst[bidx], hidx2hetsnp,
                         )
                         ref_hap_count = hap2count[ref_hap]
                         alt_hap_count = hap2count[alt_hap] 
                         if ref_hap_count >= min_hap_count and alt_hap_count >= min_hap_count:
-                            m.num_phased_sbs += count # phased single base substitutions
-                            phase_set = hidx2hetsnp[hblock_lst[bidx][0][0]][1]
+                            m.phased_sbs += count # phased single base substitutions
+                            phase_set = hidx2hetsnp[hblock_lst[bidx][0][0]][0]
                             somatic_tsbs_lst.append((chrom, tpos, ref, alt, "PASS", bq, total_count, ref_count, alt_count, vaf, phase_set))
                         else:
-                            m.num_unphased_sbs += count
+                            m.unphased_sbs += count
                             filtered_somatic_tsbs_candidate_lst.append(tsbs)
                             tsbs_annotation[tsbs].add("UnphasedRead")
                             continue                    
@@ -378,25 +378,26 @@ def get_somatic_substitutions(
                             (chrom, tpos, ref, alt, "PASS", bq, total_count, ref_count, alt_count, vaf, ".")
                         )
                 else:
-                    m.num_ab_filtered_sbs += count
+                    m.ab_filtered_sbs += count
                     filtered_somatic_tsbs_candidate_lst.append(tsbs)
                     tsbs_annotation[tsbs].add("InsufficientDepth")
                     continue
 
-            for (_, tpos, ref, alt) in set(filtered_somatic_tsbs_candidate_lst): # filtered single base substitutions
+            for (tpos, ref, alt) in set(filtered_somatic_tsbs_candidate_lst): # filtered single base substitutions
                 if tpos <= chunk_start or tpos >= chunk_end:
                     continue
-                annot = ";".join(natsort.natsorted(list(tsbs_annotation[(chrom, tpos, ref, alt)])))
+                annot = ";".join(natsort.natsorted(list(tsbs_annotation[(tpos, ref, alt)])))
                 bq, vaf, ref_count, alt_count, ins_count, del_count, total_count = get_sbs_allelecounts(tpos, ref, alt, tpos2allelecounts, tpos2qbase2bq_lst)
                 filtered_somatic_tsbs_lst.append((chrom, tpos, ref, alt, annot, bq, total_count, ref_count, alt_count, vaf, "."))
 
             if phase: # double base substitution calling
                 somatic_tdbs_lst.extend(
                     himut.dbslib.get_phased_dbs(
+                        chrom,
                         somatic_tdbs_candidate_lst,
-                        read2tpos2qbase,
+                        ccs2tpos2qbase,
                         tpos2allelecounts,
-                        tpos2qbase2read_lst,
+                        tpos2qbase2ccs_lst,
                         md_threshold,
                         min_ref_count,
                         min_alt_count,
@@ -413,10 +414,11 @@ def get_somatic_substitutions(
             else:
                 somatic_tdbs_lst.extend(
                     himut.dbslib.get_dbs(
+                        chrom,
                         somatic_tdbs_candidate_lst,
-                        read2tpos2qbase,
+                        ccs2tpos2qbase,
                         tpos2allelecounts,
-                        tpos2qbase2read_lst,
+                        tpos2qbase2ccs_lst,
                         md_threshold,
                         min_ref_count,
                         min_alt_count,
@@ -426,25 +428,25 @@ def get_somatic_substitutions(
     chrom2tsbs_lst[chrom] = natsort.natsorted(list(set(somatic_tsbs_lst + filtered_somatic_tsbs_lst)))
     chrom2tdbs_lst[chrom] = natsort.natsorted(list(set(somatic_tdbs_lst)))
     chrom2tsbs_statistics[chrom] = [
-        m.num_reads,
-        m.num_not_primary,
-        m.num_low_mapq,
-        m.num_abnormal,
-        m.num_low_qv,
-        m.num_low_identity,
-        m.num_contamination,
-        m.num_hq_reads,
-        m.num_sbs_candidates,
-        m.num_bq_filtered_sbs,
-        m.num_pon_filtered_sbs,
-        m.num_trimmed_sbs,
-        m.num_mismatch_filtered_sbs,
-        m.num_uncallable_sbs,
-        m.num_ab_filtered_sbs,
-        m.num_md_filtered_sbs,
-        m.num_sbs,
-        m.num_unphased_sbs,
-        m.num_phased_sbs,
+        m.ccs,
+        m.low_qv_ccs,
+        m.low_mapq_ccs,
+        m.abnormal_ccs,
+        m.secondary_ccs,
+        m.contaminant_ccs,
+        m.low_seq_identity_ccs,
+        m.hq_ccs,
+        m.sbs_candidates,
+        m.bq_filtered_sbs,
+        m.pon_filtered_sbs,
+        m.trimmed_sbs,
+        m.mismatch_filtered_sbs,
+        m.uncallable_sbs,
+        m.ab_filtered_sbs,
+        m.md_filtered_sbs,
+        m.sbs,
+        m.unphased_sbs,
+        m.phased_sbs,
     ]
     alignments.close()
 

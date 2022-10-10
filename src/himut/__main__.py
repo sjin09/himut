@@ -50,6 +50,7 @@ def main():
             options.region_list,
             options.min_bq, 
             options.min_mapq,
+            options.min_p_value,
             options.min_phase_proportion, 
             options.threads, 
             __version__, 

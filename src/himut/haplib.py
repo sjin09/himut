@@ -35,10 +35,10 @@ def get_read_hbits(
     
     hbit_lst = []
     for hetsnp in hetsnp_subset_lst: # get read haplotype bits
-        qbase, _ = tpos2qbase[hetsnp[1]]
-        if qbase == hetsnp[2]:
+        qbase, _ = tpos2qbase[hetsnp[0]]
+        if qbase == hetsnp[1]:
             hbit_lst.append("0")
-        elif qbase == hetsnp[3]:
+        elif qbase == hetsnp[2]:
             hbit_lst.append("1")
         else:
             hbit_lst.append("-")
@@ -96,7 +96,7 @@ def get_region_hap2count(
         h0_lst.append(hstate)
         hetsnp_lst.append(hidx2hetsnp[hidx])
         
-    hpos_lst = [hetsnp[1] for hetsnp in hetsnp_lst]
+    hpos_lst = [hetsnp[0] for hetsnp in hetsnp_lst]
     for read in read_lst:
         tpos_lst = list(read2tpos2qbase[read].keys())
         read_tstart = tpos_lst[0]

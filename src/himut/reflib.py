@@ -21,6 +21,7 @@ def load_ref_tricounts(
         tri2count[tri] += 1
     chrom2tri2count[chrom] = dict(tri2count)
 
+
 def get_ref_tricounts(
     refseq: str, 
     chrom_lst: List[str],

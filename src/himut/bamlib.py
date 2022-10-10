@@ -118,19 +118,17 @@ def get_thresholds(
     alignments.close()
     qlen_std = np.std(qlen_lst)
     qlen_mean = math.ceil(np.mean(qlen_lst))
-    qlen_upper_limit = math.ceil(qlen_mean + 2 * qlen_std)
     qlen_lower_limit = math.ceil(qlen_mean - 2 * qlen_std)
+    qlen_upper_limit = math.ceil(qlen_mean + 2 * qlen_std)
+    if qlen_lower_limit < 0:
+        qlen_lower_limit = 0
     coverage = genome_read_sum / float(genome_sample_sum)
     md_threshold = get_md_threshold(coverage)
     return qlen_mean, qlen_lower_limit, qlen_upper_limit, md_threshold
 
 
 def get_hq_base_proportion(read):
-    hq_base_count = 0
-    for i in read.bq_int_lst:
-        if i == 93:
-            hq_base_count += 1
-    hq_base_proportion = hq_base_count / float(read.qlen)
+    hq_base_proportion = read.bq_int_lst.count(93)/float(read.qlen)
     return hq_base_proportion
 
 
