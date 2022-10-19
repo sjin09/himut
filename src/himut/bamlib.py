@@ -65,10 +65,10 @@ def get_tname2tsize(bam_file: str) -> Tuple[List[str], Dict[str, int]]:
     bam_header_lst = str(alignments.header).strip().split("\n")
     for h in bam_header_lst:
         if h.startswith("@SQ"):
-            _tag, tname, tsize = h.split("\t")
-            tname = tname.replace("SN:", "")
-            tsize = tsize.replace("LN:", "")
-            tname2tsize[tname] = int(tsize)
+            arr = h.split("\t")
+            tname = arr[1].replace("SN:", "")
+            tsize = int(arr[2].replace("LN:", ""))
+            tname2tsize[tname] = tsize
     alignments.close()
 
     tname_lst = natsort.natsorted(list(tname2tsize.keys()))
