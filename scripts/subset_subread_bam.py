@@ -75,7 +75,8 @@ def subset_subreads(
             current_qname = qname
         else:
             if qname != current_qname:
-                dump_subreads(o, subread_lst, max_subread_count)
+                if len(subread_lst)  >= 12:
+                    dump_subreads(o, subread_lst, max_subread_count)
                 current_qname = qname
                 subread_lst = [line]
                 state = 1
