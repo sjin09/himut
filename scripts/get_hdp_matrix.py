@@ -1,13 +1,10 @@
 #!/usr/bin/env python
 
-import os
 import sys
 import math
-import gzip
 import natsort
 import argparse
 import itertools
-import statistics
 from collections import defaultdict 
 
 sub2sbs = defaultdict(list)
@@ -65,9 +62,9 @@ def get_sbs96_matrix(infile, outfile):
     o = open(outfile, "w")
     o.write("{}\n".format("\t".join(sbs_lst))) 
     for sample in sample_lst:
-        count_lst = [str(math.ceil(float(sample_sbs96_count_hsh["{}:{}".format(sample,sbs)]))) for sbs in sbs_lst]
-        o.write("{}\n".format("\t".join([sample] + count_lst)))
-
+        row_lst = [sample] + [str(math.ceil(float(sample_sbs96_count_hsh["{}:{}".format(sample,sbs)]))) for sbs in sbs_lst]
+        o.write("{}\n".format("\t".join(row_lst)))
+    o.close()
 
 def main():
     options = parse_args(sys.argv)
