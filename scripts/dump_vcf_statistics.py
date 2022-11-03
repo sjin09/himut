@@ -146,7 +146,7 @@ def dump_vcf_statistics(infile: str, outfile: str):
     vcf_file_lst = natsort.natsorted(
         [line.strip() for line in open(infile).readlines()]
     )
-    counter = 0
+
     for vcf_file in vcf_file_lst:
         (
             titv_ratio,
@@ -172,9 +172,6 @@ def dump_vcf_statistics(infile: str, outfile: str):
                 indel_ratio,
             )
         )
-        counter += 1
-        if counter > 0:
-            break
 
 
 def main():
