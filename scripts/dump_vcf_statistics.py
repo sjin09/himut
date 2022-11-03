@@ -24,6 +24,18 @@ def parse_args(args):
         help="VCF fofn (file of file names) to read",
     )
     parser.add_argument(
+        "--region",
+        type=str,
+        required=False,
+        help="target chromosome",
+    )
+    parser.add_argument(
+        "--region_list",
+        type=str,
+        required=False,
+        help="list of target chromosomes separated by new line"
+    )
+    parser.add_argument(
         "-o",
         "--output",
         type=str,
@@ -82,19 +94,37 @@ transitions = set(["A>G", "G>A", "C>T", "T>C"])
 transversions = set(["A>C", "C>A", "C>G", "G>C", "A>T", "T>A", "G>T", "T>G"])
 
 
-# def get_titv_ratio():
+def load_loci(
+    region: str, 
+    region_list: str, 
+) -> Tuple[List[str], List[Tuple[str, int, int]]]:
     
+    chrom_lst = []
+    if region is None and region_list is not None:
+        for line in open(region_list).readlines():
+            arr = line.strip().split()
+            chrom_lst.append(arr[0])
+    elif region is not None and region_list is None:
+        chrom_lst.append(region)
+    elif region is not None and region_list is not None:
+        for line in open(region_list).readlines():
+            arr = line.strip().split()
+            chrom_lst.append(arr[0])
+    else:
+        pass
+    return chrom_lst
 
-def get_vcf_statistics(vcf_file: str):
 
-    ti_count = 0
-    tv_count = 0
-    ins_count = 0
-    del_count = 0
-    hetsnp_count = 0
-    homsnp_count = 0
-    hetindel_count = 0
-    homindel_count = 0
+def get_vcf_statistics(vcf_file: str, chrom_lst: List[str]):
+
+    chrom2ti_count = defaultdict(lambda: 0)
+    chrom2tv_count = defaultdict(lambda: 0)
+    chrom2ins_count = defaultdict(lambda: 0)
+    chrom2del_count = defaultdict(lambda: 0)
+    chrom2hetsnp_count = defaultdict(lambda: 0)
+    chrom2homsnp_count = defaultdict(lambda: 0)
+    chrom2hetindel_count = defaultdict(lambda: 0)
+    chrom2homindel_count = defaultdict(lambda: 0)
     if vcf_file.endswith(".vcf"):
         for line in open(vcf_file).readlines():
             if line.startswith("#"):
@@ -103,23 +133,41 @@ def get_vcf_statistics(vcf_file: str):
             if v.is_pass and v.is_biallelic:
                 if v.is_snp:
                     if v.sample_gt == "0/1":
-                        hetsnp_count += 1
+                        chrom2hetsnp_count[v.chrom] += 1
                     elif v.sample_gt == "1/1":
-                        homsnp_count += 1
+                        chrom2homsnp_count[v.chrom] += 1
                     sub = "{}>{}".format(v.ref, v.alt)
                     if sub in transitions:
-                        ti_count += 1
+                        chrom2ti_count[v.chrom] += 1
                     elif sub in transversions:
-                        tv_count += 1
+                        chrom2tv_count[v.chrom] += 1
                 elif v.is_indel:
                     if len(v.ref) > len(v.alt):
-                        del_count += 1
+                        chrom2del_count[v.chrom] += 1
                     elif len(v.ref) < len(v.alt):
-                        ins_count += 1 
+                        chrom2ins_count[v.chrom] += 1 
                     if v.sample_gt == "0/1":
-                        hetindel_count += 1
+                        chrom2hetindel_count[v.chrom] += 1
                     elif v.sample_gt == "1/1":
-                        homindel_count += 1
+                        chrom2homindel_count[v.chrom] += 1
+    ti_count = 0
+    tv_count = 0
+    ins_count = 0
+    del_count = 0
+    hetsnp_count = 0
+    homsnp_count = 0
+    hetindel_count = 0
+    homindel_count = 0
+    for chrom in chrom_lst:
+        ti_count += chrom2ti_count[chrom] 
+        tv_count += chrom2tv_count[chrom] 
+        ins_count += chrom2ins_count[chrom] 
+        del_count += chrom2del_count[chrom] 
+        hetsnp_count += chrom2hetsnp_count[chrom] 
+        homsnp_count += chrom2homsnp_count[chrom] 
+        hetindel_count += chrom2hetindel_count[chrom] 
+        homindel_count += chrom2homindel_count[chrom] 
+        
     titv_ratio = ti_count/float(tv_count)
     snp_hethom_ratio = hetsnp_count/float(homsnp_count)
     indel_hethom_ratio = hetindel_count/float(homindel_count)
@@ -127,7 +175,7 @@ def get_vcf_statistics(vcf_file: str):
     return titv_ratio, hetsnp_count, homsnp_count, snp_hethom_ratio, hetindel_count, homindel_count, indel_hethom_ratio, indel_ratio
 
 
-def dump_vcf_statistics(infile: str, outfile: str):
+def dump_vcf_statistics(infile: str, region: str, region_list: str, outfile: str):
 
     o = open(outfile, "w")
     o.write(
@@ -143,10 +191,11 @@ def dump_vcf_statistics(infile: str, outfile: str):
             "indel ratio",
         )
     )
+    chrom_lst = load_loci(region, region_list)
     vcf_file_lst = natsort.natsorted(
         [line.strip() for line in open(infile).readlines()]
     )
-
+ 
     for vcf_file in vcf_file_lst:
         (
             titv_ratio,
@@ -157,8 +206,7 @@ def dump_vcf_statistics(infile: str, outfile: str):
             homindel_count,
             indel_hethom_ratio,
             indel_ratio,
-        ) = get_vcf_statistics(vcf_file)
-        get_vcf_statistics(vcf_file)
+        ) = get_vcf_statistics(vcf_file, chrom_lst)
         o.write(
             "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(
                 vcf_file,
@@ -176,7 +224,7 @@ def dump_vcf_statistics(infile: str, outfile: str):
 
 def main():
     options = parse_args(sys.argv)
-    dump_vcf_statistics(options.input, options.output)
+    dump_vcf_statistics(options.input, options.region, options.region_list, options.output)
     sys.exit(0)
 
 
