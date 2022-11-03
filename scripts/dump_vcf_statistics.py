@@ -111,7 +111,9 @@ def load_loci(
             arr = line.strip().split()
             chrom_lst.append(arr[0])
     else:
-        pass
+        print("--region or --region_list parameter is required")
+        sys.exit()
+        
     return chrom_lst
 
 
