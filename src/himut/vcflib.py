@@ -229,8 +229,8 @@ def load_bgz_snp(
     tb = tabix.open(vcf_file)
     records = tb.query(*loci)
     for record in records:
-        v = VCF("\t".join(record))            
-        if v.is_snp and v.is_pass:
+        v = VCF("\t".join(record))           
+        if v.is_pass:
             if v.is_biallelic:
                 if v.is_snp:
                     snp_set.add((v.pos, v.ref, v.alt))

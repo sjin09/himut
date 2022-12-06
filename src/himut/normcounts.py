@@ -514,7 +514,7 @@ def get_normcounts(
     print(
         "finished himut SBS96 count normalisation with {} threads".format(threads)
     )
-    chrom2ref_tri2count = himut.reflib.get_ref_tricounts(refseq, chrom_lst, threads)
+    chrom2ref_tri2count = himut.reflib.get_ref_tricounts(refseq, chrom_lst, threads) ## TODO: fix
     ref_tricounts = get_cumsum_tricounts(chrom2ref_tri2count)
     ccs_tricounts = get_cumsum_tricounts(chrom2ccs_tri2count)
     trifreq_ratio = get_trinucleotide_frequency_ratio(ref_tricounts, ccs_tricounts)

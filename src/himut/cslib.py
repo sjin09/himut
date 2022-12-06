@@ -60,7 +60,7 @@ def cs2subindel(read):
                 continue
             read.qsbs_bq_lst.append(read.bq_int_lst[qpos])
             read.tsbs_lst.append((tpos + 1, ref, alt))
-            read.qsbs_lst.append((qpos + 1, alt, ref))
+            read.qsbs_lst.append((qpos, alt, ref))
         elif state == 3 or state == 4:  # insertion
             read.mismatch_lst.append((tpos, ref, alt))
         tpos += ref_len 
@@ -132,13 +132,13 @@ def cs2mut(read):
                     continue
                 read.qsbs_bq_lst.append(read.bq_int_lst[qstart])
                 read.tsbs_lst.append((tstart + 1, ref, alt))
-                read.qsbs_lst.append((qstart + 1, alt, ref))
+                read.qsbs_lst.append((qstart, alt, ref))
             else:
                 if len(ref) == len(alt) == 2: # dbs
                     if ref.count("N") > 0: 
                         continue
                     read.tdbs_lst.append((tstart + 1, ref, alt))
-                    read.qdbs_lst.append((qstart + 1, alt, ref))
+                    read.qdbs_lst.append((qstart, alt, ref))
                     read.qdbs_bq_lst.append(read.bq_int_lst[qstart:qstart+2])
                 read.mismatch_lst.append((tstart + 1, ref, alt))
             state = 0 
@@ -213,7 +213,7 @@ def cs2mutation(read):
             if counts == 1 and ref_len == 1 and alt_len == 1: # snv
                 sbs_bq_lst.append(read.bq_int_lst[qstart])
                 tsbs_lst.append((tstart + 1, ref, alt))
-                qsbs_lst.append((qstart + 1, alt, ref))
+                qsbs_lst.append((qstart, alt, ref))
             elif counts == 1 and ref_len < alt_len:  # insertion
                 read.tindel_lst.append(tstart + 1, ref, alt)
             elif counts == 1 and ref_len > alt_len:  # deletion

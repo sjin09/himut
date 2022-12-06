@@ -44,7 +44,7 @@ setup(
     package_data={"himut": ["*.typed"]},
     install_requires=[
         'argparse==1.*,>=1.4.0', 'biopython==1.*,>=1.78.0',
-        'click==7.*,>=7.0.0', 'natsort==7.*,>=7.1.1', 'numpy==1.*,>=1.20.2',
+        'click==7.*,>=7.0.0', 'natsort==8.*,>=8.0.0', 'numpy==1.*,>=1.20.2',
         'psutil==5.*,>=5.8.0', 'pysam==0.*,>=0.16.0'
     ],
     extras_require={

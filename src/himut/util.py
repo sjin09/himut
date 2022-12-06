@@ -1,15 +1,24 @@
 import os
 import sys
+import tabix
+import pysam
 import cyvcf2
 import psutil
+import pyfastx
 import natsort
+import himut.vcflib
 from collections import defaultdict
 from typing import Set, List, Dict, Tuple
 
 
-base_lst = list("ATGC+-")
+base_lst = list("ATGC")
+allele_lst = list("ATGC+-")
 base2idx = {base: idx for idx, base in enumerate(base_lst)}
 idx2base = {idx: base for idx, base in enumerate(base_lst)}
+allele2idx = {allele: idx for idx, allele in enumerate(allele_lst)}
+idx2allele = {idx: allele for idx, allele in enumerate(allele_lst)}
+gt_lst = ["AA", "TA", "CA", "GA", "TT", "CT", "GT", "CC", "GC", "GG"]
+# gt_lst = ["AA", "TA", "CA", "GA", "TT", "CT", "GT", "CC", "GC", "GG", "A+", "T+", "G+", "C+", "A-", "T-", "G-", "C-", "++", "+-"]
 
 
 class NestedDefaultDict(defaultdict):
@@ -108,7 +117,32 @@ def chunkloci(loci: Tuple[str, int, int]) -> List[Tuple[str, int, int]]:
     return chunk_loci_lst
 
 
-def check_bam_file(bam_file: str):
+def is_bam_file_corrupt(
+    bam_file: str, 
+    chrom_lst: List[str]
+):
+    hsh = {}
+    alignments = pysam.AlignmentFile(bam_file, "rb")
+    for chrom in chrom_lst:
+        hsh[chrom] = alignments.count(chrom)
+  
+    state = 0
+    for chrom in chrom_lst:
+        if hsh[chrom] == 0:
+            print("bam_file: {} does not have read alignments for chrom: {}".format(bam_file, chrom))
+            state = 1
+
+    if state == 1:
+        print("{} might be corrupted".format(bam_file))
+        return 1 
+    else:
+        return 0 
+
+
+def check_bam_file(
+    bam_file: str, 
+    chrom_lst: List[str],
+):
 
     if bam_file is None:
         print("Please provide the path to the BAM file")
@@ -118,7 +152,10 @@ def check_bam_file(bam_file: str):
             idxfile = "{}.bai".format(bam_file)
             if os.path.exists(bam_file) and os.path.exists(idxfile):
                 if os.path.getsize(bam_file) != 0 and os.path.getsize(idxfile) != 0:
-                    return 0 
+                    if is_bam_file_corrupt(bam_file, chrom_lst):
+                        return 1
+                    else:
+                        return 0 
                 else:
                     return 1
             elif not os.path.exists(bam_file) and os.path.exists(idxfile):
@@ -138,7 +175,55 @@ def check_bam_file(bam_file: str):
             return 1
         
 
-def check_vcf_file(vcf_file: str, param: str):
+def is_vcf_file_corrupt(
+    param: str,
+    vcf_file: str,
+    chrom_lst: List[str],
+    tname2tsize: Dict[str, int]
+) -> bool:
+
+
+    hsh = defaultdict(lambda: 0)
+    if vcf_file.endswith(".vcf"):
+        for line in open(vcf_file):
+            if line.startswith("#"):
+                continue
+            arr = line.strip().split()
+            chrom = arr[0]
+            ref = arr[3] 
+            alt_lst = arr[4].split(",")
+            if arr[6] == "PASS" and len(alt_lst) == 1:
+                alt = alt_lst[0] 
+                if len(ref) == 1 and len(alt) == 1:
+                    hsh[chrom] += 1
+    elif vcf_file.endswith(".bgz"):
+        tb = tabix.open(vcf_file)
+        for chrom in chrom_lst:
+            try:
+                records = tb.query(chrom, 0, tname2tsize[chrom])
+                hsh[chrom] = len(list(records))
+            except tabix.TabixError:
+                continue
+
+    state = 0
+    for chrom in chrom_lst:
+        if hsh[chrom] == 0:
+            print("{} {} does not have any variants on chrom: {}".format(param, vcf_file, chrom))
+            state = 1
+            
+    if state == 1:
+        print("{} {} might be corrupted".format(param, vcf_file))
+        return 1
+    else:
+        return 0 
+
+
+def check_vcf_file(
+    param: str, 
+    vcf_file: str, 
+    chrom_lst:List[str],
+    tname2tsize: Dict[str, int]
+):
     if vcf_file is None:
         print("Please provide the path to the VCF file for the following argument: {}".format(param))
         return 1
@@ -148,22 +233,28 @@ def check_vcf_file(vcf_file: str, param: str):
                 if os.path.getsize(vcf_file) == 0:
                     return 1
                 else:
-                    return 0
+                    if is_vcf_file_corrupt(param, vcf_file, chrom_lst, tname2tsize):
+                        return 1
+                    else:
+                        return 0
             elif vcf_file.endswith(".bgz"):
                 tbi_file = vcf_file + ".tbi"  
                 if os.path.exists(tbi_file):
-                    return 0 
+                    if is_vcf_file_corrupt(param, vcf_file, chrom_lst, tname2tsize):
+                        return 1
+                    else:
+                        return 0
                 else:
-                    print("tabix index file does not exist")
+                    print("tabix index file does not exist {} {}".format(param, vcf_file))
                     return 1
             elif vcf_file.endswith(".gz"):
-                print("himut doesn't support loading of gzip compressed VCF files") 
+                print("himut doesn't support loading of gzip compressed VCF files {} {}".format(param, vcf_file)) 
                 return 1
             else:
-                print("VCF file must have the .vcf suffix")
+                print("VCF file must have the .vcf suffix {} {}".format(param, vcf_file))
                 return 1
         else:
-            print("{} file is missing".format(vcf_file))
+            print("{} {} file is missing".format(param, vcf_file))
             return 1
 
 
@@ -184,23 +275,6 @@ def check_out_file(out_file: str):
             return 1
 
 
-def check_vcf_content(
-    chrom_lst: List[str], 
-    chrom2sub: Dict[str, Tuple[str, int, str, str]], 
-    vcf_file: str):
-
-    state = 0
-    for chrom in chrom_lst:
-        num_var = len(chrom2sub[chrom])
-        if num_var == 0:
-            state = 1
-        print("{}: loading {} number of variants from {}".format(vcf_file, num_var, chrom))
-            
-    if state == 1:
-        print("VCF file might be corrupted")
-        print("Please check the contents of the input VCF files")
-       
-        
 def check_tsv_file(tsv_file: str):
 
     if tsv_file is None:
@@ -213,7 +287,28 @@ def check_tsv_file(tsv_file: str):
             return 1
 
 
-def check_ref_file(ref_file: str) -> int:
+def is_ref_file_corrupt(
+    ref_file: str, 
+    chrom_lst: List[str]
+): 
+    state = 0
+    refseq = pyfastx.Fasta(ref_file)    
+    for chrom in chrom_lst:
+        if chrom not in refseq:
+            print("chrom :{} is missing from --ref {}".format(chrom, ref_file))
+            state = 1
+
+    if state == 1:
+        print("--ref {} might be corrupted".format(ref_file))
+        return 1 
+    else:
+        return 0 
+
+
+def check_ref_file(
+    ref_file: str,
+    chrom_lst: List[str]
+) -> int:
 
     if ref_file is None:
         print("Please provide the path to the reference FASTA file")
@@ -224,7 +319,10 @@ def check_ref_file(ref_file: str) -> int:
                 if os.path.getsize(ref_file) == 0:
                     return 1
                 else:
-                    return 0 
+                    if is_ref_file_corrupt(ref_file, chrom_lst):
+                        return 1
+                    else:
+                        return 0 
             else:
                 print("Did you provide a FASTA file?")
                 return 1
@@ -233,7 +331,11 @@ def check_ref_file(ref_file: str) -> int:
             return 1
 
 
-def check_phased_vcf_file(vcf_file):
+def check_phased_vcf_file(
+    vcf_file: str, 
+    chrom_lst: List[str],
+    tname2tsize: Dict[str, int]
+):
     if vcf_file is None:
         print("Please provide the path to the VCF file for the following argument: --phased_vcf")
         return 1
@@ -251,7 +353,10 @@ def check_phased_vcf_file(vcf_file):
                             break
                     
                     if any("##FORMAT=<ID=PS" in line.strip() for line in vcf_header_lst):
-                        return 0
+                        if is_vcf_file_corrupt("--phased_vcf", vcf_file, chrom_lst, tname2tsize):
+                            return 1
+                        else:
+                            return 0
                     else:
                         print("VCF file is not phased")
                         return 1
@@ -262,7 +367,10 @@ def check_phased_vcf_file(vcf_file):
                     v = cyvcf2.VCF(vcf_file)
                     vcf_header_lst = v.raw_header.strip().split()
                     if any("##FORMAT=<ID=PS" in line.strip() for line in vcf_header_lst):
-                        return 0
+                        if is_vcf_file_corrupt("--phased_vcf", vcf_file, chrom_lst, tname2tsize):
+                            return 1
+                        else:
+                            return 0
                     else:
                         print("VCF file is not phased")
                         return 1
@@ -286,25 +394,28 @@ def check_caller_input_exists(
     phased_vcf_file: str,
     common_snps: str,
     panel_of_normals: str,
+    chrom_lst: List[str],
+    tname2tsize: Dict[str, int],
+    ploidy: str,
     phase: bool,
     non_human_sample: bool,
     create_panel_of_normals: bool,
-    ploidy: str,
     out_file: str,
 ) -> None:
 
     counter = 0
-    counter += check_bam_file(bam_file)
-    counter += check_vcf_file(vcf_file, "--vcf")
+    counter += check_bam_file(bam_file, chrom_lst)
+    counter += check_vcf_file("--vcf", vcf_file, chrom_lst, tname2tsize)
     counter += check_out_file(out_file)
     if phase:
-        counter += check_phased_vcf_file(phased_vcf_file)
+        counter += check_phased_vcf_file(phased_vcf_file, chrom_lst, tname2tsize)
         
     if not non_human_sample and create_panel_of_normals:
-        counter += check_vcf_file(common_snps, "--common_snps")
+        counter += check_vcf_file("--common_snps", common_snps, chrom_lst, tname2tsize)
+        
     elif not non_human_sample and not create_panel_of_normals:
-        counter += check_vcf_file(common_snps, "--common_snps")
-        counter += check_vcf_file(panel_of_normals, "--panel_of_normals")
+        counter += check_vcf_file("--common_snps", common_snps, chrom_lst, tname2tsize)
+        counter += check_vcf_file("--panel_of_normals", panel_of_normals, chrom_lst, tname2tsize)
 
     if not (ploidy in ("haploid", "diploid")):
         print("himut currently doesn't support samples with {} ploidy".format(ploidy))
@@ -317,14 +428,15 @@ def check_caller_input_exists(
 
 
 def check_phaser_input_exists(
+    chrom_lst: List[str],
     bam_file: str,
     vcf_file: str,
     out_file: str, 
 ) -> None:
 
     counter = 0
-    counter += check_bam_file(bam_file)
-    counter += check_vcf_file(vcf_file, "--vcf")
+    counter += check_bam_file(bam_file, chrom_lst)
+    counter += check_vcf_file("--vcf", vcf_file, chrom_lst)
     counter += check_out_file(out_file)
     if not out_file.endswith(".phased.vcf"):
         print("Please use the suffix .phased.vcf for the output file")
@@ -340,23 +452,26 @@ def check_mutpatterns_input_exists(
     vcf_file: str,
     ref_file: str, 
     region: str,
-    region_lst: str,
+    region_list: str,
+    # tname2tsize: Dict[str, int],
     out_file: str
 ):
 
     counter = 0 
-    if region is None and region_lst is not None:
-        print("himut will return SBS96/DBS78 counts from chromosomes and contings in {} file".format(region_lst))
-    elif region is not None and region_lst is None:
+    if region is None and region_list is not None:
+        print("himut will return SBS96/DBS78 counts from chromosomes and contings in {} file".format(region_list))
+    elif region is not None and region_list is None:
         print("himut will return SBS96/DBS78 counts from {}".format(region))
-    elif region is not None and region_lst is not None:
+    elif region is not None and region_list is not None:
         print("Please provide input for --region or --region_list parameter and not for both parameters")
         counter = 1
-    elif region is None and region_lst is None:
+    elif region is None and region_list is None:
         print("himut will return SBS96/DBS78 counts from all chromosomes and contigs")
-        
-    counter += check_vcf_file(vcf_file, "--input")
-    counter += check_ref_file(ref_file)  
+
+    chrom_lst, _  = load_loci(region, region_list, tname2tsize)       
+    ## util.load() 
+    counter += check_vcf_file("--input", vcf_file, chrom_lst)
+    counter += check_ref_file(ref_file, chrom_lst)  
     counter += check_tsv_file(out_file)  
     if counter > 0:
         print("One or more inputs and parameters are missing")

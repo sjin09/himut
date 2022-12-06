@@ -86,7 +86,7 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         type=str,
         default="diploid",
         required=False,
-        help="haploid, diploid or polyploid"
+        help="haploid or diploid (polyploid samples are not supported)"
     )
     parser_call.add_argument(
         "--min_mapq",
@@ -131,6 +131,14 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         help="minimum base quality score threshold"
     )
     parser_call.add_argument(
+        "--min_gq",
+        type=int,
+        default=40,
+        required=False,
+        help="minimum germline genotype quality (GQ) score "
+    )
+
+    parser_call.add_argument(
         "--min_ref_count",
         type=int,
         default=3,
@@ -164,6 +172,34 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         default=0,
         required=False,
         help="maximum number of mismatches within the mismatch window"
+    )
+    parser_call.add_argument(
+        "--contamination_prior",
+        type=float,
+        default=1/(10**2),
+        required=False,
+        help="expected contamination rate per library"
+    )
+    parser_call.add_argument(
+        "--somatic_snv_prior",
+        type=float,
+        default=1/(10**6),
+        required=False,
+        help="somatic single-base-substitution prior"
+    )
+    parser_call.add_argument(
+        "--germline_snv_prior",
+        type=float,
+        default=1/(10**3),
+        required=False,
+        help="germline snv prior"
+    )
+    parser_call.add_argument(
+        "--germline_indel_prior",
+        type=float,
+        default=1/(10**4),
+        required=False,
+        help="germline indel prior"
     )
     parser_call.add_argument(
         "--threads",
