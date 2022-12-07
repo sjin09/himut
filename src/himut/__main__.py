@@ -36,7 +36,6 @@ def main():
             options.min_ref_count, # number of reads supporting the reference base
             options.min_alt_count, # number of reads supporting the alterantive base
             options.min_hap_count, # number of reads supporting h0 and h1 haplotype
-            options.contamination_prior,
             options.somatic_snv_prior,
             options.germline_snv_prior,
             options.germline_indel_prior,
