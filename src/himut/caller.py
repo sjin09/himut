@@ -466,7 +466,7 @@ def get_somatic_substitutions(
 
                         if h0_count >= min_hap_count and h1_count >= min_hap_count:
                             phase_set = hidx2hetsnp[hblock_lst[bidx][0][0]][0]
-                            print(chrom, pos, ref, alt, h0_count, h1_count, som_hap, som_hap_count) 
+                            # print(chrom, pos, ref, alt, h0_count, h1_count, som_hap, som_hap_count) 
                             somatic_tsbs_lst.append((chrom, tpos, ref, alt, "PASS", bq, read_depth, ref_count, alt_count, vaf, phase_set))
                         else:
                             filtered_somatic_tsbs_lst.append((chrom, pos, ref, alt, "Unphased", bq, read_depth, ref_count, alt_count, vaf, "."))
