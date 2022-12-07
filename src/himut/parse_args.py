@@ -173,13 +173,13 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         required=False,
         help="maximum number of mismatches within the mismatch window"
     )
-    parser_call.add_argument(
-        "--contamination_prior",
-        type=float,
-        default=1/(10**2),
-        required=False,
-        help="expected contamination rate per library"
-    )
+    # parser_call.add_argument(
+    #     "--contamination_prior",
+    #     type=float,
+    #     default=1/(10**2),
+    #     required=False,
+    #     help="expected contamination rate per library"
+    # )
     parser_call.add_argument(
         "--somatic_snv_prior",
         type=float,

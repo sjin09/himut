@@ -258,7 +258,6 @@ def get_somatic_substitutions(
     min_alt_count: int,
     md_threshold: int,
     min_hap_count: int,
-    contamination_prior: float,
     somatic_snv_prior: float,
     germline_snv_prior: float,
     germline_indel_prior: float,
@@ -288,9 +287,9 @@ def get_somatic_substitutions(
             hblock_lst,
             hetsnp_lst,
             hidx2hetsnp,
-            hidx2hstate,
+            _,
             hetsnp2bidx,
-            hetsnp2hidx,
+            _,
         ) = himut.vcflib.get_phased_hetsnps(phased_vcf_file, chrom, chrom_len)
  
     seen = set()
@@ -342,15 +341,15 @@ def get_somatic_substitutions(
                 if himut.util.get_blast_sequence_identity(ccs) < min_sequence_identity:
                     continue
 
-                common_cnt = 0
-                if not tree_of_life_sample: ## probabilistic?
+                common_snv_count = 0
+                if not tree_of_life_sample: ## haplotype based estimation of contamiantion prior ## TODO
                     for tsbs in ccs_somatic_tsbs_candidate_lst:
                         if tsbs in common_snp_set:
-                            common_cnt += 1
-                            tsbs_annotation[tsbs].add("CommonVariant")
+                            common_snv_count += 1
+                            tsbs_annotation[tsbs].add("CommonPolymorphism")
                             filtered_somatic_tsbs_candidate_lst.append(tsbs)
-                    if common_cnt > 0:
-                        continue
+                if common_snv_count > 0:
+                    continue
                     
                 if len(ccs_somatic_tsbs_candidate_lst) == 0 and len(ccs_somatic_tdbs_candidate_lst) == 0:
                     continue
@@ -409,19 +408,23 @@ def get_somatic_substitutions(
                 allele2bq_lst = tpos2allele2bq_lst[pos]
                 bq, vaf, ref_count, alt_count, indel_count, read_depth = himut.bamlib.get_sbs_allelecounts(ref, alt, allelecounts, allele2bq_lst)
                 if indel_count != 0:
-                    filtered_somatic_tsbs_lst.append((chrom, pos, ref, alt, "IndelSite", bq, read_depth, ref_count, alt_count, vaf, "."))
+                    # filtered_somatic_tsbs_lst.append((chrom, pos, ref, alt, "IndelSite", bq, read_depth, ref_count, alt_count, vaf, "."))
+                    filtered_somatic_tsbs_lst.append((chrom, pos, ref, alt, "IndelSite", bq, read_depth, ref_count, alt_count, vaf, ".", ".", ".", ".", ".")) ## TODO
                     continue
                
                 germline_gt, germline_gq, germline_gt_state = get_germline_gt(ref, allelecounts, allele2bq_lst, germline_snv_prior)
                 if germline_gq < min_gq:
-                    filtered_somatic_tsbs_lst.append((chrom, pos, ref, alt, "LowGQ", bq, read_depth, ref_count, alt_count, vaf, "."))
+                    # filtered_somatic_tsbs_lst.append((chrom, pos, ref, alt, "LowGQ", bq, read_depth, ref_count, alt_count, vaf, "."))
+                    filtered_somatic_tsbs_lst.append((chrom, pos, ref, alt, "LowGQ", bq, read_depth, ref_count, alt_count, vaf, ".", ".", ".", ".", "."))
                     continue
 
                 if germline_gt_state == "het":
-                    filtered_somatic_tsbs_lst.append((chrom, pos, ref, alt, "HetSite", bq, read_depth, ref_count, alt_count, vaf, "."))
+                    # filtered_somatic_tsbs_lst.append((chrom, pos, ref, alt, "HetSite", bq, read_depth, ref_count, alt_count, vaf, "."))
+                    filtered_somatic_tsbs_lst.append((chrom, pos, ref, alt, "HetSite", bq, read_depth, ref_count, alt_count, vaf, ".", ".", ".", ".", "."))
                     continue
                 elif germline_gt_state == "hetalt":
-                    filtered_somatic_tsbs_lst.append((chrom, pos, ref, alt, "HetAltSite", bq, read_depth, ref_count, alt_count, vaf, "."))
+                    # filtered_somatic_tsbs_lst.append((chrom, pos, ref, alt, "HetAltSite", bq, read_depth, ref_count, alt_count, vaf, "."))
+                    filtered_somatic_tsbs_lst.append((chrom, pos, ref, alt, "HetAltSite", bq, read_depth, ref_count, alt_count, vaf, ".", ".", ".", ".", "."))
                     continue
                 
                 # print(chrom, pos, ref, alt, ref_count, alt_count, read_depth, somatic_pD, germline_pD, somatic_pD/germline_pD)
@@ -436,7 +439,8 @@ def get_somatic_substitutions(
                 # print((chrom, pos, ref, alt, bq, read_depth, ref_count, alt_count, vaf, som_likelihood, germ_likelihood, som_pd))
                 
                 if read_depth > md_threshold:
-                    filtered_somatic_tsbs_lst.append((chrom, pos, ref, alt, "HighDepth", bq, read_depth, ref_count, alt_count, vaf, "."))
+                    ## filtered_somatic_tsbs_lst.append((chrom, pos, ref, alt, "HighDepth", bq, read_depth, ref_count, alt_count, vaf, ".")) ## TODO
+                    filtered_somatic_tsbs_lst.append((chrom, pos, ref, alt, "HighDepth", bq, read_depth, ref_count, alt_count, vaf, ".", ".", ".", ".", ".")) 
                     continue
 
                 if ref_count >= min_ref_count and alt_count >= min_alt_count:
@@ -449,7 +453,8 @@ def get_somatic_substitutions(
                             hetsnp2bidx
                         )
                         if bidx == ".":
-                            filtered_somatic_tsbs_lst.append((chrom, pos, ref, alt, "Unphased", bq, read_depth, ref_count, alt_count, vaf, "."))
+                            # filtered_somatic_tsbs_lst.append((chrom, pos, ref, alt, "Unphased", bq, read_depth, ref_count, alt_count, vaf, "."))
+                            filtered_somatic_tsbs_lst.append((chrom, pos, ref, alt, "Unphased", bq, read_depth, ref_count, alt_count, vaf, ".", ".", ".", ".", ".")) ## TODO
                             continue
 
                         h0_count, h1_count, som_hap, som_hap_count = himut.haplib.get_hap_counts(
@@ -461,15 +466,18 @@ def get_somatic_substitutions(
                             tpos2allele2ccs_lst[pos]
                         )
                         if som_hap == ".": 
-                            filtered_somatic_tsbs_lst.append((chrom, pos, ref, alt, "Unphased", bq, read_depth, ref_count, alt_count, vaf, "."))
+                            # filtered_somatic_tsbs_lst.append((chrom, pos, ref, alt, "Unphased", bq, read_depth, ref_count, alt_count, vaf, "."))
+                            filtered_somatic_tsbs_lst.append((chrom, pos, ref, alt, "Unphased", bq, read_depth, ref_count, alt_count, vaf, ".", ".", ".", ".", "."))
                             continue
 
                         if h0_count >= min_hap_count and h1_count >= min_hap_count:
                             phase_set = hidx2hetsnp[hblock_lst[bidx][0][0]][0]
                             # print(chrom, pos, ref, alt, h0_count, h1_count, som_hap, som_hap_count) 
-                            somatic_tsbs_lst.append((chrom, tpos, ref, alt, "PASS", bq, read_depth, ref_count, alt_count, vaf, phase_set))
+                            # somatic_tsbs_lst.append((chrom, pos, ref, alt, "PASS", bq, read_depth, ref_count, alt_count, vaf, phase_set))
+                            somatic_tsbs_lst.append((chrom, pos, ref, alt, "PASS", bq, read_depth, ref_count, alt_count, vaf, phase_set, h0_count, h1_count, som_hap, som_hap_count))
                         else:
-                            filtered_somatic_tsbs_lst.append((chrom, pos, ref, alt, "Unphased", bq, read_depth, ref_count, alt_count, vaf, "."))
+                            # filtered_somatic_tsbs_lst.append((chrom, pos, ref, alt, "Unphased", bq, read_depth, ref_count, alt_count, vaf, "."))
+                            filtered_somatic_tsbs_lst.append((chrom, pos, ref, alt, "Unphased", bq, read_depth, ref_count, alt_count, vaf, ".", ".", ".", ".", "."))
                             continue                    
                     else:
                         somatic_tsbs_lst.append( 
@@ -477,14 +485,16 @@ def get_somatic_substitutions(
                         )
                         # print(chrom, pos, ref, alt, bq, read_depth, ref_count, alt_count, vaf, ".", germline_gt, germline_gq, germline_gt_state)
                 else:
-                    filtered_somatic_tsbs_lst.append((chrom, pos, ref, alt, "LowDepth", bq, read_depth, ref_count, alt_count, vaf, "."))
+                    # filtered_somatic_tsbs_lst.append((chrom, pos, ref, alt, "LowDepth", bq, read_depth, ref_count, alt_count, vaf, "."))
+                    filtered_somatic_tsbs_lst.append((chrom, pos, ref, alt, "LowDepth", bq, read_depth, ref_count, alt_count, vaf, ".", ".", ".", ".", ".")) ## TODO
                     continue
 
             for (pos, ref, alt) in set(filtered_somatic_tsbs_candidate_lst): # filtered single base substitutions
                 allelecounts = tpos2allelecounts[pos]
                 allele2bq_lst = tpos2allele2bq_lst[pos]
                 annot = ";".join(natsort.natsorted(list(tsbs_annotation[(pos, ref, alt)])))
-                filtered_somatic_tsbs_lst.append((chrom, pos, ref, alt, annot, bq, read_depth, ref_count, alt_count, vaf, "."))
+                # filtered_somatic_tsbs_lst.append((chrom, pos, ref, alt, annot, bq, read_depth, ref_count, alt_count, vaf, "."))
+                filtered_somatic_tsbs_lst.append((chrom, pos, ref, alt, annot, bq, read_depth, ref_count, alt_count, vaf, ".", ".", ".", ".", "."))
 
     chrom2tsbs_lst[chrom] = natsort.natsorted(list(set(somatic_tsbs_lst + filtered_somatic_tsbs_lst)))
     alignments.close()
@@ -511,7 +521,6 @@ def call_somatic_substitutions(
     min_ref_count: int,
     min_alt_count: int,
     min_hap_count: int,
-    contamination_prior: float,
     somatic_snv_prior: float,
     germline_snv_prior: float,
     germline_indel_prior: float,
@@ -526,7 +535,7 @@ def call_somatic_substitutions(
     cpu_start = time.time() / 60
     _, tname2tsize = himut.bamlib.get_tname2tsize(bam_file)
     chrom_lst, chrom2loci_lst = himut.util.load_loci(region, region_list, tname2tsize)
-    qlen_std, qlen_mean, qlen_lower_limit, qlen_upper_limit, md_threshold = himut.bamlib.get_thresholds(
+    qlen_mean, qlen_lower_limit, qlen_upper_limit, md_threshold = himut.bamlib.get_thresholds(
         bam_file, chrom_lst, tname2tsize
     )
     himut.util.check_caller_input_exists(
@@ -623,7 +632,6 @@ def call_somatic_substitutions(
             min_alt_count,
             md_threshold,
             min_hap_count,
-            contamination_prior,
             somatic_snv_prior,
             germline_snv_prior,
             germline_indel_prior,

@@ -124,7 +124,7 @@ def get_thresholds(
     qlen_upper_limit = math.ceil(qlen_mean + 2 * qlen_std)
     coverage = genome_read_sum / float(genome_sample_sum)
     md_threshold = get_md_threshold(coverage)
-    return qlen_std, qlen_mean, qlen_lower_limit, qlen_upper_limit, md_threshold
+    return qlen_mean, qlen_lower_limit, qlen_upper_limit, md_threshold
 
 
 def get_hq_base_proportion(read):

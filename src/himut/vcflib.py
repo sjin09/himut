@@ -546,19 +546,31 @@ def dump_himut_sbs(
     o.write("{}\n".format(header))
     p.write("{}\n".format(header))
     for chrom in chrom_lst:
-        for (chrom, pos, ref, alt, annot, bq, total_count, ref_count, alt_count, vaf, phase_set) in chrom2tsbs_lst[chrom]:
+        # for (chrom, pos, ref, alt, annot, bq, total_count, ref_count, alt_count, vaf, phase_set) in chrom2tsbs_lst[chrom]:
+        for (chrom, pos, ref, alt, annot, bq, total_count, ref_count, alt_count, vaf, phase_set, h0_count, h1_count, som_hap, som_hap_count) in chrom2tsbs_lst[chrom]:
             if phase:
+                # o.write(
+                #     "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF:PS:HAP\t./.:{}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}:{}:{},{},{},{}\n".format(
+                #         chrom, pos, ref, alt, annot, bq, total_count, ref_count, alt_count, vaf, phase_set
+                #     )
+                # )
                 o.write(
-                    "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF:PS\t./.:{}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}:{}\n".format(
-                        chrom, pos, ref, alt, annot, bq, total_count, ref_count, alt_count, vaf, phase_set
+                    "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF:PS:HAP\t./.:{}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}:{}:{},{},{},{}\n".format(
+                        chrom, pos, ref, alt, annot, bq, total_count, ref_count, alt_count, vaf, phase_set, h0_count, h1_count, som_hap, som_hap_count
                     )
                 )
                 if alt_count == 1:
+                    # p.write(
+                    #     "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF:PS\t./.:{}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}:{}\n".format(
+                    #         chrom, pos, ref, alt, annot, bq, total_count, ref_count, alt_count, vaf, phase_set
+                    #     )
+                    # )
                     p.write(
-                        "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF:PS\t./.:{}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}:{}\n".format(
-                            chrom, pos, ref, alt, annot, bq, total_count, ref_count, alt_count, vaf, phase_set
-                        )
+                    "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF:PS:HAP\t./.:{}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}:{}:{},{},{},{}\n".format(
+                        chrom, pos, ref, alt, annot, bq, total_count, ref_count, alt_count, vaf, phase_set, h0_count, h1_count, som_hap, som_hap_count
                     )
+                )
+
             else:
                 o.write(
                     "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF\t./.:{}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}\n".format(
