@@ -1,22 +1,4 @@
 Metadata-Version: 2.1
 Name: himut
-Version: 0.0.1
-Summary: Himut
-Home-page: UNKNOWN
-Author: Sangjin Lee
-Author-email: sl17@sanger.ac.uk
-License: MIT
-Project-URL: documentation, https://himut.readthedocs.io
-Project-URL: homepage, https://github.com/sjin09/himut
-Project-URL: repository, https://github.com/sjin09/himut
-Platform: UNKNOWN
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Requires-Python: <3.10,>=3.7
-Provides-Extra: dev
+Version: 1.0.0
 License-File: LICENSE.rst
-
-UNKNOWN
-
