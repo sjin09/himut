@@ -140,10 +140,6 @@ def get_somatic_substitutions(
             allelecounts = tpos2allelecounts[tpos]
             allele2bq_lst = tpos2allele2bq_lst[tpos]
             bq, vaf, ref_count, alt_count, indel_count, read_depth = himut.bamlib.get_sbs_allelecounts(ref, alt, allelecounts, allele2bq_lst)
-            if indel_count != 0:
-                filtered_somatic_tsbs_lst.append((chrom, tpos, ref, alt, "IndelSite", bq, read_depth, ref_count, alt_count, vaf, "."))
-                continue
-
             germ_gt, germ_gq, germ_gt_state = himut.gtlib.get_germline_gt(ref, allelecounts, allele2bq_lst, germline_snv_prior)
             if is_germ_gt(som_gt, germ_gt):
                 continue 
@@ -166,6 +162,10 @@ def get_somatic_substitutions(
                     continue
                 if read_depth == (alt_count + indel_count):
                     continue
+               
+            if indel_count != 0:
+                filtered_somatic_tsbs_lst.append((chrom, tpos, ref, alt, "IndelSite", bq, read_depth, ref_count, alt_count, vaf, "."))
+                continue
                 
             if not non_human_sample: ## haplotype based estimation of contamiantion prior ## TODO
                 if tsbs in common_snp_set:
