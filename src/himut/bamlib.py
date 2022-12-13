@@ -1,4 +1,3 @@
-import json
 import math
 import pysam
 import random
@@ -14,31 +13,58 @@ from typing import List, Dict, Tuple
 class BAM:
     def __init__(self, line):
         # target
-        self.tname = line.reference_name
-        self.tstart = line.reference_start
-        self.tend = line.reference_end
-        self.target_alignment_length = self.tend - self.tstart
-        # query
-        self.qname = line.query_name
-        self.qstart = line.query_alignment_start
-        self.qend = line.query_alignment_end
-        self.qseq = line.query_sequence
-        self.qlen = len(self.qseq)
-        self.mapq = line.mapping_quality
-        self.bq_int_lst = line.query_qualities
-        self.strand = "+" if line.is_forward else "-"
-        self.query_alignment_length = self.qend - self.qstart
-        self.query_alignment_proportion = self.query_alignment_length/float(self.qlen)
-        self.cs_tag = line.get_tag("cs") if line.has_tag("cs") else "."
-        if line.has_tag("tp"):
-            if line.get_tag("tp") == "P":
-                self.is_primary = True
-            else:
-                self.is_primary = False
-        else:
+        if line.is_secondary:
             self.is_primary = False
-        himut.cslib.cs2tuple(self)
+        else: 
+            self.is_primary = True
+            self.tname = line.reference_name
+            self.tstart = line.reference_start
+            self.tend = line.reference_end
+            # query
+            self.qname = line.query_name
+            self.qstart = line.query_alignment_start
+            self.qend = line.query_alignment_end
+            self.qseq = line.query_sequence
+            self.qlen = len(self.qseq)
+            self.mapq = line.mapping_quality
+            self.bq_int_lst = line.query_qualities
+            himut.cslib.cs2tuple(self, line.get_tag("cs"))
+
+    
+    def cs2mut(self):
         himut.cslib.cs2mut(self)
+
+    def cs2subindel(self):
+        himut.cslib.cs2subindel(self)
+    
+    def cs2tpos2qbase(self):
+        himut.cslib.cs2tpos2qbase(self) 
+        
+    def get_hq_base_proportion(self):
+        hq_base_proportion = self.bq_int_lst.count(93)/float(self.qlen)
+        return hq_base_proportion
+
+    def get_blast_sequence_identity(self):
+        
+        mismatch_count = 0
+        target_alignment_len = self.tstart - self.tend 
+        for cstuple in self.cstuple_lst:
+            mstate, _, _, ref_len, alt_len = cstuple
+            if mstate == 1:  # match
+                continue
+            elif mstate == 2:  # mismatch: snp
+                mismatch_count += alt_len
+            elif mstate == 3:  # mismatch: insertion
+                mismatch_count += alt_len
+            elif mstate == 4:  # mismatch: deletion
+                mismatch_count += ref_len
+        blast_sequence_identity = (target_alignment_len  - mismatch_count)/float(target_alignment_len)
+        return blast_sequence_identity
+
+    def get_query_alignment_proportion(self):
+        query_alignment_proportion = (self.qend - self.qstart)/float(self.qlen) 
+        return query_alignment_proportion
+
 
 def get_sample(bam_file: str) -> str:
    
@@ -127,11 +153,6 @@ def get_thresholds(
     return qlen_mean, qlen_lower_limit, qlen_upper_limit, md_threshold
 
 
-def get_hq_base_proportion(read):
-    hq_base_proportion = read.bq_int_lst.count(93)/float(read.qlen)
-    return hq_base_proportion
-
-
 def get_basecounts(
     alignments,
     chrom: str,
@@ -165,7 +186,7 @@ def get_sbs_allelecounts(
     alt_count = allelecounts[himut.util.base2idx[alt]]
     vaf = alt_count/float(read_depth) 
     bq = sum(allele2bq_lst[himut.util.base2idx[alt]])/float(alt_count)
-    return bq, vaf, ref_count, alt_count, indel_count, read_depth
+    return int(bq), vaf, ref_count, alt_count, indel_count, read_depth
 
 
 def get_dbs_allelecounts(
