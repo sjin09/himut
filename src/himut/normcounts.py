@@ -271,7 +271,7 @@ def get_normcounts(
     )
 
     refseq = pyfastx.Fasta(ref_file)
-    _, qlen_lower_limit, qlen_upper_limit, md_threshold = himut.bamlib.get_thresholds(
+    qlen_lower_limit, qlen_upper_limit, md_threshold = himut.bamlib.get_thresholds(
         bam_file, chrom_lst, tname2tsize
     )
     if phase:

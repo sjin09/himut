@@ -6,7 +6,6 @@ import natsort
 import himut.util
 import himut.cslib
 import himut.gtlib
-import himut.dbslib
 import himut.haplib
 import himut.mutlib
 import himut.bamlib
@@ -44,7 +43,6 @@ def get_somatic_substitutions(
     loci_lst: List[Tuple[str, int, int]],
     min_mapq: int,
     min_trim: float,
-    qlen_mean: int,
     qlen_lower_limit: int,
     qlen_upper_limit: int,
     min_sequence_identity: float,
@@ -303,7 +301,7 @@ def call_somatic_substitutions(
     cpu_start = time.time() / 60
     _, tname2tsize = himut.bamlib.get_tname2tsize(bam_file)
     chrom_lst, chrom2loci_lst = himut.util.load_loci(region, region_list, tname2tsize)
-    qlen_mean, qlen_lower_limit, qlen_upper_limit, md_threshold = himut.bamlib.get_thresholds(
+    qlen_lower_limit, qlen_upper_limit, md_threshold = himut.bamlib.get_thresholds(
         bam_file, chrom_lst, tname2tsize
     )
     himut.util.check_caller_input_exists(
@@ -390,7 +388,6 @@ def call_somatic_substitutions(
             chrom2loci_lst[chrom],
             min_mapq,
             min_trim,
-            qlen_mean,
             qlen_lower_limit,
             qlen_upper_limit,
             min_sequence_identity,

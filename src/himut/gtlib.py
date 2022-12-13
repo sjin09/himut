@@ -2,7 +2,6 @@ import math
 import numpy as np
 import himut.util
 import himut.cslib
-import himut.dbslib
 import himut.haplib
 import himut.mutlib
 import himut.bamlib
