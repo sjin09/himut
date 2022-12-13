@@ -16,12 +16,12 @@ def main():
     if options.sub == "call":  # call somatic substitutions
         himut.util.check_num_threads(options.threads)
         himut.caller.call_somatic_substitutions(
-            options.bam, # input # bam_file
-            options.vcf, # germline mutations
-            options.phased_vcf, # phased germline mutations
+            options.bam, # BAM file
+            options.ref, # reference FASTA file 
+            options.vcf, # VCF file: germline mutations
+            options.phased_vcf, # VCF file: phased germline mutations
             options.region, # target contigs/scaffolds/chromosomes
             options.region_list, # target contigs/scaffolds/chromosomes fofn
-            options.ploidy, # haploid, diploid or polyploid
             options.min_mapq, # int: 0-60
             options.min_trim, # float: 0.01 - 0.1
             options.min_sequence_identity, # float: blast sequence identity
@@ -42,6 +42,7 @@ def main():
             options.threads, # maxminum number of threads
             options.phase, # bool
             options.non_human_sample, # bool
+            options.reference_sample, # bool
             options.create_panel_of_normal, # bool
             __version__, # str
             options.out, # output # himut vcf file
@@ -76,7 +77,6 @@ def main():
             options.sbs,
             options.vcf,
             options.phased_vcf,
-            options.ploidy,
             options.min_mapq,
             options.min_trim,
             options.min_sequence_identity,
@@ -84,15 +84,20 @@ def main():
             options.min_alignment_proportion, 
             options.common_snps,
             options.panel_of_normals,
+            options.min_gq,
             options.min_bq,
             options.mismatch_window,
             options.max_mismatch_count,
             options.min_ref_count,
             options.min_alt_count,
+            options.somatic_snv_prior,
+            options.germline_snv_prior,
+            options.germline_indel_prior,
             options.threads,
             options.phase,
+            options.reference_sample,
             options.non_human_sample,
-            options.normcounts
+            options.out
         )
     else:
         print("The subcommand does not exist!\n")

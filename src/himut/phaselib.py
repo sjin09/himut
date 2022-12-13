@@ -1,5 +1,4 @@
 import time
-import json
 import pysam
 import queue
 import bisect
@@ -28,29 +27,32 @@ def get_edges(
     edge2counts = defaultdict(lambda: np.zeros(4))
     alignments = pysam.AlignmentFile(bam_file, "rb")
     for line in alignments.fetch(chrom):
-        read = himut.bamlib.BAM(line)
-        if read.mapq < min_mapq:
+        ccs = himut.bamlib.BAM(line)
+        if not ccs.is_primary:
             continue
 
-        _idx = bisect.bisect_right(hpos_lst, read.tstart)
-        _jdx = bisect.bisect_right(hpos_lst, read.tend)
+        if ccs.mapq < min_mapq:
+            continue
+
+        _idx = bisect.bisect_right(hpos_lst, ccs.tstart)
+        _jdx = bisect.bisect_right(hpos_lst, ccs.tend)
         if _idx == _jdx:
             continue
         elif _jdx - _idx == 1:
             continue
 
-        himut.cslib.cs2tuple(read)
-        tpos2qbase = himut.cslib.cs2tpos2qbase(read)
+        ccs.cs2tpos2qbase()
+        # himut.cslib.cs2tpos2qbase(ccs)
         hetsnp_subset_lst = [hetsnp_lst[_kdx] for _kdx in range(_idx, _jdx)]
         for idx, snpidx in enumerate(hetsnp_subset_lst):
             i = hetsnp2hidx[snpidx]
-            ibase, ibq = tpos2qbase[snpidx[0]]
+            ibase, ibq = ccs.tpos2qbase[snpidx[0]]
             if ibq < min_bq: 
                 continue
             idx_state = 0 if ibase == snpidx[1] else 1
             for snpjdx in hetsnp_subset_lst[idx + 1:]:
                 j = hetsnp2hidx[snpjdx]
-                jbase, jbq = tpos2qbase[snpjdx[0]] 
+                jbase, jbq = ccs.tpos2qbase[snpjdx[0]] 
                 if jbq < min_bq:
                     continue
                 jdx_state = 0 if jbase == snpjdx[1] else 1
@@ -269,9 +271,9 @@ def get_chrom_hblock(
     cpu_start = time.time() / 60
     print("himut is phasing hetsnps with {} threads".format(threads))
     himut.util.check_num_threads(threads)
-    himut.util.check_phaser_input_exists(bam_file, vcf_file, out_file) 
     _, tname2tsize = himut.bamlib.get_tname2tsize(bam_file)
     chrom_lst, _ = himut.util.load_loci(region, region_lst, tname2tsize)
+    himut.util.check_phaser_input_exists(bam_file, vcf_file, out_file, chrom_lst, tname2tsize) 
     
     p = mp.Pool(threads)
     manager = mp.Manager()
@@ -309,8 +311,8 @@ def get_chrom_hblock(
     )
     himut.vcflib.dump_hblock_statistics(
         chrom_lst, 
-        chrom2hblock_statistics, 
-        vcf_file.replace(".vcf", ".log")
+        chrom2hblock_statistics,
+        "haplotype_phasing.log" 
     )
     print("himut finished returning phased hetsnps")    
     cpu_end = time.time() / 60

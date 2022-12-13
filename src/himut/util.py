@@ -6,19 +6,20 @@ import cyvcf2
 import psutil
 import pyfastx
 import natsort
+import numpy as np 
 import himut.vcflib
 from collections import defaultdict
 from typing import Set, List, Dict, Tuple
 
 
 base_lst = list("ATGC")
+base_set = set(base_lst)
 allele_lst = list("ATGC+-")
 base2idx = {base: idx for idx, base in enumerate(base_lst)}
 idx2base = {idx: base for idx, base in enumerate(base_lst)}
 allele2idx = {allele: idx for idx, allele in enumerate(allele_lst)}
 idx2allele = {idx: allele for idx, allele in enumerate(allele_lst)}
 gt_lst = ["AA", "TA", "CA", "GA", "TT", "CT", "GT", "CC", "GC", "GG"]
-# gt_lst = ["AA", "TA", "CA", "GA", "TT", "CT", "GT", "CC", "GC", "GG", "A+", "T+", "G+", "C+", "A-", "T-", "G-", "C-", "++", "+-"]
 
 
 class NestedDefaultDict(defaultdict):
@@ -258,6 +259,85 @@ def check_vcf_file(
             return 1
 
 
+def is_sbs_file_corrupt(
+    vcf_file: str,
+    tname_lst: List[str],
+    tname2tsize: Dict[str, int]
+) -> bool:
+
+
+    hsh = defaultdict(lambda: 0)
+    if vcf_file.endswith(".vcf"):
+        for line in open(vcf_file):
+            if line.startswith("#"):
+                continue
+            arr = line.strip().split()
+            chrom = arr[0]
+            ref = arr[3] 
+            alt_lst = arr[4].split(",")
+            if arr[6] == "PASS" and len(alt_lst) == 1:
+                alt = alt_lst[0] 
+                if len(ref) == 1 and len(alt) == 1:
+                    hsh[chrom] += 1
+    elif vcf_file.endswith(".bgz"):
+        tb = tabix.open(vcf_file)
+        for tname in tname_lst:
+            try:
+                records = tb.query(chrom, 0, tname2tsize[chrom])
+                hsh[chrom] = len(list(records))
+            except tabix.TabixError:
+                continue
+
+    state = 0
+    for tname in tname_lst:
+        if hsh[tname] != 0:
+            state = 1
+    if state == 1:
+        return 0
+    else:
+        return 1 
+
+
+def check_sbs_file(
+    param: str, 
+    sbs_file: str,
+    tname_lst: List[str],
+    tname2tsize: Dict[str, int]
+):
+    if sbs_file is None:
+        print("Please provide the path to the sbs file for the following argument: {}".format(param))
+        return 1
+    else: 
+        if os.path.exists(sbs_file):
+            if sbs_file.endswith(".vcf"):
+                if os.path.getsize(sbs_file) == 0:
+                    return 1
+                else:
+                    if is_sbs_file_corrupt(sbs_file, tname_lst, tname2tsize):
+                        return 1
+                    else:
+                        return 0
+            elif sbs_file.endswith(".bgz"):
+                tbi_file = sbs_file + ".tbi"  
+                if os.path.exists(tbi_file):
+                    if is_sbs_file_corrupt(sbs_file, tname_lst, tname2tsize):
+                        return 1
+                    else:
+                        return 0
+                else:
+                    print("tabix index file does not exist {} {}".format(param, sbs_file))
+                    return 1
+            elif sbs_file.endswith(".gz"):
+                print("himut doesn't support loading of gzip compressed sbs files {} {}".format(param, sbs_file)) 
+                return 1
+            else:
+                print("sbs file must have the .vcf suffix {} {}".format(param, sbs_file))
+                return 1
+        else:
+            print("{} {} file is missing".format(param, sbs_file))
+            return 1
+
+
 def check_out_file(out_file: str):
     if out_file is None:
         return 1
@@ -390,13 +470,13 @@ def check_phased_vcf_file(
 
 def check_caller_input_exists(
     bam_file: str,
+    ref_file: str,
     vcf_file: str,
     phased_vcf_file: str,
     common_snps: str,
     panel_of_normals: str,
     chrom_lst: List[str],
     tname2tsize: Dict[str, int],
-    ploidy: str,
     phase: bool,
     non_human_sample: bool,
     create_panel_of_normals: bool,
@@ -405,10 +485,13 @@ def check_caller_input_exists(
 
     counter = 0
     counter += check_bam_file(bam_file, chrom_lst)
-    counter += check_vcf_file("--vcf", vcf_file, chrom_lst, tname2tsize)
     counter += check_out_file(out_file)
     if phase:
         counter += check_phased_vcf_file(phased_vcf_file, chrom_lst, tname2tsize)
+    
+    if non_human_sample:
+        counter += check_ref_file(ref_file, chrom_lst)
+        counter += check_vcf_file("--vcf", vcf_file, chrom_lst, tname2tsize)
         
     if not non_human_sample and create_panel_of_normals:
         counter += check_vcf_file("--common_snps", common_snps, chrom_lst, tname2tsize)
@@ -417,10 +500,6 @@ def check_caller_input_exists(
         counter += check_vcf_file("--common_snps", common_snps, chrom_lst, tname2tsize)
         counter += check_vcf_file("--panel_of_normals", panel_of_normals, chrom_lst, tname2tsize)
 
-    if not (ploidy in ("haploid", "diploid")):
-        print("himut currently doesn't support samples with {} ploidy".format(ploidy))
-        counter += 1
-
     if counter > 0:
         print("One or more inputs and parameters are missing")
         print("Please provide the correct inputs and parameters")
@@ -428,15 +507,16 @@ def check_caller_input_exists(
 
 
 def check_phaser_input_exists(
-    chrom_lst: List[str],
     bam_file: str,
     vcf_file: str,
     out_file: str, 
+    chrom_lst: List[str],
+    tname2tsize: Dict[str, int]
 ) -> None:
 
     counter = 0
     counter += check_bam_file(bam_file, chrom_lst)
-    counter += check_vcf_file("--vcf", vcf_file, chrom_lst)
+    counter += check_vcf_file("--vcf", vcf_file, chrom_lst, tname2tsize)
     counter += check_out_file(out_file)
     if not out_file.endswith(".phased.vcf"):
         print("Please use the suffix .phased.vcf for the output file")
@@ -453,7 +533,7 @@ def check_mutpatterns_input_exists(
     ref_file: str, 
     region: str,
     region_list: str,
-    # tname2tsize: Dict[str, int],
+    tname2tsize: Dict[str, int],
     out_file: str
 ):
 
@@ -469,7 +549,6 @@ def check_mutpatterns_input_exists(
         print("himut will return SBS96/DBS78 counts from all chromosomes and contigs")
 
     chrom_lst, _  = load_loci(region, region_list, tname2tsize)       
-    ## util.load() 
     counter += check_vcf_file("--input", vcf_file, chrom_lst)
     counter += check_ref_file(ref_file, chrom_lst)  
     counter += check_tsv_file(out_file)  
@@ -487,28 +566,38 @@ def check_normcounts_input_exists(
     phased_vcf_file: str,
     common_snps: str,
     panel_of_normals: str,
+    tname_lst: List[str],
+    tname2tsize: Dict[str, int],
     phase: bool,
+    reference_sample: bool,
     non_human_sample: bool,
     out_file: str,
 ) -> None:
 
     counter = 0
-    counter += check_bam_file(bam_file)
-    counter += check_ref_file(ref_file)
-    counter += check_vcf_file(vcf_file, "--vcf")
-    counter += check_vcf_file(sbs_file, "--sbs")
+    if himut.util.check_sbs_file("--sbs", sbs_file, tname_lst, tname2tsize):
+        himut.util.exit()
+    chrom_lst, sbs2count = himut.mutlib.load_sbs_count(sbs_file, ref_file)
+    counter += check_bam_file(bam_file, chrom_lst)
+    counter += check_ref_file(ref_file, chrom_lst)
+    
     if phase:
-        counter += check_phased_vcf_file(phased_vcf_file)
+        counter += check_phased_vcf_file(phased_vcf_file, chrom_lst, tname2tsize)
+
+    if reference_sample:
+        counter += check_vcf_file("--vcf", vcf_file, chrom_lst, tname2tsize) 
     
     if not non_human_sample: 
-        counter += check_vcf_file(common_snps, "--common_snps") 
-        counter += check_vcf_file(panel_of_normals, "--panel_of_normals")
+        counter += check_vcf_file("--common_snps", common_snps, chrom_lst, tname2tsize) 
+        counter += check_vcf_file("--panel_of_normals", panel_of_normals,  chrom_lst, tname2tsize)
+
 
     counter += check_tsv_file(out_file)
     if counter > 0:
         print("One or more inputs and parameters are missing")
         print("Please provide the correct inputs and parameters")
         exit()
+    return chrom_lst, sbs2count
 
 
 def get_mismatch_range(
@@ -532,23 +621,49 @@ def get_mismatch_range(
     return tstart, tend
 
 
-def get_blast_sequence_identity(read) -> float: 
-
-    mismatch_count = 0
-    for cstuple in read.cstuple_lst:
-        mstate, _ref, _alt, ref_len, alt_len = cstuple
-        if mstate == 1:  # match
-            continue
-        elif mstate == 2:  # mismatch: snp
-            mismatch_count += 1
-        elif mstate == 3:  # mismatch: insertion
-            mismatch_count += alt_len
-        elif mstate == 4:  # mismatch: deletion
-            mismatch_count += ref_len
-    blast_sequence_identity = (read.target_alignment_length - mismatch_count)/float(read.target_alignment_length)
-    return blast_sequence_identity
+def get_truncated_float(f: float) -> float:
+    
+    flst = [round(f, i) for i in range(1,10)]
+    mindex = max([j for j, k in enumerate(flst) if k == 0.0]) + 1
+    tf = flst[mindex]
+    return tf
 
 
+def init_allelecounts():
+    tpos2allelecounts = defaultdict(lambda: np.zeros(6)) 
+    tpos2allele2bq_lst = defaultdict(lambda: {0: [], 1:[], 2:[], 3:[], 4:[], 5:[]})
+    tpos2allele2ccs_lst = defaultdict(lambda: {0: [], 1:[], 2:[], 3:[], 4:[], 5:[]})
+    return tpos2allele2bq_lst, tpos2allele2ccs_lst, tpos2allelecounts 
 
 
+def update_allelecounts(
+    ccs,
+    tpos2allelecounts: Dict[int, np.ndarray],
+    tpos2allele2bq_lst: Dict[int, Dict[int, List[int]]],
+    tpos2allele2ccs_lst: Dict[int, Dict[int, List[str]]],
+) -> None:
 
+    tpos = ccs.tstart
+    qpos = ccs.qstart
+    for cstuple in ccs.cstuple_lst:
+        state, ref, alt, ref_len, alt_len, = cstuple
+        if state == 1:  # match
+            for i, alt_base in enumerate(alt):
+                tpos2allelecounts[tpos + i + 1][himut.util.base2idx[alt_base]] += 1
+                tpos2allele2ccs_lst[tpos + i + 1][himut.util.base2idx[alt_base]].append(ccs.qname)
+                tpos2allele2bq_lst[tpos + i + 1][himut.util.base2idx[alt_base]].append(ccs.bq_int_lst[qpos + i])
+        elif state == 2:  # sub
+            tpos2allelecounts[tpos + 1][himut.util.base2idx[alt]] += 1
+            tpos2allele2ccs_lst[tpos + 1][himut.util.base2idx[alt]].append(ccs.qname)
+            tpos2allele2bq_lst[tpos + 1][himut.util.base2idx[alt]].append(ccs.bq_int_lst[qpos])
+        elif state == 3:  # insertion
+            tpos2allelecounts[tpos + 1][4] += 1
+            tpos2allele2ccs_lst[tpos + 1][4].append(ccs.qname)
+            tpos2allele2bq_lst[tpos + 1][4].append(ccs.bq_int_lst[qpos])
+        elif state == 4:  # deletion
+            for j in range(len(ref[1:])):
+                tpos2allelecounts[tpos + j + 1][5] += 1
+                tpos2allele2bq_lst[tpos + j + 1][5].append(0)
+                tpos2allele2ccs_lst[tpos + j + 1][5].append(ccs.qname)
+        tpos += ref_len
+        qpos += alt_len
