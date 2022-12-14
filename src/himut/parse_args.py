@@ -132,7 +132,7 @@ def parse_args(program_version, arguments=sys.argv[1:]):
     parser_call.add_argument(
         "--min_gq",
         type=int,
-        default=40,
+        default=60,
         required=False,
         help="minimum germline genotype quality (GQ) score "
     )
