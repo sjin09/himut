@@ -283,7 +283,7 @@ def is_sbs_file_corrupt(
         tb = tabix.open(vcf_file)
         for tname in tname_lst:
             try:
-                records = tb.query(chrom, 0, tname2tsize[chrom])
+                records = tb.query(tname, 0, tname2tsize[tname])
                 hsh[chrom] = len(list(records))
             except tabix.TabixError:
                 continue
@@ -600,26 +600,6 @@ def check_normcounts_input_exists(
     return chrom_lst, sbs2count
 
 
-def get_mismatch_range(
-    tpos: int, 
-    qpos: int,
-    qlen: int, 
-    window: int
-):
-    qstart, qend = [qpos - window, qpos + window]
-    if qstart < 0:
-        urange = window + qstart
-        drange = window + abs(qstart)
-    elif qend > qlen:
-        urange = window + abs(qend - qlen)
-        drange = qlen - qpos
-    else:
-        urange = window
-        drange = window
-    tstart = tpos - urange
-    tend = tpos + drange
-    return tstart, tend
-
 
 def get_truncated_float(f: float) -> float:
     
@@ -635,35 +615,3 @@ def init_allelecounts():
     tpos2allele2ccs_lst = defaultdict(lambda: {0: [], 1:[], 2:[], 3:[], 4:[], 5:[]})
     return tpos2allele2bq_lst, tpos2allele2ccs_lst, tpos2allelecounts 
 
-
-def update_allelecounts(
-    ccs,
-    tpos2allelecounts: Dict[int, np.ndarray],
-    tpos2allele2bq_lst: Dict[int, Dict[int, List[int]]],
-    tpos2allele2ccs_lst: Dict[int, Dict[int, List[str]]],
-) -> None:
-
-    tpos = ccs.tstart
-    qpos = ccs.qstart
-    for cstuple in ccs.cstuple_lst:
-        state, ref, alt, ref_len, alt_len, = cstuple
-        if state == 1:  # match
-            for i, alt_base in enumerate(alt):
-                tpos2allelecounts[tpos + i + 1][himut.util.base2idx[alt_base]] += 1
-                tpos2allele2ccs_lst[tpos + i + 1][himut.util.base2idx[alt_base]].append(ccs.qname)
-                tpos2allele2bq_lst[tpos + i + 1][himut.util.base2idx[alt_base]].append(ccs.bq_int_lst[qpos + i])
-        elif state == 2:  # sub
-            tpos2allelecounts[tpos + 1][himut.util.base2idx[alt]] += 1
-            tpos2allele2ccs_lst[tpos + 1][himut.util.base2idx[alt]].append(ccs.qname)
-            tpos2allele2bq_lst[tpos + 1][himut.util.base2idx[alt]].append(ccs.bq_int_lst[qpos])
-        elif state == 3:  # insertion
-            tpos2allelecounts[tpos + 1][4] += 1
-            tpos2allele2ccs_lst[tpos + 1][4].append(ccs.qname)
-            tpos2allele2bq_lst[tpos + 1][4].append(ccs.bq_int_lst[qpos])
-        elif state == 4:  # deletion
-            for j in range(len(ref[1:])):
-                tpos2allelecounts[tpos + j + 1][5] += 1
-                tpos2allele2bq_lst[tpos + j + 1][5].append(0)
-                tpos2allele2ccs_lst[tpos + j + 1][5].append(ccs.qname)
-        tpos += ref_len
-        qpos += alt_len

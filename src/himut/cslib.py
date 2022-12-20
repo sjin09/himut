@@ -75,6 +75,9 @@ def cs2mut(ccs):
     ccs.qdbs_lst = [] 
     ccs.qsbs_bq_lst = []
     ccs.qdbs_bq_lst = []
+    ccs.tmbs_lst = []
+    ccs.tindel_lst = []
+    ccs.tcomplex_lst = []
     ccs.mismatch_lst = []
     tpos = ccs.tstart
     qpos = ccs.qstart
@@ -131,22 +134,23 @@ def cs2mut(ccs):
                 ccs.qsbs_bq_lst.append(ccs.bq_int_lst[qstart])
                 ccs.tsbs_lst.append((tstart + 1, ref, alt))
                 ccs.qsbs_lst.append((qstart, alt, ref))
-            # elif len(ref) < len(alt) and mcount == 1:  # insertion
-            #     ccs.tindel_lst.append(tstart + 1, ref, alt)
-            # elif len(ref) > len(alt) and mcount == 1:  # deletion
-            #     ccs.tindel_lst.append(tstart + 1, ref, alt)
-            # elif len(ref) == len(alt) and mcount > 1:  # mbs
-            #     if ref_len == alt_len == 2:
-            #         tdbs_lst.append(tstart + 1, ref, alt)
-            #         qdbs_lst.append(qstart, alt, ref)
-            #         dbs_bq_lst.append(ccs.bq_int_lst[qstart:qstart+2])
-            #     else:
-            #         ccs.tmbs_lst.append(tstart + 1, ref, alt)
-            # elif ref_len != alt_len and mcount > 1:  # complex
-            #     ccs.tcomplex_lst.append(tstart + 1, ref, alt)
+            elif len(ref) < len(alt) and mcount == 1:  # insertion
+                ccs.tindel_lst.append((tstart + 1, ref, alt))
+            elif len(ref) > len(alt) and mcount == 1:  # deletion
+                ccs.tindel_lst.append((tstart + 1, ref, alt))
+            elif len(ref) == len(alt) and mcount > 1:  # mbs
+                if ref_len == alt_len == 2:
+                    ccs.tdbs_lst.append((tstart + 1, ref, alt))
+                    ccs.qdbs_lst.append((qstart, alt, ref))
+                    ccs.dbs_bq_lst.append(ccs.bq_int_lst[qstart:qstart+2])
+                else:
+                    ccs.tmbs_lst.append((tstart + 1, ref, alt))
+            elif ref_len != alt_len and mcount > 1:  # complex
+                ccs.tcomplex_lst.append((tstart + 1, ref, alt))
             ccs.mismatch_lst.append((tstart+1, ref, alt)) 
             counter = 0
             state = 0  
+
 
 
 def update_allelecounts(
@@ -158,8 +162,7 @@ def update_allelecounts(
 
     tpos = ccs.tstart
     qpos = ccs.qstart
-    for cstuple in ccs.cstuple_lst:
-        state, ref, alt, ref_len, alt_len, = cstuple
+    for (state, ref, alt, ref_len, alt_len) in ccs.cstuple_lst:
         if state == 1:  # match
             for i, alt_base in enumerate(alt):
                 tpos2allelecounts[tpos + i + 1][himut.util.base2idx[alt_base]] += 1
@@ -171,13 +174,10 @@ def update_allelecounts(
             tpos2allele2bq_lst[tpos + 1][himut.util.base2idx[alt]].append(ccs.bq_int_lst[qpos])
         elif state == 3:  # insertion
             tpos2allelecounts[tpos + 1][4] += 1
-            tpos2allele2ccs_lst[tpos + 1][4].append(ccs.qname)
-            tpos2allele2bq_lst[tpos + 1][4].append(ccs.bq_int_lst[qpos])
+            pass
         elif state == 4:  # deletion
             for j in range(len(ref[1:])):
                 tpos2allelecounts[tpos + j + 1][5] += 1
-                tpos2allele2bq_lst[tpos + j + 1][5].append(0)
-                tpos2allele2ccs_lst[tpos + j + 1][5].append(ccs.qname)
         tpos += ref_len
         qpos += alt_len
 
@@ -187,8 +187,7 @@ def cs2tpos2qbase(ccs):
     tpos = ccs.tstart
     qpos = ccs.qstart
     ccs.tpos2qbase = {}
-    for cstuple in ccs.cstuple_lst:
-        state, ref, alt, ref_len, alt_len, = cstuple
+    for (state, ref, alt, ref_len, alt_len) in ccs.cstuple_lst:
         if state == 1:  # match
             for i, alt_base in enumerate(alt):
                 ccs.tpos2qbase[tpos + i + 1] = (alt_base, ccs.bq_int_lst[qpos + i])

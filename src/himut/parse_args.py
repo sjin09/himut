@@ -200,11 +200,12 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         help="germline indel prior"
     )
     parser_call.add_argument(
+        "-t",
         "--threads",
         type=int,
         default=1,
         required=False,
-        help="maximum number of threads to use"
+        help="number of threads to use"
     )
     parser_call.add_argument(
         "--phase",
@@ -222,7 +223,7 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         "--non_human_sample",
         required=False,
         action="store_true",
-        help="human (default) or non-human sample?"
+        help="human (default) or non-human sample"
     )
     parser_call.add_argument(
         "--create_panel_of_normal",
@@ -540,7 +541,7 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         type=int,
         default=1,
         required=False,
-        help="number of threads",
+        help="number of threads to use",
     )
     parser_normcounts.add_argument(
         "--phase",
@@ -558,7 +559,7 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         "--non_human_sample",
         required=False,
         action="store_true",
-        help="human or non_human_sample?"
+        help="human or non_human_sample"
     )
     parser_normcounts.add_argument(
         "-o",

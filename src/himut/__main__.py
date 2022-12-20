@@ -95,8 +95,8 @@ def main():
             options.germline_indel_prior,
             options.threads,
             options.phase,
-            options.reference_sample,
             options.non_human_sample,
+            options.reference_sample,
             options.out
         )
     else:

@@ -122,8 +122,8 @@ def get_himut_vcf_header(
     germline_snv_prior: float,
     germline_indel_prior: float,
     phase: bool,
-    reference_sample: bool,
     non_human_sample: bool,
+    reference_sample: bool,
     create_panel_of_normals: bool,
     version: str,
     out_file: str,
@@ -136,15 +136,19 @@ def get_himut_vcf_header(
         "##source_version={}".format(version),
         '##content=himut somatic single base substitutions',
         '##FILTER=<ID=PASS,Description="All filters passed">',
-        '##FILTER=<ID=LowBQ,Description="Base quality score is below minimum base quality score of {}">'.format(min_bq),
-        '##FILTER=<ID=CommonVariant,Description="Substitution is found within the provided VCF file">',
+        '##FILTER=<ID=LowBQ,Description="Base quality score is below the minimum base quality score of {}">'.format(min_bq),
+        '##FILTER=<ID=LowGQ,Description="Germline genotype quality score is below the minimum genotype quality score of {}">'.format(min_gq),
+        '##FILTER=<ID=HetSite,Description="Somatic substitution at heterzygous SNP site is not considered">',
+        '##FILTER=<ID=HetAltSite,Description="Somatic substitution at tri-allelic SNP site is not considered">',
+        '##FILTER=<ID=HomAltSite,Description="Somatic substitution at homozygous alternative SNP site is not considered">',
+        '##FILTER=<ID=IndelSite,Description="Somatic substitution at indel site is not considered">',
+        '##FILTER=<ID=ContRead,Description="Substitution is potentially from genomic DNA contamination">',
         '##FILTER=<ID=PanelOfNormal,Description="Substitution is found within the Panel of Normal VCF file">',
-        '##FILTER=<ID=Trimmed,Description="Substitution are positioned near the end of reads">',
+        '##FILTER=<ID=LowDepth,Description="Read depth is above the minimum depth threshold of {}">'.format(min_ref_count + min_alt_count),
         '##FILTER=<ID=HighDepth,Description="Read depth is above the maximum depth threshold of {}">'.format(md_threshold),
-        '##FILTER=<ID=InsufficientDepth,Description="Reference allele depth is below minimum allele balance threshold of {}">'.format(min_ref_count),
-        '##FILTER=<ID=MismatchConflict,Description="A mismatch(es) is found near the substitution">',
-        '##FILTER=<ID=IndelConflict,Description="CCS reads have insertions or deletions in the same position as the substitution">',
-        '##FILTER=<ID=UnphasedRead,Description="CCS read is not assigned to a haplotype block">',
+        '##FILTER=<ID=Trimmed,Description="Substitution is positioned near the end of reads">',
+        '##FILTER=<ID=MismatchConflict,Description="Substitution is found next to a mismatch within a given mismatch window">',
+        '##FILTER=<ID=Unphased,Description="CCS read is not haplotype phased">',
         '##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">',
         '##FORMAT=<ID=BQ,Number=1,Type=Float,Description="Average base quality">',
         '##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read depth">',
@@ -186,7 +190,7 @@ def get_himut_vcf_header(
     if phase:
         if non_human_sample and not create_panel_of_normals:
             if reference_sample:
-                cmdline = "##himut_command=himut call -i {} --vcf {} --phased_vcf {} {} --phase --reference_sample --non_human_sample".format(bam_file, vcf_file, phased_vcf_file, cmdline)
+                cmdline = "##himut_command=himut call -i {} --vcf {} --phased_vcf {} {} --phase --non_human_sample --reference_sample".format(bam_file, vcf_file, phased_vcf_file, cmdline)
             else: 
                 cmdline = "##himut_command=himut call -i {} --vcf {} --phased_vcf {} {} --phase --non_human_sample".format(bam_file, vcf_file, phased_vcf_file, cmdline)
         elif not non_human_sample and create_panel_of_normals:
@@ -641,34 +645,36 @@ def dump_sbs(
         
     o = open(out_file, "w")
     p = open(out_file.replace(".vcf", ".single_molecule_mutations.vcf"), "w")
+    tsbs_lst = [tsbs for chrom in chrom_lst for tsbs in chrom2tsbs_lst[chrom]]
     o.write("{}\n".format(header))
     p.write("{}\n".format(header))
-    for chrom in chrom_lst:
-        for (chrom, pos, ref, alt, annot, bq, total_count, ref_count, alt_count, vaf, phase_set) in chrom2tsbs_lst[chrom]:
-            if phase:
-                o.write(
-                    "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF:PS:HAP\t./.:{}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}:{}\n".format(
-                        chrom, pos, ref, alt, annot, bq, total_count, ref_count, alt_count, vaf, phase_set
+
+    if phase:
+        for (chrom, pos, ref, alt, annot, bq, read_depth, ref_count, alt_count, vaf, phase_set) in tsbs_lst:
+            o.write(
+                "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF:PS\t./.:{:0.0f}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}:{}\n".format(
+                    chrom, pos, ref, alt, annot, bq, read_depth, ref_count, alt_count, vaf, phase_set
+                )
+            )
+            if alt_count == 1:
+                p.write(
+                    "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF:PS\t./.:{:0.0f}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}:{}\n".format(
+                        chrom, pos, ref, alt, annot, bq, read_depth, ref_count, alt_count, vaf, phase_set
                     )
                 )
-                if alt_count == 1:
-                    p.write(
-                        "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF:PS\t./.:{}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}:{}\n".format(
-                            chrom, pos, ref, alt, annot, bq, total_count, ref_count, alt_count, vaf, phase_set
-                        )
-                    )
-            else:
-                o.write(
-                    "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF\t./.:{}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}\n".format(
-                        chrom, pos, ref, alt, annot, bq, total_count, ref_count, alt_count, vaf
+    else:
+        for (chrom, pos, ref, alt, annot, bq, read_depth, ref_count, alt_count, vaf, phase_set) in tsbs_lst:
+            o.write(
+                "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF\t./.:{:0.0f}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}\n".format(
+                    chrom, pos, ref, alt, annot, bq, read_depth, ref_count, alt_count, vaf
+                )
+            )
+            if alt_count == 1:
+                p.write(
+                    "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF\t./.:{:0.0f}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}\n".format(
+                        chrom, pos, ref, alt, annot, bq, read_depth, ref_count, alt_count, vaf
                     )
                 )
-                if alt_count == 1:
-                    p.write(
-                        "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF\t./.:{}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}\n".format(
-                            chrom, pos, ref, alt, annot, bq, total_count, ref_count, alt_count, vaf
-                        )
-                    )
     o.close()
     p.close()
     

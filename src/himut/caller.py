@@ -6,31 +6,93 @@ import natsort
 import himut.util
 import himut.cslib
 import himut.gtlib
+import himut.bamlib
 import himut.haplib
 import himut.mutlib
-import himut.bamlib
+import himut.somlib
 import himut.vcflib
 import multiprocessing as mp
 from collections import defaultdict
 from typing import Dict, List, Tuple
 
 
-def is_germ_gt(
-    som_gt: str,
-    germ_gt: str
-):
-    if som_gt == germ_gt:
+def is_chunk(
+    tpos: int, 
+    start: int, 
+    end: int
+) -> bool:
+    if start <= tpos and tpos <= end:
         return True
     else:
         return False 
 
 
-def get_n_choose_k(
-    k: int,
-    n: int, 
-) -> int:
-    n_choose_k = math.factorial(n)/(math.factorial(k)*math.factorial((n-k))) 
-    return n_choose_k
+def is_germ_gt(
+    som_gt: str,
+    germ_gt: str,
+    germ_gt_state: str,
+    allelecounts: Dict[int, int],
+) -> bool:
+
+    if germ_gt_state == "het": 
+        if som_gt == germ_gt:
+            return True
+        else:
+            return False
+    elif germ_gt_state == "hetalt":
+        base_sum = sum([allelecounts[himut.util.base2idx[base]] for base in himut.util.base_lst])
+        base_counts = allelecounts[himut.util.base2idx[germ_gt[0]]] + allelecounts[himut.util.base2idx[germ_gt[1]]]
+        if base_sum == base_counts and (som_gt[1] == germ_gt[0] or som_gt[1] == germ_gt[1]):
+            return True
+        else:
+            return False
+    elif germ_gt_state == "homalt":
+        ref_count = allelecounts[himut.util.base2idx[som_gt[0]]]
+        if ref_count == 0 and germ_gt.count(som_gt[1]) == 2:
+            return True
+        else:
+            return False
+    elif germ_gt_state == "homref":
+        if som_gt[1] == germ_gt[0]:
+            return True
+        else:
+            return False
+
+
+def is_low_bq(
+    alt: str,
+    min_bq: int, 
+    allele2bq_lst: Dict[str, List[int]]
+) -> bool:
+    alt_bq_lst = allele2bq_lst[himut.util.base2idx[alt]]
+    if alt_bq_lst.count(min_bq) == 0:
+        return True
+    else:
+        return False
+
+
+def is_low_gq(
+    min_gq: int,
+    germ_gq: float,
+) -> bool:
+    if germ_gq < min_gq:
+        return True
+    else:
+        return False
+
+
+def is_hap_phased(
+    hap2count: Dict[str, int],
+    som_hap_count: int,
+    min_hap_count: int,
+) -> bool:
+
+    h0_count = hap2count["0"]
+    h1_count = hap2count["1"]
+    if som_hap_count == 1 and (h0_count >= min_hap_count and h1_count >= min_hap_count):
+        return True
+    else:
+        return False
 
 
 def get_somatic_substitutions(
@@ -61,7 +123,6 @@ def get_somatic_substitutions(
     germline_indel_prior: float,
     phase: bool,
     non_human_sample: bool,
-    reference_sample: bool,
     create_panel_of_normals: bool,
     chrom2tsbs_lst: Dict[str, List[List[Tuple[str, int, str, str, int, int, int, int, str]]]],
 ) -> List[Tuple[str, int, str, str, int, int, int, float, float]]:
@@ -69,6 +130,8 @@ def get_somatic_substitutions(
     seen = set()
     pon_sbs_set = set()
     common_snp_set = set()
+    himut.gtlib.init(germline_snv_prior)
+    himut.somlib.init(germline_snv_prior)
     if not non_human_sample and common_snps.endswith(".vcf"):
         common_snp_set = himut.vcflib.load_common_snp(chrom, common_snps)
 
@@ -105,20 +168,15 @@ def get_somatic_substitutions(
             ccs = himut.bamlib.BAM(i)
             if not ccs.is_primary:
                 continue
-            
-            himut.util.update_allelecounts(ccs, tpos2allelecounts, tpos2allele2bq_lst, tpos2allele2ccs_lst)
+            himut.cslib.update_allelecounts(ccs, tpos2allelecounts, tpos2allele2bq_lst, tpos2allele2ccs_lst)
             if ccs.mapq < min_mapq:
                 continue
-
             if ccs.qlen < qlen_lower_limit or ccs.qlen > qlen_upper_limit:
                 continue
-
             if ccs.get_hq_base_proportion() < min_hq_base_proportion:
                 continue
-
             if ccs.get_blast_sequence_identity() < min_sequence_identity:
                 continue
-
             if ccs.get_query_alignment_proportion() < min_alignment_proportion:
                 continue 
 
@@ -127,139 +185,104 @@ def get_somatic_substitutions(
             if len(ccs_somatic_tsbs_candidate_lst) == 0:
                 continue
             somatic_tsbs_candidate_lst.extend(ccs_somatic_tsbs_candidate_lst)
-            
+
         for tsbs in set(somatic_tsbs_candidate_lst):
             if tsbs in seen:
                 continue
-           
-            seen.add(tsbs)
-            tpos, ref, alt = tsbs
-            som_gt = "{}{}".format(ref, alt)
-            allelecounts = tpos2allelecounts[tpos]
-            allele2bq_lst = tpos2allele2bq_lst[tpos]
-            bq, vaf, ref_count, alt_count, indel_count, read_depth = himut.bamlib.get_sbs_allelecounts(ref, alt, allelecounts, allele2bq_lst)
-            germ_gt, germ_gq, germ_gt_state = himut.gtlib.get_germline_gt(ref, allelecounts, allele2bq_lst, germline_snv_prior)
-            if is_germ_gt(som_gt, germ_gt):
-                continue 
-           
-            if germ_gq < min_gq:
-                filtered_somatic_tsbs_lst.append((chrom, tpos, ref, alt, "LowGQ", bq, read_depth, ref_count, alt_count, vaf, "."))
-                continue
 
+            tpos, ref, alt = tsbs
+            if not is_chunk(tpos, chunk_start, chunk_end):
+                continue
+            
+            seen.add(tsbs)
+            som_gt = "{}{}".format(ref, alt)
+            allelecounts = tpos2allelecounts[tpos] 
+            allele2bq_lst = tpos2allele2bq_lst[tpos]
+            germ_gt, germ_gq, germ_gt_state = himut.gtlib.get_germ_gt(ref, allele2bq_lst)
+            ref_count, alt_bq, alt_vaf, alt_count, indel_count, read_depth = himut.bamlib.get_sbs_allelecounts(ref, alt, allelecounts, allele2bq_lst)
+            if is_germ_gt(som_gt, germ_gt, germ_gt_state, allelecounts):
+                continue
+            if is_low_gq(min_gq, germ_gq): 
+                filtered_somatic_tsbs_lst.append((chrom, tpos, ref, alt, "LowGQ", alt_bq, read_depth, ref_count, alt_count, alt_vaf, "."))
+                continue 
             if germ_gt_state == "het":
-                filtered_somatic_tsbs_lst.append((chrom, tpos, ref, alt, "HetSite", bq, read_depth, ref_count, alt_count, vaf, "."))
+                filtered_somatic_tsbs_lst.append((chrom, tpos, ref, alt, "HetSite", alt_bq, read_depth, ref_count, alt_count, alt_vaf, "."))
                 continue
             elif germ_gt_state == "hetalt":
-                filtered_somatic_tsbs_lst.append((chrom, tpos, ref, alt, "HetAltSite", bq, read_depth, ref_count, alt_count, vaf, "."))
+                filtered_somatic_tsbs_lst.append((chrom, tpos, ref, alt, "HetAltSite", alt_bq, read_depth, ref_count, alt_count, alt_vaf, "."))
                 continue
-            elif germ_gt_state == "homref":
-                if read_depth == (ref_count + indel_count):
-                    continue
             elif germ_gt_state == "homalt":
-                if reference_sample: # assembly error
-                    continue
-                if read_depth == (alt_count + indel_count):
-                    continue
-               
+                filtered_somatic_tsbs_lst.append((chrom, tpos, ref, alt, "HomAltSite", alt_bq, read_depth, ref_count, alt_count, alt_vaf, "."))
+                continue
             if indel_count != 0:
-                filtered_somatic_tsbs_lst.append((chrom, tpos, ref, alt, "IndelSite", bq, read_depth, ref_count, alt_count, vaf, "."))
+                filtered_somatic_tsbs_lst.append((chrom, tpos, ref, alt, "IndelSite", alt_bq, read_depth, ref_count, alt_count, alt_vaf, "."))
                 continue
-                
-            if not non_human_sample: ## haplotype based estimation of contamiantion prior ## TODO
-                if tsbs in common_snp_set:
-                    filtered_somatic_tsbs_lst.append((chrom, tpos, ref, alt, "ContRead", bq, read_depth, ref_count, alt_count, vaf, "."))
-                    continue 
-
-            alt_bq_lst = allele2bq_lst[himut.util.base2idx[alt]]
-            if alt_bq_lst.count(min_bq) == 0:
-                filtered_somatic_tsbs_lst.append((chrom, tpos, ref, alt, "LowBQ", bq, read_depth, ref_count, alt_count, vaf, "."))
+            if is_low_bq(alt, min_bq, allele2bq_lst):
+                filtered_somatic_tsbs_lst.append((chrom, tpos, ref, alt, "LowBQ", alt_bq, read_depth, ref_count, alt_count, alt_vaf, "."))
                 continue
-
-            if not non_human_sample and not create_panel_of_normals:
-                if tsbs in pon_sbs_set:
-                    filtered_somatic_tsbs_lst.append((chrom, tpos, ref, alt, "PanelOfNormal", bq, read_depth, ref_count, alt_count, vaf, "."))
-                    continue
-
-            # print(chrom, pos, ref, alt, ref_count, alt_count, read_depth, somatic_pD, germline_pD, somatic_pD/germline_pD)
-            # ref_count = allelecounts[himut.util.base2idx[ref]] 
-            # alt_count = allelecounts[himut.util.base2idx[alt]]
-            # ref_alt_count = ref_count + alt_count
-            # nck = get_n_choose_k(alt_count, read_depth)
-            # som_likelihood = somatic_snv_prior
-            # # som_likelihood = nck*(som_p**ref_count)*(som_q**alt_count)
-            # germ_likelihood = nck*(0.5**read_depth)*germline_snv_prior
-            # som_pd = som_likelihood/(som_likelihood+germ_likelihood)
-            # print((chrom, pos, ref, alt, bq, read_depth, ref_count, alt_count, vaf, som_likelihood, germ_likelihood, som_pd))
-
-            # print(chrom, pos, ref, alt, ref_count, alt_count, indel_count, read_depth)
+            if tsbs in pon_sbs_set and not non_human_sample and not create_panel_of_normals:
+                filtered_somatic_tsbs_lst.append((chrom, tpos, ref, alt, "PanelOfNormal", alt_bq, read_depth, ref_count, alt_count, alt_vaf, "."))
+                continue
+            if tsbs in common_snp_set and not non_human_sample: ## haplotype based estimation of contamiantion prior ## TODO
+                filtered_somatic_tsbs_lst.append((chrom, tpos, ref, alt, "ContRead", alt_bq, read_depth, ref_count, alt_count, alt_vaf, "."))
+                continue 
             if ref_count < min_ref_count and alt_count < min_alt_count:
-                filtered_somatic_tsbs_lst.append((chrom, tpos, ref, alt, "LowDepth", bq, read_depth, ref_count, alt_count, vaf, "."))
+                filtered_somatic_tsbs_lst.append((chrom, tpos, ref, alt, "LowDepth", alt_bq, read_depth, ref_count, alt_count, alt_vaf, "."))
                 continue 
             elif ref_count >= min_ref_count and alt_count < min_alt_count:
-                filtered_somatic_tsbs_lst.append((chrom, tpos, ref, alt, "LowDepth", bq, read_depth, ref_count, alt_count, vaf, "."))
+                filtered_somatic_tsbs_lst.append((chrom, tpos, ref, alt, "LowDepth", alt_bq, read_depth, ref_count, alt_count, alt_vaf, "."))
                 continue 
             elif ref_count < min_ref_count and alt_count >= min_alt_count:
-                filtered_somatic_tsbs_lst.append((chrom, tpos, ref, alt, "LowDepth", bq, read_depth, ref_count, alt_count, vaf, "."))
+                filtered_somatic_tsbs_lst.append((chrom, tpos, ref, alt, "LowDepth", alt_bq, read_depth, ref_count, alt_count, alt_vaf, "."))
                 continue
             if read_depth > md_threshold:
-                filtered_somatic_tsbs_lst.append((chrom, tpos, ref, alt, "HighDepth", bq, read_depth, ref_count, alt_count, vaf, ".")) 
+                filtered_somatic_tsbs_lst.append((chrom, tpos, ref, alt, "HighDepth", alt_bq, read_depth, ref_count, alt_count, alt_vaf, ".")) 
                 continue
-              
+
             som_state = 0
+            wt_ccs_set = tpos2allele2ccs_lst[tpos][himut.util.base2idx[ref]]
             alt_ccs_set = set(tpos2allele2ccs_lst[tpos][himut.util.base2idx[alt]])
-            for j in alignments.fetch(chrom, tpos, tpos+1):
-                qccs = himut.bamlib.BAM(j)
-                if qccs.qname not in alt_ccs_set: 
+            for ij in alignments.fetch(chrom, tpos, tpos+1):
+                ccs = himut.bamlib.BAM(ij)
+                if ccs.qname not in alt_ccs_set: 
                     continue
-                qccs.cs2subindel() 
-                qpos = qccs.qsbs_lst[qccs.tsbs_lst.index(tsbs)][0]
-                trimmed_qstart = math.floor(min_trim * qccs.qlen)
-                trimmed_qend = math.ceil((1 - min_trim) * qccs.qlen)
-                if qpos < trimmed_qstart:
+                ccs.cs2subindel() 
+                qpos = ccs.qsbs_lst[ccs.tsbs_lst.index(tsbs)][0]
+                if himut.bamlib.is_trimmed(ccs, qpos, min_trim):
                     som_state = 1
-                    filtered_somatic_tsbs_lst.append((chrom, tpos, ref, alt, "Trimmed", bq, read_depth, ref_count, alt_count, vaf, "."))
-                    break     
-                elif qpos > trimmed_qend:
+                    filtered_somatic_tsbs_lst.append((chrom, tpos, ref, alt, "Trimmed", alt_bq, read_depth, ref_count, alt_count, alt_vaf, "."))
+                    break 
+                if himut.bamlib.is_mismatch_conflict(ccs, tpos, qpos, mismatch_window, max_mismatch_count):
                     som_state = 1
-                    filtered_somatic_tsbs_lst.append((chrom, tpos, ref, alt, "Trimmed", bq, read_depth, ref_count, alt_count, vaf, "."))
-                    break     
-                mpos_lst = [mismatch[0] for mismatch in qccs.mismatch_lst]
-                mismatch_start, mismatch_end = himut.util.get_mismatch_range(tpos, qpos, qccs.qlen, mismatch_window)
-                mismatch_count = bisect.bisect_right(mpos_lst, mismatch_end) - bisect.bisect_left(mpos_lst, mismatch_start) - 1
-                if mismatch_count > max_mismatch_count:
-                    som_state = 1
-                    filtered_somatic_tsbs_lst.append((chrom, tpos, ref, alt, "MismatchConflict", bq, read_depth, ref_count, alt_count, vaf, "."))
-                    break
+                    filtered_somatic_tsbs_lst.append((chrom, tpos, ref, alt, "MismatchConflict", alt_bq, read_depth, ref_count, alt_count, alt_vaf, "."))
+                    break 
             if som_state:
                 continue 
 
             if phase:
                 som_hap_lst = []
                 hap2count = defaultdict(lambda: 0)
-                wt_ccs_set = tpos2allele2ccs_lst[tpos][himut.util.base2idx[germ_gt[-1]]]
                 phase_set = himut.haplib.get_phase_set(chunk_start, chunk_end, hpos_lst, hpos2phase_set)
-                for j in alignments.fetch(chrom, tpos, tpos+1):
-                    qccs = himut.bamlib.BAM(j)
+                for ik in alignments.fetch(chrom, tpos, tpos+1):
+                    ccs = himut.bamlib.BAM(ik)
                     ccs_hap = himut.haplib.get_ccs_hap(
-                        qccs,
+                        ccs,
                         phase_set2hbit_lst[phase_set],
                         phase_set2hpos_lst[phase_set],
                         phase_set2hetsnp_lst[phase_set],
                     )
-                    if qccs.qname in wt_ccs_set:
+                    if ccs.qname in wt_ccs_set:
                         hap2count[ccs_hap] += 1
-                    elif qccs.qname in alt_ccs_set:
-                        hap2count[ccs_hap] += 1
+                    if ccs.qname in alt_ccs_set:
                         som_hap_lst.append(ccs_hap) 
-
                 som_hap_count = len(set(som_hap_lst))
-                if hap2count["0"] >= min_hap_count and hap2count["1"] >= min_hap_count and som_hap_count == 1:
-                    somatic_tsbs_lst.append((chrom, tpos, ref, alt, "PASS", bq, read_depth, ref_count, alt_count, vaf, phase_set))
+                if is_hap_phased(hap2count, som_hap_count, min_hap_count):
+                    somatic_tsbs_lst.append((chrom, tpos, ref, alt, "PASS", alt_bq, read_depth, ref_count, alt_count, alt_vaf, phase_set))
                 else:
-                    filtered_somatic_tsbs_lst.append((chrom, tpos, ref, alt, "Unphased", bq, read_depth, ref_count, alt_count, vaf, "."))
+                    filtered_somatic_tsbs_lst.append((chrom, tpos, ref, alt, "Unphased", alt_bq, read_depth, ref_count, alt_count, alt_vaf, "."))
                     continue                    
             else: 
-                somatic_tsbs_lst.append((chrom, tpos, ref, alt, "PASS", bq, read_depth, ref_count, alt_count, vaf, "."))
+                somatic_tsbs_lst.append((chrom, tpos, ref, alt, "PASS", alt_bq, read_depth, ref_count, alt_count, alt_vaf, "."))
     chrom2tsbs_lst[chrom] = natsort.natsorted(list(set(somatic_tsbs_lst + filtered_somatic_tsbs_lst)))
     alignments.close()
 
@@ -361,8 +384,8 @@ def call_somatic_substitutions(
         germline_snv_prior,
         germline_indel_prior,
         phase,
-        reference_sample,
         non_human_sample,
+        reference_sample,
         create_panel_of_normals,
         version,
         out_file,
@@ -406,7 +429,6 @@ def call_somatic_substitutions(
             germline_indel_prior,
             phase,
             non_human_sample,
-            reference_sample,
             create_panel_of_normals,
             chrom2tsbs_lst,
         )
