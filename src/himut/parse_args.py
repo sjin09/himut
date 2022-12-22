@@ -239,37 +239,37 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         help="VCF file to write the somatic substitutions"
     )
     # subcommands: dbs78
-    parser_dbs78 = subparsers.add_parser(
-        "dbs78",
-        formatter_class=make_wide(argparse.ArgumentDefaultsHelpFormatter, w=180, h=60),
-        help="returns DBS78 counts and barplot",
-    )
-    parser_dbs78.add_argument(
-        "-i",
-        "--input", 
-        type=str, 
-        required=True, 
-        help="himut VCF file to read somatic double base substitutions"
-    )
-    parser_dbs78.add_argument(
-        "--region",
-        type=str,
-        required=False,
-        help="target chromosome",
-    )
-    parser_dbs78.add_argument(
-        "--region_list",
-        type=str,
-        required=False,
-        help="list of target chromosomes separated by new line"
-    )
-    parser_dbs78.add_argument(
-        "-o",
-        "--output",
-        type=str,
-        required=True,
-        help="file to return DBS78 counts (.tsv suffix)",
-    )
+    # parser_dbs78 = subparsers.add_parser(
+    #     "dbs78",
+    #     formatter_class=make_wide(argparse.ArgumentDefaultsHelpFormatter, w=180, h=60),
+    #     help="returns DBS78 counts and barplot",
+    # )
+    # parser_dbs78.add_argument(
+    #     "-i",
+    #     "--input", 
+    #     type=str, 
+    #     required=True, 
+    #     help="himut VCF file to read somatic double base substitutions"
+    # )
+    # parser_dbs78.add_argument(
+    #     "--region",
+    #     type=str,
+    #     required=False,
+    #     help="target chromosome",
+    # )
+    # parser_dbs78.add_argument(
+    #     "--region_list",
+    #     type=str,
+    #     required=False,
+    #     help="list of target chromosomes separated by new line"
+    # )
+    # parser_dbs78.add_argument(
+    #     "-o",
+    #     "--output",
+    #     type=str,
+    #     required=True,
+    #     help="file to return DBS78 counts (.tsv suffix)",
+    # )
     # subcommands: sbs96
     parser_sbs96 = subparsers.add_parser(
         "sbs96",

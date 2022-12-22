@@ -61,10 +61,10 @@ def main():
             __version__, 
             options.out, 
         )
-    elif options.sub == "dbs78": # returns dbs78 counts
-        sample = himut.vcflib.get_sample(options.input)
-        himut.mutlib.dump_dbs78_counts(options.input, options.region, options.region_list, options.output)
-        himut.mutlib.dump_dbs78_plt(options.output, sample, options.output.replace(".tsv", ".pdf")) 
+    # elif options.sub == "dbs78": # returns dbs78 counts
+    #     sample = himut.vcflib.get_sample(options.input)
+    #     himut.mutlib.dump_dbs78_counts(options.input, options.region, options.region_list, options.output)
+    #     himut.mutlib.dump_dbs78_plt(options.output, sample, options.output.replace(".tsv", ".pdf")) 
     elif options.sub == "sbs96": # returns sbs96 counts
         sample = himut.vcflib.get_sample(options.input)
         himut.mutlib.dump_sbs96_counts(options.input, options.ref, options.region, options.region_list, options.output)
