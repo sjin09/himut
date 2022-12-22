@@ -1,7 +1,5 @@
 import time
-import math
 import pysam
-import bisect
 import natsort
 import himut.util
 import himut.cslib
@@ -81,6 +79,23 @@ def is_low_gq(
         return False
 
 
+def get_hetalt_counts(
+    a1: str,
+    a2: str,
+    read_depth: int,
+    allelecounts: Dict[int, int],
+    allele2bq_lst: Dict[str, List[int]]
+):
+    a1_count = allelecounts[himut.util.base2idx[a1]]
+    a2_count = allelecounts[himut.util.base2idx[a2]]
+    a1_bq = sum(allele2bq_lst[himut.util.base2idx[a1]])/float(a1_count)
+    a2_bq = sum(allele2bq_lst[himut.util.base2idx[a2]])/float(a2_count)
+    alt_bq = "{:0.1f},{:0.1f}".format(a1_bq, a2_bq)
+    alt_count = "{:0.0f},{:0.0f}".format(a1_count, a2_count) 
+    alt_vaf = "{:.2f},{:.2f}".format(a1_count/float(read_depth), a2_count/float(read_depth))
+    return alt_bq, alt_vaf, alt_count
+
+
 def is_hap_phased(
     hap2count: Dict[str, int],
     som_hap_count: int,
@@ -153,7 +168,7 @@ def get_somatic_substitutions(
         chunkloci_lst = [chunkloci for loci in loci_lst for chunkloci in himut.util.chunkloci(loci)]
   
     somatic_tsbs_lst = []
-    filtered_somatic_tsbs_lst = [] 
+    filtered_somatic_tsbs_lst = []
     alignments = pysam.AlignmentFile(bam_file, "rb")
     for (chrom, chunk_start, chunk_end) in chunkloci_lst:
         if not non_human_sample and common_snps.endswith(".bgz"):
@@ -181,20 +196,19 @@ def get_somatic_substitutions(
                 continue 
 
             ccs.cs2mut()
-            ccs_somatic_tsbs_candidate_lst =  [tsbs for tsbs in ccs.tsbs_lst if tsbs not in seen]
+            ccs_somatic_tsbs_candidate_lst =  [tsbs for tsbs in ccs.tsbs_lst if tsbs[0] not in seen]
             if len(ccs_somatic_tsbs_candidate_lst) == 0:
                 continue
             somatic_tsbs_candidate_lst.extend(ccs_somatic_tsbs_candidate_lst)
 
         for tsbs in set(somatic_tsbs_candidate_lst):
-            if tsbs in seen:
-                continue
-
+            
             tpos, ref, alt = tsbs
+            if tpos in seen:
+                continue
             if not is_chunk(tpos, chunk_start, chunk_end):
                 continue
-            
-            seen.add(tsbs)
+          
             som_gt = "{}{}".format(ref, alt)
             allelecounts = tpos2allelecounts[tpos] 
             allele2bq_lst = tpos2allele2bq_lst[tpos]
@@ -202,6 +216,8 @@ def get_somatic_substitutions(
             ref_count, alt_bq, alt_vaf, alt_count, indel_count, read_depth = himut.bamlib.get_sbs_allelecounts(ref, alt, allelecounts, allele2bq_lst)
             if is_germ_gt(som_gt, germ_gt, germ_gt_state, allelecounts):
                 continue
+            
+            seen.add(tpos)
             if is_low_gq(min_gq, germ_gq): 
                 filtered_somatic_tsbs_lst.append((chrom, tpos, ref, alt, "LowGQ", alt_bq, read_depth, ref_count, alt_count, alt_vaf, "."))
                 continue 
@@ -209,6 +225,9 @@ def get_somatic_substitutions(
                 filtered_somatic_tsbs_lst.append((chrom, tpos, ref, alt, "HetSite", alt_bq, read_depth, ref_count, alt_count, alt_vaf, "."))
                 continue
             elif germ_gt_state == "hetalt":
+                a1, a2 = list(germ_gt)
+                alt = "{},{}".format(a1, a2)
+                alt_bq, alt_vaf, alt_count = get_hetalt_counts(a1, a2, read_depth, allelecounts, allele2bq_lst)
                 filtered_somatic_tsbs_lst.append((chrom, tpos, ref, alt, "HetAltSite", alt_bq, read_depth, ref_count, alt_count, alt_vaf, "."))
                 continue
             elif germ_gt_state == "homalt":
@@ -260,23 +279,23 @@ def get_somatic_substitutions(
                 continue 
 
             if phase:
-                som_hap_lst = []
+                som_hap_set = set()
                 hap2count = defaultdict(lambda: 0)
                 phase_set = himut.haplib.get_phase_set(chunk_start, chunk_end, hpos_lst, hpos2phase_set)
-                for ik in alignments.fetch(chrom, tpos, tpos+1):
-                    ccs = himut.bamlib.BAM(ik)
-                    ccs_hap = himut.haplib.get_ccs_hap(
-                        ccs,
-                        phase_set2hbit_lst[phase_set],
-                        phase_set2hpos_lst[phase_set],
-                        phase_set2hetsnp_lst[phase_set],
-                    )
-                    if ccs.qname in wt_ccs_set:
-                        hap2count[ccs_hap] += 1
-                    if ccs.qname in alt_ccs_set:
-                        som_hap_lst.append(ccs_hap) 
-                som_hap_count = len(set(som_hap_lst))
-                if is_hap_phased(hap2count, som_hap_count, min_hap_count):
+                ccs_hap_lst = himut.haplib.get_loci_hap(
+                    alignments, 
+                    (chrom, tpos, tpos+1), 
+                    phase_set2hbit_lst[phase_set], 
+                    phase_set2hpos_lst[phase_set], 
+                    phase_set2hetsnp_lst[phase_set]
+                )
+                for qname, hap in ccs_hap_lst:
+                    if qname in wt_ccs_set:
+                        hap2count[hap] += 1
+                    if qname in alt_ccs_set:
+                        som_hap_set.add(hap) 
+
+                if is_hap_phased(hap2count, len(som_hap_set), min_hap_count):
                     somatic_tsbs_lst.append((chrom, tpos, ref, alt, "PASS", alt_bq, read_depth, ref_count, alt_count, alt_vaf, phase_set))
                 else:
                     filtered_somatic_tsbs_lst.append((chrom, tpos, ref, alt, "Unphased", alt_bq, read_depth, ref_count, alt_count, alt_vaf, "."))
@@ -439,7 +458,12 @@ def call_somatic_substitutions(
     )
     p.close()
     p.join()
-    himut.vcflib.dump_sbs(chrom_lst, chrom2tsbs_lst, phase, vcf_header, out_file)  
+
+    if phase:
+        himut.vcflib.dump_phased_sbs(out_file, vcf_header, chrom_lst, chrom2tsbs_lst) 
+    else:
+        himut.vcflib.dump_sbs(out_file, vcf_header, chrom_lst, chrom2tsbs_lst)  
+
     if phase:
         print(
             "himut finished phasing, calling and returning substitutions with {} threads".format(
@@ -460,4 +484,3 @@ def call_somatic_substitutions(
         )
     )
     himut.util.exit()
-# 

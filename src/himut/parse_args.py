@@ -214,16 +214,16 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         help="return phased somatic substitutions"
     )
     parser_call.add_argument(
-        "--reference_sample",
-        required=False,
-        action="store_true",
-        help="reads from the sample has been used to create the reference genome"
-    )
-    parser_call.add_argument(
         "--non_human_sample",
         required=False,
         action="store_true",
         help="human (default) or non-human sample"
+    )
+    parser_call.add_argument(
+        "--reference_sample",
+        required=False,
+        action="store_true",
+        help="reads from the sample has been used to create the reference genome"
     )
     parser_call.add_argument(
         "--create_panel_of_normal",
@@ -475,7 +475,7 @@ def parse_args(program_version, arguments=sys.argv[1:]):
     parser_normcounts.add_argument(
         "--min_gq",
         type=int,
-        default=40,
+        default=60,
         required=False,
         help="minimum germline genotype quality (GQ) score"
     )
@@ -550,16 +550,16 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         help="return phased somatic substitutions",
     )
     parser_normcounts.add_argument(
-        "--reference_sample",
-        required=False,
-        action="store_true",
-        help="reads from the sample has been used to create the reference genome"
-    )
-    parser_normcounts.add_argument(
         "--non_human_sample",
         required=False,
         action="store_true",
         help="human or non_human_sample"
+    )
+    parser_normcounts.add_argument(
+        "--reference_sample",
+        required=False,
+        action="store_true",
+        help="reads from the sample has been used to create the reference genome"
     )
     parser_normcounts.add_argument(
         "-o",

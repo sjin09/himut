@@ -1,4 +1,5 @@
 import bisect
+import himut.bamlib
 from typing import Dict, List, Tuple
 bit_complement_hsh = {"0": "1", "1": "0", "-": "-"}
 
@@ -84,3 +85,23 @@ def get_ccs_hap(
             ccs_hap = "."
         return ccs_hap
 
+
+def get_loci_hap(
+    alignments,
+    loci: Tuple[str, int, int],
+    hbit_lst: List[str],
+    hpos_lst: List[int],
+    hetsnp_lst: List[Tuple[int, str, str]],
+) -> bool:
+
+    ccs_hap_lst = []
+    for i in alignments.fetch(*loci):
+        ccs = himut.bamlib.BAM(i)
+        ccs_hap = himut.haplib.get_ccs_hap(
+            ccs,
+            hbit_lst,
+            hpos_lst,
+            hetsnp_lst,
+        )
+        ccs_hap_lst.append((ccs.qname, ccs_hap))
+    return ccs_hap_lst

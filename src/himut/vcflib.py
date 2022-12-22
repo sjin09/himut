@@ -2,7 +2,6 @@ import tabix
 import cyvcf2
 import pyfastx
 import natsort
-import numpy as np 
 import himut.util
 import himut.bamlib
 from datetime import datetime
@@ -344,7 +343,7 @@ def load_hetsnps(
             if line.startswith("#"):
                 continue
             v = VCF(line)
-            if v.is_snp and v.is_pass and v.is_biallelic and (v.sample_gt == "0/1" or v.sample_gt == "1/0"):
+            if chrom == v.chrom and v.is_snp and v.is_pass and v.is_biallelic and (v.sample_gt == "0/1" or v.sample_gt == "1/0"):
                 hetsnp_lst.append((v.pos, v.ref, v.alt))
     elif vcf_file.endswith(".bgz"):
         tb = tabix.open(vcf_file)
@@ -357,6 +356,47 @@ def load_hetsnps(
         hidx2hetsnp[hidx] = hetsnp
         hetsnp2hidx[hetsnp] = hidx
     return hetsnp_lst, hidx2hetsnp, hetsnp2hidx
+
+
+def load_hblock_hsh(
+    vcf_file: str,
+    chrom_lst: List[str], 
+    tname2tsize: Dict[str, int],
+    chrom2hblock_lst: Dict[str, List[Tuple[str, str]]]
+):
+
+    chrom2hetsnp_lst = defaultdict(list)    
+    chrom2hidx2hetsnp = defaultdict(dict)
+    if vcf_file.endswith(".vcf"):
+        for line in open(vcf_file):
+            if line.startswith("#"):
+                continue
+            v = VCF(line)
+            if v.is_snp and v.is_pass and v.is_biallelic and (v.sample_gt == "0/1" or v.sample_gt == "1/0"):
+                chrom2hetsnp_lst[v.chrom].append((v.pos, v.ref, v.alt))
+    elif vcf_file.endswith(".bgz"):
+        tb = tabix.open(vcf_file)
+        for chrom in chrom_lst:
+            records = tb.query(chrom, 0, tname2tsize[chrom])
+            for record in records:
+                v = VCF("\t".join(record))            
+                if v.is_snp and v.is_pass and v.is_biallelic and (v.sample_gt == "0/1" or v.sample_gt == "1/0"):
+                    chrom2hetsnp_lst[v.chrom].append((v.pos, v.ref, v.alt))
+
+    hetsnp2hstate = {}
+    hetsnp2phase_set = {}
+    for chrom, hetsnp_lst in chrom2hetsnp_lst.items():
+        for hidx, hetsnp in enumerate(hetsnp_lst):
+            chrom2hidx2hetsnp[chrom][hidx] = hetsnp
+
+    for chrom, hblock_lst in chrom2hblock_lst.items():
+        for hblock in hblock_lst:
+            phase_set = chrom2hidx2hetsnp[chrom][hblock[0][0]][0]
+            for (hidx, hstate) in hblock:
+                hetsnp = chrom2hidx2hetsnp[chrom][hidx]
+                hetsnp2hstate[hetsnp] = hstate
+                hetsnp2phase_set[hetsnp] = phase_set 
+    return hetsnp2hstate, hetsnp2phase_set 
 
 
 def load_germline_counts(
@@ -496,38 +536,6 @@ def load_phased_hetsnps(
     return hpos_lst, hpos2phase_set, phase_set2hbit_lst, phase_set2hpos_lst, phase_set2hetsnp_lst
 
 
-def get_phased_hetsnps(
-    vcf_file: str, 
-    chrom: str,
-    chrom_len: int, 
-):
-    hetsnp2bidx = {}
-    hidx2hstate = {} 
-    filtered_hblock_lst = []
-    hblock_lst, hidx2hetsnp, hetsnp2hidx = load_phased_hetsnps(vcf_file, chrom, chrom_len)
-    for hblock in hblock_lst:
-        ipos = 0
-        filtered_hblock = []
-        for (hidx, hstate) in hblock:
-            jpos = hidx2hetsnp[hidx][0]
-            if jpos - ipos > 1:
-                filtered_hblock.append((hidx, hstate))
-            ipos = jpos
-        if len(filtered_hblock) > 1:
-            filtered_hblock_lst.append(filtered_hblock)
-   
-    phased_hetsnp_lst = []
-    for bidx, hblock in enumerate(filtered_hblock_lst):
-        for (hidx, hstate) in hblock:
-            hidx2hstate[hidx] = hstate 
-            hetsnp = hidx2hetsnp[hidx]
-            hetsnp2bidx[hetsnp] = bidx 
-            phased_hetsnp_lst.append(hetsnp)
-    phased_hetsnp_lst = natsort.natsorted(phased_hetsnp_lst) 
-    hpos_lst = [hetsnp[0] for hetsnp in phased_hetsnp_lst]
-    return hpos_lst, filtered_hblock_lst, phased_hetsnp_lst, hidx2hetsnp, hetsnp2bidx 
-
-
 def dump_phased_hetsnps(
     bam_file: str,
     vcf_file: str,
@@ -538,42 +546,9 @@ def dump_phased_hetsnps(
     out_file: str,
 ) -> None:
 
-    hetsnp2hstate = {}
-    hetsnp2phase_set = {}
-    chrom2hetsnp_lst = defaultdict(list)
-    chrom2hidx2hetsnp = defaultdict(dict)
-    chrom2hetsnp2hidx = defaultdict(dict)
-    if vcf_file.endswith(".vcf"):
-        for line in open(vcf_file):
-            if line.startswith("#"):
-                continue
-            v = VCF(line)
-            if v.is_snp and v.is_pass and v.is_biallelic and (v.sample_gt == "0/1" or v.sample_gt == "1/0"):
-                chrom2hetsnp_lst[v.chrom].append((v.pos, v.ref, v.alt))
-    elif vcf_file.endswith(".bgz"):
-        tb = tabix.open(vcf_file)
-        for chrom in chrom_lst:
-            records = tb.query(chrom, 0, tname2tsize[chrom])
-            for record in records:
-                v = VCF("\t".join(record))            
-                if v.is_snp and v.is_pass and v.is_biallelic and (v.sample_gt == "0/1" or v.sample_gt == "1/0"):
-                    chrom2hetsnp_lst[v.chrom].append((v.pos, v.ref, v.alt))
-    for chrom, hetsnp_lst in chrom2hetsnp_lst.items():
-        for hidx, hetsnp in enumerate(hetsnp_lst):
-            chrom2hidx2hetsnp[chrom][hidx] = hetsnp
-            chrom2hetsnp2hidx[chrom][hetsnp] = hidx
-    del chrom2hetsnp_lst 
-    
-    for chrom, hblock_lst in chrom2hblock_lst.items():
-        for hblock in hblock_lst:
-            phase_set = chrom2hidx2hetsnp[chrom][hblock[0][0]][0]
-            for (hidx, hstate) in hblock:
-                hetsnp = chrom2hidx2hetsnp[chrom][hidx]
-                hetsnp2hstate[hetsnp] = hstate
-                hetsnp2phase_set[hetsnp] = phase_set 
-
     o = open(out_file, "w")
     o.write("{}\n".format(himut.vcflib.get_vcf_header(bam_file, version)))
+    hetsnp2hstate, hetsnp2phase_set = load_hblock_hsh(vcf_file, chrom_lst, tname2tsize, chrom2hblock_lst)
     if vcf_file.endswith(".vcf"):
         for line in open(vcf_file):
             if line.startswith("#"):
@@ -611,142 +586,93 @@ def dump_phased_hetsnps(
     o.close()
 
 
-def dump_hblock_statistics(
-    chrom_lst: List[str],
-    chrom2hblock_statistics: Dict[str, Tuple[int, int, int, int, int]],
-    log_file: str, 
-) -> None:
-
-    o = open(log_file, "w")
-    o.write(
-        "chrom\thetsnp_count\tblock_count\tsmallest_block\tlargest_block\tshortest_block (bp)\tlongest_block (bp)\n"
-    )
-    for chrom in chrom_lst:
-        statistics = chrom2hblock_statistics[chrom]
-        o.write(
-            "{0}\t{1[0]}\t{1[1]}\t{1[2]}\t{1[3]:,}\t{1[4]:,}\t{1[5]}\n".format(
-                chrom, statistics
-            )
-        )
-    o.close()
-
-
 def dump_sbs(
+    vcf_file: str,
+    vcf_header: str,
     chrom_lst: List[str],
     chrom2tsbs_lst: Dict[str, List[Tuple[str, int, str, str, str, int, int, int, float]]],
-    phase: bool,
-    header: str,
-    out_file: str
-) -> None:
+):
 
-    if not out_file.endswith(".vcf"):
+    if not vcf_file.endswith(".vcf"):
         print("VCF file must have .vcf suffix")
         himut.util.exit()
-        
-    o = open(out_file, "w")
-    p = open(out_file.replace(".vcf", ".single_molecule_mutations.vcf"), "w")
-    tsbs_lst = [tsbs for chrom in chrom_lst for tsbs in chrom2tsbs_lst[chrom]]
-    o.write("{}\n".format(header))
-    p.write("{}\n".format(header))
+    
+    o = open(vcf_file, "w")
+    p = open(vcf_file.replace(".vcf", ".single_molecule_mutations.vcf"), "w")
+    o.write("{}\n".format(vcf_header))
+    p.write("{}\n".format(vcf_header))
+    for chrom in chrom_lst:
+        for (chrom, pos, ref, alt, status, bq, read_depth, ref_count, alt_count, vaf, phase_set) in chrom2tsbs_lst[chrom]:
+            if status == "HetAltSite":
+                o.write(
+                    "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF\t./.:{}:{:0.0f}:{:0.0f},{}:{}\n".format(
+                        chrom, pos, ref, alt, status, bq, read_depth, ref_count, alt_count, vaf
+                    )
+                )
+                if int(ref_count) == 1:
+                    p.write(
+                        "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF\t./.:{}:{:0.0f}:{:0.0f},{}:{}\n".format(
+                            chrom, pos, ref, alt, status, bq, read_depth, ref_count, alt_count, vaf
+                        )
+                    )
+            else:
+                o.write(
+                    "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF\t./.:{:0.1f}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}\n".format(
+                        chrom, pos, ref, alt, status, bq, read_depth, ref_count, alt_count, vaf
+                    )
+                )
+                if int(alt_count) == 1:
+                    p.write(
+                        "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF\t./.:{:0.1f}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}\n".format(
+                            chrom, pos, ref, alt, status, bq, read_depth, ref_count, alt_count, vaf
+                        )
+                    )
+    o.close()    
+    p.close()
+    
 
-    if phase:
-        for (chrom, pos, ref, alt, annot, bq, read_depth, ref_count, alt_count, vaf, phase_set) in tsbs_lst:
-            o.write(
-                "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF:PS\t./.:{:0.0f}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}:{}\n".format(
-                    chrom, pos, ref, alt, annot, bq, read_depth, ref_count, alt_count, vaf, phase_set
-                )
-            )
-            if alt_count == 1:
-                p.write(
-                    "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF:PS\t./.:{:0.0f}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}:{}\n".format(
-                        chrom, pos, ref, alt, annot, bq, read_depth, ref_count, alt_count, vaf, phase_set
+def dump_phased_sbs(
+    vcf_file: str,
+    vcf_header: str,
+    chrom_lst: List[str],
+    chrom2tsbs_lst: Dict[str, List[Tuple[str, int, str, str, str, int, int, int, float]]],
+):
+
+    if not vcf_file.endswith(".vcf"):
+        print("VCF file must have .vcf suffix")
+        himut.util.exit()
+    
+    o = open(vcf_file, "w")
+    p = open(vcf_file.replace(".vcf", ".single_molecule_mutations.vcf"), "w")
+    o.write("{}\n".format(vcf_header))
+    p.write("{}\n".format(vcf_header))
+    for chrom in chrom_lst:
+        for (chrom, pos, ref, alt, status, bq, read_depth, ref_count, alt_count, vaf, phase_set) in chrom2tsbs_lst[chrom]:
+            if status == "HetAltSite":
+                o.write(
+                    "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF\t./.:{}:{:0.0f}:{:0.0f},{}:{}:{}\n".format(
+                        chrom, pos, ref, alt, status, bq, read_depth, ref_count, alt_count, vaf, phase_set
                     )
                 )
-    else:
-        for (chrom, pos, ref, alt, annot, bq, read_depth, ref_count, alt_count, vaf, phase_set) in tsbs_lst:
-            o.write(
-                "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF\t./.:{:0.0f}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}\n".format(
-                    chrom, pos, ref, alt, annot, bq, read_depth, ref_count, alt_count, vaf
-                )
-            )
-            if alt_count == 1:
-                p.write(
-                    "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF\t./.:{:0.0f}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}\n".format(
-                        chrom, pos, ref, alt, annot, bq, read_depth, ref_count, alt_count, vaf
+                if int(ref_count) == 1:
+                    p.write(
+                        "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF:PS\t./.:{}:{:0.0f}:{:0.0f},{}:{}:{}\n".format(
+                            chrom, pos, ref, alt, status, bq, read_depth, ref_count, alt_count, vaf, phase_set
+                        )
+                    )
+            else:
+                o.write(
+                    "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF:PS\t./.:{:0.1f}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}:{}\n".format(
+                        chrom, pos, ref, alt, status, bq, read_depth, ref_count, alt_count, vaf, phase_set
                     )
                 )
+                if int(alt_count) == 1:
+                    p.write(
+                        "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF:PS\t./.:{:0.1f}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}:{}\n".format(
+                            chrom, pos, ref, alt, status, bq, read_depth, ref_count, alt_count, vaf, phase_set
+                        )
+                    )
     o.close()
     p.close()
     
     
-def dump_himut_dbs(
-    chrom_lst: List[str],
-    chrom2tdbs_lst: Dict[str, List[Tuple[str, int, str, str, int, int, int, float]]],
-    phase: bool,
-    header: str,
-    out_file: str
-) -> None:
-
-    o = open(out_file.replace(".vcf", ".dbs.vcf"), "w")
-    o.write("{}\n".format(header))
-    for chrom in chrom_lst:
-        for (chrom, pos, ref, alt, bq, total_count, ref_count, alt_count, vaf, phase_set) in chrom2tdbs_lst[chrom]:
-            if phase: 
-                o.write(
-                    "{}\t{}\t.\t{}\t{}\t.\tPASS\t.\tGT:BQ:DP:AD:VAF:PS\t./.:{}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}:{}\n".format(
-                        chrom, pos, ref, alt, bq, total_count, ref_count, alt_count, vaf, phase_set
-                    )
-                )
-            else:
-                o.write(
-                    "{}\t{}\t.\t{}\t{}\t.\tPASS\t.\tGT:BQ:DP:AD:VAF\t./.:{}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}\n".format(
-                        chrom, pos, ref, alt, bq, total_count, ref_count, alt_count, vaf
-                    )
-                )
-    o.close()
-
-
-def dump_himut_statistics(
-    chrom_lst: List[str], 
-    genome_stat_hsh: Dict[str, List[int]], 
-    stats_file: str
-) -> None:
-
-
-    row_names = [
-        "ccs",
-        "low_qv_ccs", 
-        "low_mapq_ccs", 
-        "abnormal_ccs", 
-        "secondary_ccs",  
-        "contaminant_ccs", 
-        "low_seq_identity_ccs", 
-        "hq_ccs", 
-        "sub_candidates", 
-        "bq_filtered_sbs", 
-        "pon_filtered_sbs", 
-        "trimmed_sbs", 
-        "mismatch_filtered_sbs", 
-        "uncallable_sbs", 
-        "ab_filtered_sbs", 
-        "md_filtered_sbs", 
-        "sbs", 
-        "unphased_sbs", 
-        "phased_sbs"
-    ]
- 
-    ncol = len(chrom_lst)
-    nrow = len(row_names)
-    dt = np.zeros((nrow, ncol))
-    for idx, chrom in enumerate(chrom_lst):
-        for jdx, count in enumerate(genome_stat_hsh[chrom]): 
-            dt[jdx][idx] = count
-    
-    o = open(stats_file, "w")
-    genome_lst = chrom_lst + ["total"] 
-    o.write("{:30}{}\n".format("", "\t".join(genome_lst)))
-    for kdx in range(nrow):
-        row_sum =  str(int(np.sum(dt[kdx])))
-        stats = "\t".join([str(int(stat)) for stat in dt[kdx].tolist()] + [row_sum])
-        o.write("{:30}{}\n".format(row_names[kdx], stats))
-    o.close()

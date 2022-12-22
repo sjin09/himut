@@ -42,7 +42,6 @@ def get_edges(
             continue
 
         ccs.cs2tpos2qbase()
-        # himut.cslib.cs2tpos2qbase(ccs)
         hetsnp_subset_lst = [hetsnp_lst[_kdx] for _kdx in range(_idx, _jdx)]
         for idx, snpidx in enumerate(hetsnp_subset_lst):
             i = hetsnp2hidx[snpidx]
@@ -238,19 +237,15 @@ def get_hblock(
     min_p_value,
     min_phase_proportion, 
     chrom2hblock_lst: Dict[str, List[List[Tuple[int, int]]]],
-    chrom2hblock_statistics: Dict[str, Tuple[int, int, int, int, int]],
 ) -> List[List[Tuple[int, Tuple[int, int]]]]:
 
 
-    hetsnp_lst, _hidx2hetsnp, hetsnp2hidx = himut.vcflib.load_hetsnps(vcf_file, chrom, chrom_len) 
+    hetsnp_lst, _, hetsnp2hidx = himut.vcflib.load_hetsnps(vcf_file, chrom, chrom_len) 
     hpos_lst = [hetsnp[0] for hetsnp in hetsnp_lst]
-    del _hidx2hetsnp
     edge_lst, edge2counts = get_edges(
         chrom, bam_file, min_bq, min_mapq, hpos_lst, hetsnp_lst, hetsnp2hidx
     )
-    hblock_lst = build_haplotype_block(edge_lst, edge2counts, min_p_value, min_phase_proportion)
-    chrom2hblock_lst[chrom] = hblock_lst 
-    chrom2hblock_statistics[chrom] = get_hblock_statistics(hblock_lst, hetsnp_lst) 
+    chrom2hblock_lst[chrom] = build_haplotype_block(edge_lst, edge2counts, min_p_value, min_phase_proportion)
 
 
 def get_chrom_hblock(
@@ -278,7 +273,6 @@ def get_chrom_hblock(
     p = mp.Pool(threads)
     manager = mp.Manager()
     chrom2hblock_lst = manager.dict()
-    chrom2hblock_statistics = manager.dict()
     get_hblock_arg_lst = [
         (
             chrom,
@@ -290,7 +284,6 @@ def get_chrom_hblock(
             min_p_value,
             min_phase_proportion, 
             chrom2hblock_lst, 
-            chrom2hblock_statistics
         )
         for chrom in chrom_lst
     ]
@@ -308,11 +301,6 @@ def get_chrom_hblock(
         chrom2hblock_lst, 
         version,
         out_file,
-    )
-    himut.vcflib.dump_hblock_statistics(
-        chrom_lst, 
-        chrom2hblock_statistics,
-        "haplotype_phasing.log" 
     )
     print("himut finished returning phased hetsnps")    
     cpu_end = time.time() / 60
