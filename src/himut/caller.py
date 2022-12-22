@@ -166,7 +166,10 @@ def get_somatic_substitutions(
         chunkloci_lst = himut.haplib.phase_set2chunkloci_lst(chrom, phase_set2hpos_lst)
     else:
         chunkloci_lst = [chunkloci for loci in loci_lst for chunkloci in himut.util.chunkloci(loci)]
-  
+ 
+    ## TODO
+    pos_lst = ['302442', '518169', '771906', '942600', '1676111', '1697166', '1910017', '3041210', '3250505', '3445630', '4003461', '5394999', '5655337', '5657789', '6970131', '7017949', '7237641', '7369751', '7374567', '7451254', '7587116', '7851666', '8291750', '8531861', '9390570', '9836847', '11144737', '11441613', '12047845', '12361506', '12492840', '12900151', '12995295', '13235625', '13253705', '14192219', '15201312', '15623336', '16481044', '16731262', '18025348', '18901626', '19192729', '19253856', '19716538', '19758529', '19761763', '20604249', '20634328', '20856529', '21042455', '21517650', '21729257', '22436022', '23066850', '23449908', '24337031', '25224318', '30179273', '30181066', '30685539', '30685604', '31834140', '32134501', '34669281', '35133588', '35420742', '35431618', '35576889', '35857915', '36522283', '38702719', '38868483', '40008808', '40410718', '40428420', '41339891', '41908458', '42456068', '43651022', '44511861', '44731986', '44900689', '46070924', '46129745', '46508186', '46601464', '47278574', '48596846', '48743614', '49914209', '50089134', '50377383', '50957432', '51452140', '51748461', '52125282', '52211264', '52490145', '52538557', '53175400', '53189882', '53240353', '53260104', '54548879', '54759928', '54793598', '54892597', '55798526', '55932780', '57321879', '57542413', '58044154', '58702308', '58730367', '58955918', '60185032', '60720486', '61063452', '61200700', '61554326', '62258510']
+    pos_set = set([int(p) for p in pos_lst])
     somatic_tsbs_lst = []
     filtered_somatic_tsbs_lst = []
     alignments = pysam.AlignmentFile(bam_file, "rb")
@@ -178,6 +181,7 @@ def get_somatic_substitutions(
             pon_sbs_set = himut.vcflib.load_bgz_pon((chrom, (chunk_start - qlen_upper_limit), (chunk_end + qlen_upper_limit)), panel_of_normals) 
 
         somatic_tsbs_candidate_lst = []
+        print(chrom, chunk_start, chunk_end) ## TODO
         tpos2allele2bq_lst, tpos2allele2ccs_lst, tpos2allelecounts =  himut.util.init_allelecounts()
         for i in alignments.fetch(chrom, chunk_start, chunk_end):
             ccs = himut.bamlib.BAM(i)
@@ -208,7 +212,7 @@ def get_somatic_substitutions(
                 continue
             if not is_chunk(tpos, chunk_start, chunk_end):
                 continue
-          
+
             som_gt = "{}{}".format(ref, alt)
             allelecounts = tpos2allelecounts[tpos] 
             allele2bq_lst = tpos2allele2bq_lst[tpos]
@@ -216,7 +220,7 @@ def get_somatic_substitutions(
             ref_count, alt_bq, alt_vaf, alt_count, indel_count, read_depth = himut.bamlib.get_sbs_allelecounts(ref, alt, allelecounts, allele2bq_lst)
             if is_germ_gt(som_gt, germ_gt, germ_gt_state, allelecounts):
                 continue
-            
+           
             seen.add(tpos)
             if is_low_gq(min_gq, germ_gq): 
                 filtered_somatic_tsbs_lst.append((chrom, tpos, ref, alt, "LowGQ", alt_bq, read_depth, ref_count, alt_count, alt_vaf, "."))
@@ -277,6 +281,9 @@ def get_somatic_substitutions(
                     break 
             if som_state:
                 continue 
+            if tpos in pos_set:
+                print("WTF0", chrom, tpos, ref, alt, som_gt, germ_gt, germ_gq, germ_gt_state)
+
 
             if phase:
                 som_hap_set = set()
@@ -290,17 +297,25 @@ def get_somatic_substitutions(
                     phase_set2hetsnp_lst[phase_set]
                 )
                 for qname, hap in ccs_hap_lst:
+                    if hap == ".":
+                        continue
                     if qname in wt_ccs_set:
                         hap2count[hap] += 1
                     if qname in alt_ccs_set:
                         som_hap_set.add(hap) 
 
                 if is_hap_phased(hap2count, len(som_hap_set), min_hap_count):
+                    if tpos in pos_set:
+                        print("WTF1", chrom, tpos, ref, alt, som_gt, germ_gt, germ_gq, germ_gt_state)
                     somatic_tsbs_lst.append((chrom, tpos, ref, alt, "PASS", alt_bq, read_depth, ref_count, alt_count, alt_vaf, phase_set))
                 else:
+                    if tpos in pos_set:
+                        print("WTF2", chrom, tpos, ref, alt, som_gt, germ_gt, germ_gq, germ_gt_state)
                     filtered_somatic_tsbs_lst.append((chrom, tpos, ref, alt, "Unphased", alt_bq, read_depth, ref_count, alt_count, alt_vaf, "."))
                     continue                    
             else: 
+                if tpos in pos_set:
+                    print("WTF1", chrom, tpos, ref, alt, som_gt, germ_gt, germ_gq, germ_gt_state)
                 somatic_tsbs_lst.append((chrom, tpos, ref, alt, "PASS", alt_bq, read_depth, ref_count, alt_count, alt_vaf, "."))
     chrom2tsbs_lst[chrom] = natsort.natsorted(list(set(somatic_tsbs_lst + filtered_somatic_tsbs_lst)))
     alignments.close()

@@ -246,8 +246,6 @@ def load_sbs96_counts(vcf_file: str, ref_file: str) -> Dict[str, int]:
 
 def dump_sbs96_counts(vcf_file: str, ref_file: str, chrom: str, chrom_fofn: str, out_file: str) -> None:
 
-
-    himut.util.check_mutpatterns_input_exists(vcf_file, ref_file, chrom, chrom_fofn, out_file)
     chrom2sbs2counts = load_sbs96_counts(vcf_file, ref_file)
     chrom_lst = himut.util.load_chrom(chrom, chrom_fofn)
     sbs2counts = defaultdict(lambda: 0)
@@ -290,75 +288,19 @@ def dump_sbs96_plt(infile: str, sample: str, outfile: str) -> None:
     plot.save(outfile, width = 22, height = 10)
 
 
-def load_dbs78_counts(vcf_file):
-
-    chrom_lst = []
-    chrom2dbs2counts = defaultdict(dict)
-    if vcf_file.endswith(".vcf"):
-        for line in open(vcf_file).readlines():
-            if line.startswith("##"):
-                if line.startswith("##contig"):
-                    chrom = line.strip().replace("##contig=<ID=", "").split(",")[0]
-                    chrom_lst.append(chrom)
-                continue
-            elif line.startswith("#CHROM"):
-                for chrom in chrom_lst:
-                    chrom2dbs2counts[chrom] = defaultdict(lambda: 0) 
-                continue
-            v = himut.vcflib.VCF(line)
-            if v.is_dbs and v.is_pass:
-                chrom2dbs2counts[v.chrom][dbs2dbs78["{}>{}".format(v.ref, v.alt)]] += 1
-    elif vcf_file.endswith(".vcf.bgz"):
-        for line in cyvcf2.VCF(vcf_file).raw_header.split("\n"):
-            if line.startswith("##"):
-                if line.startswith("##contig"):
-                    chrom = line.replace("##contig=<ID=", "").split(",")[0]
-                    chrom_lst.append(chrom)
-                continue
-            elif line.startswith("#CHROM"):
-                for chrom in chrom_lst:
-                    chrom2dbs2counts[chrom] = defaultdict(lambda: 0) 
-        for i in cyvcf2.VCF(vcf_file):
-            v = himut.vcflib.VCF(str(i))
-            if v.is_dbs and v.is_pass:
-                chrom2dbs2counts[v.chrom][dbs2dbs78["{}>{}".format(v.ref, v.alt)]] += 1
-    return chrom2dbs2counts
-
-
-def dump_dbs78_counts(vcf_file: str, chrom: str, chrom_fofn: str, out_file: str) -> None:
-
-    chrom2dbs2counts = load_dbs78_counts(vcf_file)
-    chrom_lst = himut.util.load_chrom(chrom, chrom_fofn)
-    dbs2counts = {dbs78: 0 for dbs78 in set(dbs2dbs78.values())}
-    if len(chrom_lst) == 0:
-        for chrom in chrom2dbs2counts:
-            for dbs, counts in chrom2dbs2counts[chrom].items():
-                dbs2counts[dbs] += counts
-    else:
-        for chrom in chrom_lst: 
-            for dbs, counts in chrom2dbs2counts[chrom].items():
-                dbs2counts[dbs] += counts
-
-    o = open(out_file, "w")
-    o.write("{}\t{}\t{}\n".format("col", "dbs", "counts"))
-    for (ref, alt), counts in dbs2counts.items():
-        o.write("{}>NN\t{}\t{}\n".format(ref, alt, counts))
-    o.close()
-
-
-def dump_dbs78_plt(infile: str, sample: str, outfile: str) -> None:
+def dump_norm_sbs96_plt(infile: str, sample: str, outfile: str) -> None:
 
     if sample is None:
         print("Sample cannot be None\nBAM or VCF file might be missing sample information")
         himut.util.exit()
         
     df = pd.read_csv(infile, sep="\t")
-    plot = (ggplot(df, aes(x="dbs", y="counts", fill="col")) +
+    plot = (ggplot(df, aes(x="tri", y="normcounts", fill="sub")) +
       geom_bar(stat="identity")  +
       theme_bw() +
-      facet_grid(". ~ col", scales = "free") +
-      scale_fill_manual(values = ("#57F2F2","#0141FF","#60FF26","#2E8021","#FFCDC7","#FF2403", "#FFB04F", "#FF8D03", "#E2A8FF", "#61048F")) +
-      labs(x = "\nDouble base substitutions\n", y = "\nCounts\n") +
+      facet_grid(". ~ sub", scales = "free") +
+      scale_fill_manual(values = ("#98D7EC","#212121","#FF003A","#A6A6A6","#83A603","#F5ABCC")) +
+      labs(x = "\nTrinucleotide Context\n", y = "\nCounts\n") +
       ggtitle(sample) +
       theme(
           legend_title = element_blank(),
@@ -367,6 +309,85 @@ def dump_dbs78_plt(infile: str, sample: str, outfile: str) -> None:
         )
     )
     plot.save(outfile, width = 22, height = 10)
+
+
+# def load_dbs78_counts(vcf_file):
+
+#     chrom_lst = []
+#     chrom2dbs2counts = defaultdict(dict)
+#     if vcf_file.endswith(".vcf"):
+#         for line in open(vcf_file).readlines():
+#             if line.startswith("##"):
+#                 if line.startswith("##contig"):
+#                     chrom = line.strip().replace("##contig=<ID=", "").split(",")[0]
+#                     chrom_lst.append(chrom)
+#                 continue
+#             elif line.startswith("#CHROM"):
+#                 for chrom in chrom_lst:
+#                     chrom2dbs2counts[chrom] = defaultdict(lambda: 0) 
+#                 continue
+#             v = himut.vcflib.VCF(line)
+#             if v.is_dbs and v.is_pass:
+#                 chrom2dbs2counts[v.chrom][dbs2dbs78["{}>{}".format(v.ref, v.alt)]] += 1
+#     elif vcf_file.endswith(".vcf.bgz"):
+#         for line in cyvcf2.VCF(vcf_file).raw_header.split("\n"):
+#             if line.startswith("##"):
+#                 if line.startswith("##contig"):
+#                     chrom = line.replace("##contig=<ID=", "").split(",")[0]
+#                     chrom_lst.append(chrom)
+#                 continue
+#             elif line.startswith("#CHROM"):
+#                 for chrom in chrom_lst:
+#                     chrom2dbs2counts[chrom] = defaultdict(lambda: 0) 
+#         for i in cyvcf2.VCF(vcf_file):
+#             v = himut.vcflib.VCF(str(i))
+#             if v.is_dbs and v.is_pass:
+#                 chrom2dbs2counts[v.chrom][dbs2dbs78["{}>{}".format(v.ref, v.alt)]] += 1
+#     return chrom2dbs2counts
+
+
+# def dump_dbs78_counts(vcf_file: str, chrom: str, chrom_fofn: str, out_file: str) -> None:
+
+#     chrom2dbs2counts = load_dbs78_counts(vcf_file)
+#     chrom_lst = himut.util.load_chrom(chrom, chrom_fofn)
+#     dbs2counts = {dbs78: 0 for dbs78 in set(dbs2dbs78.values())}
+#     if len(chrom_lst) == 0:
+#         for chrom in chrom2dbs2counts:
+#             for dbs, counts in chrom2dbs2counts[chrom].items():
+#                 dbs2counts[dbs] += counts
+#     else:
+#         for chrom in chrom_lst: 
+#             for dbs, counts in chrom2dbs2counts[chrom].items():
+#                 dbs2counts[dbs] += counts
+
+#     o = open(out_file, "w")
+#     o.write("{}\t{}\t{}\n".format("col", "dbs", "counts"))
+#     for (ref, alt), counts in dbs2counts.items():
+#         o.write("{}>NN\t{}\t{}\n".format(ref, alt, counts))
+#     o.close()
+
+
+# def dump_dbs78_plt(infile: str, sample: str, outfile: str) -> None:
+
+#     if sample is None:
+#         print("Sample cannot be None\nBAM or VCF file might be missing sample information")
+#         himut.util.exit()
+        
+#     df = pd.read_csv(infile, sep="\t")
+#     plot = (ggplot(df, aes(x="dbs", y="counts", fill="col")) +
+#       geom_bar(stat="identity")  +
+#       theme_bw() +
+#       facet_grid(". ~ col", scales = "free") +
+#       scale_fill_manual(values = ("#57F2F2","#0141FF","#60FF26","#2E8021","#FFCDC7","#FF2403", "#FFB04F", "#FF8D03", "#E2A8FF", "#61048F")) +
+#       labs(x = "\nDouble base substitutions\n", y = "\nCounts\n") +
+#       ggtitle(sample) +
+#       theme(
+#           legend_title = element_blank(),
+#           axis_text_x = element_text(family = "monospace", size = 10, angle = 90, ha="center"),
+#           text = element_text(size=12)
+#         )
+#     )
+#     plot.save(outfile, width = 22, height = 10)
 
 
 def load_sbs_count(vcf_file: str, ref_file: str) -> Tuple[List[str], Dict[str, Dict[str, int]]]:

@@ -67,8 +67,9 @@ def main():
     #     himut.mutlib.dump_dbs78_plt(options.output, sample, options.output.replace(".tsv", ".pdf")) 
     elif options.sub == "sbs96": # returns sbs96 counts
         sample = himut.vcflib.get_sample(options.input)
+        himut.util.check_mutpatterns_input_exists(options.input, options.ref, options.region, options.region_list, options.output)
         himut.mutlib.dump_sbs96_counts(options.input, options.ref, options.region, options.region_list, options.output)
-        himut.mutlib.dump_sbs96_plt(options.output, sample, options.output.replace(".tsv", ".pdf")) 
+        himut.mutlib.dump_sbs96_plt(options.output, sample, "{}.pdf".format(options.output)) 
     elif options.sub == "normcounts": # returns normalised sbs96 counts
         himut.util.check_num_threads(options.threads)
         himut.normcounts.get_normcounts(

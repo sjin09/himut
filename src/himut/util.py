@@ -355,18 +355,6 @@ def check_out_file(out_file: str):
             return 1
 
 
-def check_tsv_file(tsv_file: str):
-
-    if tsv_file is None:
-        return 1
-    else:
-        if tsv_file.endswith(".tsv"):
-            return 0 
-        else:
-            print("himut requires .tsv file suffix to return SBS96 counts")
-            return 1
-
-
 def is_ref_file_corrupt(
     ref_file: str, 
     chrom_lst: List[str]
@@ -551,7 +539,8 @@ def check_mutpatterns_input_exists(
     chrom_lst, _  = load_loci(region, region_list, tname2tsize)       
     counter += check_vcf_file("--input", vcf_file, chrom_lst)
     counter += check_ref_file(ref_file, chrom_lst)  
-    counter += check_tsv_file(out_file)  
+    if out_file is None:
+        counter += 1
     if counter > 0:
         print("One or more inputs and parameters are missing")
         print("Please provide the correct inputs and parameters") 
@@ -591,14 +580,13 @@ def check_normcounts_input_exists(
         counter += check_vcf_file("--common_snps", common_snps, chrom_lst, tname2tsize) 
         counter += check_vcf_file("--panel_of_normals", panel_of_normals,  chrom_lst, tname2tsize)
 
-
-    counter += check_tsv_file(out_file)
+    if out_file is None:
+        counter += 1
     if counter > 0:
         print("One or more inputs and parameters are missing")
         print("Please provide the correct inputs and parameters")
         exit()
     return chrom_lst, sbs2count
-
 
 
 def get_truncated_float(f: float) -> float:
