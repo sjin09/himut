@@ -307,7 +307,7 @@ def get_normcounts(
     ref_tricounts = get_cumsum_tricounts(chrom2ref_tri2count)
     ccs_tricounts = get_cumsum_tricounts(chrom2ccs_tri2count)
     himut.mutlib.dump_normcounts(sbs2count, ref_tricounts, ccs_tricounts, out_file)
-    himut.mutlib.dump_sbs96_plt(out_file, himut.bamlib.get_sample(bam_file), out_file.replace(".tsv", ".pdf")) 
+    himut.mutlib.dump_norm_sbs96_plt(out_file, himut.bamlib.get_sample(bam_file), "{}.pdf".format(out_file)) 
     print("finished returning normcounts")
     cpu_end = time.time() / 60
     duration = cpu_end - cpu_start
