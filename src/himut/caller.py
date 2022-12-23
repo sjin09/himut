@@ -181,7 +181,6 @@ def get_somatic_substitutions(
             pon_sbs_set = himut.vcflib.load_bgz_pon((chrom, (chunk_start - qlen_upper_limit), (chunk_end + qlen_upper_limit)), panel_of_normals) 
 
         somatic_tsbs_candidate_lst = []
-        print(chrom, chunk_start, chunk_end) ## TODO
         tpos2allele2bq_lst, tpos2allele2ccs_lst, tpos2allelecounts =  himut.util.init_allelecounts()
         for i in alignments.fetch(chrom, chunk_start, chunk_end):
             ccs = himut.bamlib.BAM(i)
