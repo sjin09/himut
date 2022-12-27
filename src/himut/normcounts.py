@@ -1,12 +1,11 @@
 import time
-import math
 import pysam
-import bisect
 import pyfastx
 import himut.util
 import himut.cslib
 import himut.gtlib
 import himut.bamlib
+import himut.caller
 import himut.haplib
 import himut.somlib
 import himut.reflib
@@ -16,27 +15,24 @@ from collections import defaultdict
 from typing import Dict, List, Tuple
 from himut.mutlib import (
     purine,
-    sbs2tri,
     tri_lst,
     purine2pyrimidine,
 )
 
 
-def get_allelecounts(
-    allelecounts: np.ndarray
-):
+def get_allelecounts(allelecounts: np.ndarray):
     ins_count = allelecounts[4]
-    del_count = allelecounts[5] 
+    del_count = allelecounts[5]
     indel_count = ins_count + del_count
     read_depth = sum(allelecounts) - ins_count
     return read_depth, indel_count
- 
+
 
 def update_tricounts(
     pos: int,
-    base: str, 
+    base: str,
     base_bq_count: int,
-    chrom_seq: str, 
+    chrom_seq: str,
     tri2count: Dict[str, int],
 ):
     if base in purine:
@@ -48,26 +44,6 @@ def update_tricounts(
         downstream = chrom_seq[pos + 1]
         tri = "{}{}{}".format(upstream, base, downstream)
     tri2count[tri] += base_bq_count
-
-
-def get_cumsum_tricounts(chrom2tri2count: Dict[str, Dict[str, int]]):
-
-    tri2count = defaultdict(lambda: 0)
-    for chrom in chrom2tri2count:
-        for tri in tri_lst:
-            tri2count[tri] += chrom2tri2count[chrom][tri]            
-    return tri2count 
-
-
-def get_normalised_sbs96_counts(
-    sbs2counts: Dict[Tuple[str, str, str], int],
-    tri_ratio: Dict[Tuple[str, str, str], float],
-) -> Dict[Tuple[str, str, str], float]:
-
-    norm_sbs96_counts = {}
-    for sbs, count in sbs2counts.items():
-        norm_sbs96_counts[sbs] = (count * tri_ratio[sbs2tri[sbs]])
-    return norm_sbs96_counts
 
 
 def get_callable_tricounts(
@@ -98,13 +74,13 @@ def get_callable_tricounts(
     chrom2ccs_tri2count: Dict[str, Dict[str, int]],
 ) -> Dict[str, int]:
 
-
     pon_sbs_set = set()
     common_snp_set = set()
     tri2count = defaultdict(lambda: 0)
     himut.gtlib.init(germline_snv_prior)
     himut.somlib.init(germline_snv_prior)
-    for tri in tri_lst: tri2count[tri] = 0
+    for tri in tri_lst:
+        tri2count[tri] = 0
     min_read_depth = min_ref_count + min_alt_count
     alignments = pysam.AlignmentFile(bam_file, "rb")
     if not non_human_sample:
@@ -113,20 +89,40 @@ def get_callable_tricounts(
         if panel_of_normals.endswith(".vcf"):
             pon_sbs_set = himut.vcflib.load_pon(chrom, panel_of_normals)
 
-    for (chrom, chunk_start, chunk_end) in chunkloci_lst:
+    for (chrom, chunk_start, chunk_end) in chunkloci_lst: 
         if not non_human_sample:
             if common_snps.endswith(".bgz"):
-                common_snp_set = himut.vcflib.load_bgz_common_snp((chrom, chunk_start - qlen_upper_limit, chunk_end + qlen_upper_limit), common_snps)
+                common_snp_set = himut.vcflib.load_bgz_common_snp(
+                    (
+                        chrom,
+                        chunk_start - qlen_upper_limit,
+                        chunk_end + qlen_upper_limit,
+                    ),
+                    common_snps,
+                )
             if panel_of_normals.endswith(".bgz"):
-                pon_sbs_set = himut.vcflib.load_bgz_pon((chrom, chunk_start - qlen_upper_limit, chunk_end + qlen_upper_limit), panel_of_normals) 
-       
-        tpos2allele2bq_lst, tpos2allele2ccs_lst, tpos2allelecounts =  himut.util.init_allelecounts()
+                pon_sbs_set = himut.vcflib.load_bgz_pon(
+                    (
+                        chrom,
+                        chunk_start - qlen_upper_limit,
+                        chunk_end + qlen_upper_limit,
+                    ),
+                    panel_of_normals,
+                )
+
+        (
+            tpos2allele2bq_lst,
+            tpos2allele2ccs_lst,
+            tpos2allelecounts,
+        ) = himut.util.init_allelecounts()
         for i in alignments.fetch(chrom, chunk_start, chunk_end):
             ccs = himut.bamlib.BAM(i)
             if not ccs.is_primary:
                 continue
-            himut.cslib.update_allelecounts(ccs, tpos2allelecounts, tpos2allele2bq_lst, tpos2allele2ccs_lst)
-            if ccs.mapq < min_mapq:
+            himut.cslib.update_allelecounts(
+                ccs, tpos2allelecounts, tpos2allele2bq_lst, tpos2allele2ccs_lst
+            )
+            if himut.caller.is_low_mapq(ccs.mapq, min_mapq):
                 continue
             if ccs.qlen < qlen_lower_limit or ccs.qlen > qlen_upper_limit:
                 continue
@@ -135,18 +131,20 @@ def get_callable_tricounts(
             if ccs.get_blast_sequence_identity() < min_sequence_identity:
                 continue
             if ccs.get_query_alignment_proportion() < min_alignment_proportion:
-                continue 
+                continue
 
-        for tpos in range(chunk_start, chunk_end): # 1-based coordinate
-            rpos = tpos - 1 # 0-based coordinate
+        for tpos in range(chunk_start, chunk_end):  # 1-based coordinate
+            rpos = tpos - 1  # 0-based coordinate
             ref = chrom_seq[rpos]
-            if ref == "N": 
+            if ref == "N":
                 continue
             allelecounts = tpos2allelecounts[tpos]
             allele2bq_lst = tpos2allele2bq_lst[tpos]
-            read_depth, indel_count = get_allelecounts(allelecounts) 
-            germ_gt, germ_gq, germ_gt_state = himut.gtlib.get_germ_gt(ref, allele2bq_lst)
-            if germ_gq < min_gq:
+            read_depth, indel_count = get_allelecounts(allelecounts)
+            germ_gt, germ_gq, germ_gt_state = himut.gtlib.get_germ_gt(
+                ref, allele2bq_lst
+            )
+            if himut.caller.is_low_gq(min_gq, germ_gq):
                 continue
             if germ_gt_state == "het":
                 continue
@@ -158,22 +156,28 @@ def get_callable_tricounts(
                 continue
             if read_depth < min_read_depth:
                 continue
-            elif read_depth > md_threshold:               
+            elif read_depth > md_threshold:
                 continue
 
             gt_base = germ_gt[1]
             gt_base_count = allelecounts[himut.util.base2idx[gt_base]]
             gt_min_bq_count = allele2bq_lst[himut.util.base2idx[gt_base]].count(min_bq)
-            if read_depth == gt_base_count: # homozygous reference without single molecule single-base-substitution
+            if (
+                read_depth == gt_base_count
+            ):  # homozygous reference without single molecule single-base-substitution
                 update_tricounts(rpos, gt_base, gt_min_bq_count, chrom_seq, tri2count)
                 continue
-            
-            alt_base_lst = himut.util.base_set.difference(gt_base) 
+
+            alt_base_lst = himut.util.base_set.difference(gt_base)
             for alt_base in alt_base_lst:
                 som_state = 0
-                tsbs = (tpos, ref, alt_base) 
-                alt_ccs_set = set(tpos2allele2ccs_lst[tpos][himut.util.base2idx[alt_base]])
-                alt_min_bq_count = allele2bq_lst[himut.util.base2idx[alt_base]].count(min_bq)
+                tsbs = (tpos, ref, alt_base)
+                alt_ccs_set = set(
+                    tpos2allele2ccs_lst[tpos][himut.util.base2idx[alt_base]]
+                )
+                alt_min_bq_count = allele2bq_lst[himut.util.base2idx[alt_base]].count(
+                    min_bq
+                )
                 if len(alt_ccs_set) == 0:
                     continue
                 if alt_min_bq_count == 0:
@@ -183,20 +187,22 @@ def get_callable_tricounts(
                         continue
                     if tsbs in common_snp_set:
                         continue
-                for ij in alignments.fetch(chrom, tpos, tpos+1):
+                for ij in alignments.fetch(chrom, tpos, tpos + 1):
                     ccs = himut.bamlib.BAM(ij)
-                    if ccs.qname not in alt_ccs_set: 
+                    if ccs.qname not in alt_ccs_set:
                         continue
-                    ccs.cs2subindel() 
+                    ccs.cs2subindel()
                     qpos = ccs.qsbs_lst[ccs.tsbs_lst.index(tsbs)][0]
                     if himut.bamlib.is_trimmed(ccs, qpos, min_trim):
                         som_state = 1
-                        break 
-                    if himut.bamlib.is_mismatch_conflict(ccs, tpos, qpos, mismatch_window, max_mismatch_count):
+                        break
+                    if himut.bamlib.is_mismatch_conflict(
+                        ccs, tpos, qpos, mismatch_window, max_mismatch_count
+                    ):
                         som_state = 1
-                        break 
+                        break
                 if som_state:
-                    continue 
+                    continue
                 update_tricounts(rpos, alt_base, alt_min_bq_count, chrom_seq, tri2count)
             update_tricounts(rpos, gt_base, gt_min_bq_count, chrom_seq, tri2count)
     chrom2ccs_tri2count[chrom] = dict(tri2count)
@@ -210,18 +216,18 @@ def get_normcounts(
     vcf_file: str,
     phased_vcf_file: str,
     min_mapq: int,
-    min_trim: float,
     min_sequence_identity: float,
     min_hq_base_proportion: float,
     min_alignment_proportion: float,
-    common_snps: str,
-    panel_of_normals: str,
     min_gq: int,
     min_bq: int,
+    min_trim: float,
     mismatch_window: int,
     max_mismatch_count: int,
     min_ref_count: int,
     min_alt_count: int,
+    common_snps: str,
+    panel_of_normals: str,
     somatic_snv_prior: float,
     germline_snv_prior: float,
     germline_indel_prior: float,
@@ -241,7 +247,7 @@ def get_normcounts(
         vcf_file,
         phased_vcf_file,
         common_snps,
-        panel_of_normals, 
+        panel_of_normals,
         tname_lst,
         tname2tsize,
         phase,
@@ -254,16 +260,21 @@ def get_normcounts(
         bam_file, chrom_lst, tname2tsize
     )
     if non_human_sample:
-        germline_snv_prior, germline_indel_prior = himut.vcflib.get_germline_priors(chrom_lst, ref_file, vcf_file, reference_sample)
+        germline_snv_prior, germline_indel_prior = himut.vcflib.get_germline_priors(
+            chrom_lst, ref_file, vcf_file, reference_sample
+        )
 
     if phase:
-        chrom2chunkloci_lst = himut.vcflib.get_chrom2hblock_loci(phased_vcf_file, chrom_lst, tname2tsize)
+        chrom2chunkloci_lst = himut.vcflib.get_chrom2hblock_loci(
+            phased_vcf_file, chrom_lst, tname2tsize
+        )
     else:
         chrom2chunkloci_lst = himut.reflib.load_seq_loci(ref_file, chrom_lst)
-
-    print(
-        "starting himut SBS96 count normalisation with {} threads".format(threads)
+    chrom2ref_tri2count = himut.reflib.get_ref_tricounts(
+        refseq, chrom2chunkloci_lst, threads
     )
+
+    print("starting himut SBS96 count normalisation with {} threads".format(threads))
     p = mp.Pool(threads)
     manager = mp.Manager()
     chrom2ccs_tri2count = manager.dict()
@@ -300,14 +311,47 @@ def get_normcounts(
     p.starmap(get_callable_tricounts, tricount_arg_lst)
     p.close()
     p.join()
-    print(
-        "finished himut SBS96 count normalisation with {} threads".format(threads)
+    print("finished himut SBS96 count normalisation with {} threads".format(threads))
+    cmdline = himut.mutlib.get_normcounts_cmdline(
+        bam_file,
+        ref_file,
+        sbs_file,
+        vcf_file,
+        phased_vcf_file,
+        min_mapq,
+        min_sequence_identity,
+        min_hq_base_proportion,
+        min_alignment_proportion,
+        min_gq,
+        min_bq,
+        min_trim,
+        mismatch_window,
+        max_mismatch_count,
+        min_ref_count,
+        min_alt_count,
+        common_snps,
+        panel_of_normals,
+        somatic_snv_prior,
+        germline_snv_prior,
+        germline_indel_prior,
+        threads,
+        phase,
+        non_human_sample,
+        reference_sample,
+        out_file, 
     )
-    chrom2ref_tri2count = himut.reflib.get_ref_tricounts(refseq, chrom2chunkloci_lst, threads) 
-    ref_tricounts = get_cumsum_tricounts(chrom2ref_tri2count)
-    ccs_tricounts = get_cumsum_tricounts(chrom2ccs_tri2count)
-    himut.mutlib.dump_normcounts(sbs2count, ref_tricounts, ccs_tricounts, out_file)
-    himut.mutlib.dump_norm_sbs96_plt(out_file, himut.bamlib.get_sample(bam_file), "{}.pdf".format(out_file)) 
+    himut.mutlib.dump_normcounts(
+        cmdline, 
+        sbs2count, 
+        chrom2ref_tri2count, 
+        chrom2ccs_tri2count, 
+        phase,
+        chrom2chunkloci_lst,
+        out_file
+    )
+    himut.mutlib.dump_norm_sbs96_plt(
+        out_file, himut.bamlib.get_sample(bam_file), "{}.pdf".format(out_file)
+    )
     print("finished returning normcounts")
     cpu_end = time.time() / 60
     duration = cpu_end - cpu_start

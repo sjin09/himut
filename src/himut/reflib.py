@@ -7,35 +7,36 @@ from himut.mutlib import purine, purine2pyrimidine
 
 
 def load_ref_tricounts(
-    chrom: str, 
+    chrom: str,
     chrom_seq: str,
     chunkloci_lst: List[Tuple[str, int, int]],
-    chrom2tri2count: Dict[str, Dict[str, int]]
+    chrom2tri2count: Dict[str, Dict[str, int]],
 ) -> None:
 
     tri_pyr_lst = []
     for (chrom, chunk_start, chunk_end) in chunkloci_lst:
-        tri_lst = [chrom_seq[i-1:i+2] for i in range(chunk_start, chunk_end)]
-        tri_pyr_lst.extend(["".join([purine2pyrimidine.get(base, "N") for base in tri[::-1]]) if tri[1] in purine else tri for tri in tri_lst])
+        for i in range(chunk_start, chunk_end):
+            tri = chrom_seq[i : i + 3]
+            if tri[1] in purine:
+                tri_pyr = "".join(
+                    [purine2pyrimidine.get(base, "N") for base in tri[::-1]]
+                )
+                tri_pyr_lst.append(tri_pyr)
+            else:
+                tri_pyr_lst.append(tri)
     chrom2tri2count[chrom] = dict(Counter(tri_pyr_lst))
 
 
 def get_ref_tricounts(
-    refseq: str, 
-    chrom2chunkloci_lst: List[str],
-    threads: int
+    refseq: str, chrom2chunkloci_lst: List[str], threads: int
 ) -> Dict[str, Dict[str, int]]:
 
     p = mp.Pool(threads)
     manager = mp.Manager()
     chrom2tri2count = manager.dict()
     load_ref_tricount_arg_lst = [
-        (
-            chrom, 
-            str(refseq[chrom]),
-            chrom2chunkloci_lst[chrom],
-            chrom2tri2count
-        ) for chrom in chrom2chunkloci_lst
+        (chrom, str(refseq[chrom]), chrom2chunkloci_lst[chrom], chrom2tri2count)
+        for chrom in chrom2chunkloci_lst
     ]
     p.starmap(load_ref_tricounts, load_ref_tricount_arg_lst)
     p.close()
@@ -44,8 +45,7 @@ def get_ref_tricounts(
 
 
 def load_seq_loci(
-    ref_file: str, 
-    chrom_lst: List[str]
+    ref_file: str, chrom_lst: List[str]
 ) -> Dict[str, List[Tuple[str, int, int]]]:
 
     refseq = pyfastx.Fasta(ref_file)
@@ -60,7 +60,7 @@ def load_seq_loci(
                     continue
                 else:
                     start = i
-                    status = 1 
+                    status = 1
             elif status == 1:
                 if j == "N":
                     end = i
@@ -73,10 +73,12 @@ def load_seq_loci(
                         chrom2loci_lst[chrom].append((chrom, start, end))
                     else:
                         continue
-
     chrom2chunkloci_lst = {}
     for chrom in chrom_lst:
-        chunkloci_lst = [chunkloci for loci in chrom2loci_lst[chrom] for chunkloci in himut.util.chunkloci(loci)]
+        chunkloci_lst = [
+            chunkloci
+            for loci in chrom2loci_lst[chrom]
+            for chunkloci in himut.util.chunkloci(loci)
+        ]
         chrom2chunkloci_lst[chrom] = chunkloci_lst
     return chrom2chunkloci_lst
-

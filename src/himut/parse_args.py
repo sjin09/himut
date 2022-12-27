@@ -3,19 +3,20 @@ import sys
 import warnings
 import argparse
 
+
 def make_wide(formatter, w=120, h=36):
     """Return a wider HelpFormatter, if possible."""
     try:
         # https://stackoverflow.com/a/5464440
         # beware: "Only the name of this class is considered a public API."
-        kwargs = {'width': w, 'max_help_position': h}
+        kwargs = {"width": w, "max_help_position": h}
         formatter(None, **kwargs)
         return lambda prog: formatter(prog, **kwargs)
     except TypeError:
         warnings.warn("argparse help formatter failed, falling back.")
         return formatter
 
-# argparse
+
 def parse_args(program_version, arguments=sys.argv[1:]):
     # main_arguments
     parser = argparse.ArgumentParser(
@@ -36,14 +37,14 @@ def parse_args(program_version, arguments=sys.argv[1:]):
     parser_call = subparsers.add_parser(
         "call",
         formatter_class=make_wide(argparse.ArgumentDefaultsHelpFormatter, w=180, h=60),
-        help="detects somatic mutations from circular consensus seuqence (CCS) reads"
+        help="detects somatic mutations from circular consensus seuqence (CCS) reads",
     )
     parser_call.add_argument(
         "-i",
         "--bam",
         type=str,
         required=True,
-        help="minimap2 (parameters: -ax map-hifi --cs=short) aligned SAM/BAM files"
+        help="minimap2 (parameters: -ax map-hifi --cs=short) aligned SAM/BAM files",
     )
     parser_call.add_argument(
         "--ref",
@@ -51,7 +52,7 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         required=False,
         help="reference genome FASTA file",
     )
-    parser_call.add_argument( ## TODO
+    parser_call.add_argument(
         "--vcf",
         type=str,
         required=False,
@@ -73,7 +74,7 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         "--region_list",
         type=str,
         required=False,
-        help="list of target chromosomes separated by new line"
+        help="list of target chromosomes separated by new line",
     )
     parser_call.add_argument(
         "--common_snps",
@@ -92,84 +93,84 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         type=int,
         default=60,
         required=False,
-        help="minimum mapping quality score"
-    )
-    parser_call.add_argument(
-        "--min_trim",
-        type=float,
-        default=0.01,
-        required=False,
-        help="minimum proportion of bases to be trimmed from the start and end of the read"
+        help="minimum mapping quality score",
     )
     parser_call.add_argument(
         "--min_sequence_identity",
         type=float,
         default=0.99,
         required=False,
-        help="minimum sequence identity threshold"
+        help="minimum sequence identity threshold",
     )
     parser_call.add_argument(
         "--min_hq_base_proportion",
         type=float,
         default=0.5,
         required=False,
-        help="minimum proportion of high quality base (BQ=93)"
+        help="minimum proportion of high quality base (BQ=93)",
     )
     parser_call.add_argument(
         "--min_alignment_proportion",
         type=float,
         default=0.90,
         required=False,
-        help="minimum proportion of aligned CCS bases"
+        help="minimum proportion of aligned CCS bases",
     )
     parser_call.add_argument(
         "--min_bq",
         type=int,
         default=93,
         required=False,
-        help="minimum base quality score threshold"
+        help="minimum base quality score threshold",
     )
     parser_call.add_argument(
         "--min_gq",
         type=int,
         default=60,
         required=False,
-        help="minimum germline genotype quality (GQ) score "
+        help="minimum germline genotype quality (GQ) score ",
     )
     parser_call.add_argument(
         "--min_ref_count",
         type=int,
         default=3,
         required=False,
-        help="minimum reference allele depth at single base substitution site"
+        help="minimum reference allele depth at single base substitution site",
     )
     parser_call.add_argument(
         "--min_alt_count",
         type=int,
         default=1,
         required=False,
-        help="minimum alternative allele depth at single base substitution site"
+        help="minimum alternative allele depth at single base substitution site",
     )
     parser_call.add_argument(
         "--min_hap_count",
         type=int,
         default=3,
         required=False,
-        help="minimum haplotype count"
+        help="minimum haplotype count",
+    )
+    parser_call.add_argument(
+        "--min_trim",
+        type=float,
+        default=0.01,
+        required=False,
+        help="minimum proportion of bases to be trimmed from the start and end of the read",
     )
     parser_call.add_argument(
         "--mismatch_window",
         type=int,
         default=20,
         required=False,
-        help="mismatch window size"
+        help="mismatch window size",
     )
     parser_call.add_argument(
         "--max_mismatch_count",
         type=int,
         default=0,
         required=False,
-        help="maximum number of mismatches within the mismatch window"
+        help="maximum number of mismatches within the mismatch window",
     )
     # parser_call.add_argument(
     #     "--contamination_prior",
@@ -181,23 +182,23 @@ def parse_args(program_version, arguments=sys.argv[1:]):
     parser_call.add_argument(
         "--somatic_snv_prior",
         type=float,
-        default=1/(10**6),
+        default=1 / (10**6),
         required=False,
-        help="somatic single-base-substitution prior"
+        help="somatic single-base-substitution prior",
     )
     parser_call.add_argument(
         "--germline_snv_prior",
         type=float,
-        default=1/(10**3),
+        default=1 / (10**3),
         required=False,
-        help="germline snv prior"
+        help="germline snv prior",
     )
     parser_call.add_argument(
         "--germline_indel_prior",
         type=float,
-        default=1/(10**4),
+        default=1 / (10**4),
         required=False,
-        help="germline indel prior"
+        help="germline indel prior",
     )
     parser_call.add_argument(
         "-t",
@@ -205,38 +206,38 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         type=int,
         default=1,
         required=False,
-        help="number of threads to use"
+        help="number of threads to use",
     )
     parser_call.add_argument(
         "--phase",
         required=False,
         action="store_true",
-        help="return phased somatic substitutions"
+        help="return phased somatic substitutions",
     )
     parser_call.add_argument(
         "--non_human_sample",
         required=False,
         action="store_true",
-        help="human (default) or non-human sample"
+        help="human (default) or non-human sample",
     )
     parser_call.add_argument(
         "--reference_sample",
         required=False,
         action="store_true",
-        help="reads from the sample has been used to create the reference genome"
+        help="reads from the sample has been used to create the reference genome",
     )
     parser_call.add_argument(
         "--create_panel_of_normal",
         required=False,
         action="store_true",
-        help="call somatic mutations with relaxed parameters for panel of normal preparation"
+        help="call somatic mutations with relaxed parameters for panel of normal preparation",
     )
     parser_call.add_argument(
         "-o",
         "--out",
         type=str,
         required=True,
-        help="VCF file to write the somatic substitutions"
+        help="VCF file to write the somatic substitutions",
     )
     # subcommands: dbs78
     # parser_dbs78 = subparsers.add_parser(
@@ -246,9 +247,9 @@ def parse_args(program_version, arguments=sys.argv[1:]):
     # )
     # parser_dbs78.add_argument(
     #     "-i",
-    #     "--input", 
-    #     type=str, 
-    #     required=True, 
+    #     "--input",
+    #     type=str,
+    #     required=True,
     #     help="himut VCF file to read somatic double base substitutions"
     # )
     # parser_dbs78.add_argument(
@@ -278,16 +279,13 @@ def parse_args(program_version, arguments=sys.argv[1:]):
     )
     parser_sbs96.add_argument(
         "-i",
-        "--input", 
-        type=str, 
-        required=True, 
-        help="himut VCF file to read somatic single base substitutions"
+        "--input",
+        type=str,
+        required=True,
+        help="himut VCF file to read somatic single base substitutions",
     )
     parser_sbs96.add_argument(
-        "--ref", 
-        type=str, 
-        required=True, 
-        help="reference FASTA file"
+        "--ref", type=str, required=True, help="reference FASTA file"
     )
     parser_sbs96.add_argument(
         "--region",
@@ -299,7 +297,7 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         "--region_list",
         type=str,
         required=False,
-        help="list of target chromosomes separated by new line"
+        help="list of target chromosomes separated by new line",
     )
     parser_sbs96.add_argument(
         "-o",
@@ -319,7 +317,7 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         "--bam",
         type=str,
         required=True,
-        help="minimap2 (parameters: -ax map-hifi --cs=short) aligned SAM/BAM files"
+        help="minimap2 (parameters: -ax map-hifi --cs=short) aligned SAM/BAM files",
     )
     parser_phase.add_argument(
         "--vcf",
@@ -337,50 +335,41 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         "--region_list",
         type=str,
         required=False,
-        help="list of target chromosomes separated by new line"
+        help="list of target chromosomes separated by new line",
     )
     parser_phase.add_argument(
         "--min_bq",
         type=int,
         default=20,
         required=False,
-        help="minimum base quality score threshold"
+        help="minimum base quality score threshold",
     )
     parser_phase.add_argument(
         "--min_mapq",
         type=int,
         default=20,
         required=False,
-        help="minimum mapping quality score"
+        help="minimum mapping quality score",
     )
     parser_phase.add_argument(
         "--min_p_value",
         type=float,
         default=0.0001,
         required=False,
-        help="minimum proportion of phase consistent edges"
+        help="minimum proportion of phase consistent edges",
     )
     parser_phase.add_argument(
         "--min_phase_proportion",
         type=float,
         default=0.2,
         required=False,
-        help="minimum proportion of phase consistent edges"
+        help="minimum proportion of phase consistent edges",
     )
     parser_phase.add_argument(
-        "-t",
-        "--threads",
-        type=int,
-        default=1,
-        required=False,
-        help="number of threads"
+        "-t", "--threads", type=int, default=1, required=False, help="number of threads"
     )
     parser_phase.add_argument(
-        "-o",
-        "--out",
-        type=str,
-        required=True,
-        help="VCF file to write phased hetsnps"
+        "-o", "--out", type=str, required=True, help="VCF file to write phased hetsnps"
     )
     # subcommands: normcounts
     parser_normcounts = subparsers.add_parser(
@@ -409,7 +398,7 @@ def parse_args(program_version, arguments=sys.argv[1:]):
     parser_normcounts.add_argument(
         "--vcf",
         type=str,
-        required=True,
+        required=False,
         help="deepvariant VCF file with germline mutations",
     )
     parser_normcounts.add_argument(
@@ -445,13 +434,6 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         help="minimum mapping quality score",
     )
     parser_normcounts.add_argument(
-        "--min_trim",
-        type=float,
-        default=0.01,
-        required=False,
-        help="minimum proportion of bases to be trimmed from the start and end of the read",
-    )
-    parser_normcounts.add_argument(
         "--min_sequence_identity",
         type=float,
         default=0.99,
@@ -470,14 +452,14 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         type=float,
         default=0.90,
         required=False,
-        help="minimum proportion of aligned CCS bases"
+        help="minimum proportion of aligned CCS bases",
     )
     parser_normcounts.add_argument(
         "--min_gq",
         type=int,
         default=60,
         required=False,
-        help="minimum germline genotype quality (GQ) score"
+        help="minimum germline genotype quality (GQ) score",
     )
     parser_normcounts.add_argument(
         "--min_bq",
@@ -501,6 +483,13 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         help="minimum alternative allele depth",
     )
     parser_normcounts.add_argument(
+        "--min_trim",
+        type=float,
+        default=0.01,
+        required=False,
+        help="minimum proportion of bases to be trimmed from the start and end of the read",
+    )
+    parser_normcounts.add_argument(
         "--mismatch_window",
         type=int,
         default=20,
@@ -517,23 +506,23 @@ def parse_args(program_version, arguments=sys.argv[1:]):
     parser_normcounts.add_argument(
         "--somatic_snv_prior",
         type=float,
-        default=1/(10**6),
+        default=1 / (10**6),
         required=False,
-        help="somatic single-base-substitution prior"
+        help="somatic single-base-substitution prior",
     )
     parser_normcounts.add_argument(
         "--germline_snv_prior",
         type=float,
-        default=1/(10**3),
+        default=1 / (10**3),
         required=False,
-        help="germline snv prior"
+        help="germline snv prior",
     )
     parser_normcounts.add_argument(
         "--germline_indel_prior",
         type=float,
-        default=1/(10**4),
+        default=1 / (10**4),
         required=False,
-        help="germline indel prior"
+        help="germline indel prior",
     )
     parser_normcounts.add_argument(
         "-t",
@@ -553,13 +542,13 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         "--non_human_sample",
         required=False,
         action="store_true",
-        help="human or non_human_sample"
+        help="human or non_human_sample",
     )
     parser_normcounts.add_argument(
         "--reference_sample",
         required=False,
         action="store_true",
-        help="reads from the sample has been used to create the reference genome"
+        help="reads from the sample has been used to create the reference genome",
     )
     parser_normcounts.add_argument(
         "-o",
@@ -568,7 +557,7 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         required=True,
         help="file to return normalised SBS96 counts",
     )
-    if len(arguments) == 0: 
+    if len(arguments) == 0:
         parser.print_help()
         parser.exit()
     else:

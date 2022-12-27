@@ -4,11 +4,10 @@ from typing import Dict, List, Tuple
 bit_complement_hsh = {"0": "1", "1": "0", "-": "-"}
 
 
-def phase_set2chunkloci_lst(
-    chrom: int,
-    phase_set2hpos_lst: Dict[str, List[int]]
-):
-    chunkloci_lst = [(chrom, hpos_lst[0], hpos_lst[-1]) for hpos_lst in phase_set2hpos_lst.values()]
+def phase_set2chunkloci_lst(chrom: int, phase_set2hpos_lst: Dict[str, List[int]]):
+    chunkloci_lst = [
+        (chrom, hpos_lst[0], hpos_lst[-1]) for hpos_lst in phase_set2hpos_lst.values()
+    ]
     return chunkloci_lst
 
 
@@ -30,12 +29,12 @@ def get_phase_set(
     chunk_start: int,
     chunk_end: int,
     hpos_lst: List[int],
-    hpos2phase_set: Dict[int, str]
+    hpos2phase_set: Dict[int, str],
 ):
     idx = bisect.bisect_right(hpos_lst, chunk_start)
     jdx = bisect.bisect_right(hpos_lst, chunk_end)
     hpos_subset_lst = [hpos_lst[kdx] for kdx in range(idx, jdx)]
-    phase_set_lst = list(set([hpos2phase_set[hpos] for hpos in hpos_subset_lst])) 
+    phase_set_lst = list(set([hpos2phase_set[hpos] for hpos in hpos_subset_lst]))
     if len(phase_set_lst) == 1:
         phase_set = phase_set_lst[0]
     else:
@@ -43,18 +42,15 @@ def get_phase_set(
     return phase_set
 
 
-def get_ccs_hbit(
-    ccs,
-    hetsnp_subset_lst: List[Tuple[str, int, str, str]]
-) -> List[str]:
-    
+def get_ccs_hbit(ccs, hetsnp_subset_lst: List[Tuple[str, int, str, str]]) -> List[str]:
+
     ccs_hbit = ""
     ccs.cs2tpos2qbase()
-    for hetsnp in hetsnp_subset_lst: # get read haplotype bits
+    for hetsnp in hetsnp_subset_lst:  # get read haplotype bits
         qbase = ccs.tpos2qbase[hetsnp[0]][0]
-        if qbase == hetsnp[1]: # ref
+        if qbase == hetsnp[1]:  # ref
             ccs_hbit += "0"
-        elif qbase == hetsnp[2]: # alt
+        elif qbase == hetsnp[2]:  # alt
             ccs_hbit += "1"
         else:
             ccs_hbit += "-"

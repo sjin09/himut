@@ -46,12 +46,12 @@ def get_edges(
         for idx, snpidx in enumerate(hetsnp_subset_lst):
             i = hetsnp2hidx[snpidx]
             ibase, ibq = ccs.tpos2qbase[snpidx[0]]
-            if ibq < min_bq: 
+            if ibq < min_bq:
                 continue
             idx_state = 0 if ibase == snpidx[1] else 1
-            for snpjdx in hetsnp_subset_lst[idx + 1:]:
+            for snpjdx in hetsnp_subset_lst[idx + 1 :]:
                 j = hetsnp2hidx[snpjdx]
-                jbase, jbq = ccs.tpos2qbase[snpjdx[0]] 
+                jbase, jbq = ccs.tpos2qbase[snpjdx[0]]
                 if jbq < min_bq:
                     continue
                 jdx_state = 0 if jbase == snpjdx[1] else 1
@@ -70,9 +70,7 @@ def get_edges(
 def table2binom_test(table: np.ndarray) -> float:
     total_count = np.sum(table)
     total_cis_count = table[0] + table[1]
-    p_value = binom_test(
-        total_cis_count, total_count, p=0.5, alternative="two-sided"
-    )
+    p_value = binom_test(total_cis_count, total_count, p=0.5, alternative="two-sided")
     return p_value
 
 
@@ -91,10 +89,10 @@ def build_graph(
 
 
 def get_phased_graph(
-    edge_lst: List[Tuple[int, int]], 
+    edge_lst: List[Tuple[int, int]],
     edge2counts: Dict[Tuple[int, int], np.ndarray],
     min_p_value: float,
-    min_phase_proportion: float
+    min_phase_proportion: float,
 ) -> Dict[int, List[int]]:
 
     phased_graph = {}
@@ -105,7 +103,7 @@ def get_phased_graph(
         phase_consistent_edge_count = 0
         for j in graph[i]:
             if i < j:
-                p_value = table2binom_test(edge2counts[(i,j)])
+                p_value = table2binom_test(edge2counts[(i, j)])
                 edge2p_value[(i, j)] = p_value
             else:
                 p_value = edge2p_value[(j, i)]
@@ -122,17 +120,17 @@ def get_phased_graph(
 
 
 def build_haplotype_block(
-    edge_lst: List[Tuple[int, int]], 
+    edge_lst: List[Tuple[int, int]],
     edge2counts: Dict[Tuple[int, int], np.ndarray],
     min_p_value: float,
-    min_phase_proportion: float
+    min_phase_proportion: float,
 ) -> List[List[Tuple[int, int]]]:
 
     bfs = [{}]
     bfs_idx = 0
     seen = set()
     graph = get_phased_graph(edge_lst, edge2counts, min_p_value, min_phase_proportion)
-    for nodeA in graph: # bfs
+    for nodeA in graph:  # bfs
         if nodeA in seen:
             continue
         seen.add(nodeA)
@@ -211,20 +209,27 @@ def get_hblock_statistics(
         block_distance = posjdx - posidx
         block_len_lst.append(block_len)
         block_distance_lst.append(block_distance)
-       
-    num_hetsnps = len(hetsnp_lst) 
+
+    num_hetsnps = len(hetsnp_lst)
     num_blocks = len(hblock_lst)
     if len(block_len_lst) == 0:
-        largest_block = 0 
-        smallest_block = 0 
-        longest_block = 0 
-        shortest_block = 0 
+        largest_block = 0
+        smallest_block = 0
+        longest_block = 0
+        shortest_block = 0
     else:
         largest_block = max(block_len_lst)
         smallest_block = min(block_len_lst)
         longest_block = max(block_distance_lst)
         shortest_block = min(block_distance_lst)
-    return num_hetsnps, num_blocks, smallest_block, largest_block, shortest_block, longest_block,
+    return (
+        num_hetsnps,
+        num_blocks,
+        smallest_block,
+        largest_block,
+        shortest_block,
+        longest_block,
+    )
 
 
 def get_hblock(
@@ -232,31 +237,32 @@ def get_hblock(
     chrom_len: int,
     bam_file: str,
     vcf_file: str,
-    min_bq,
-    min_mapq,
-    min_p_value,
-    min_phase_proportion, 
+    min_bq: int,
+    min_mapq: int,
+    min_p_value: float,
+    min_phase_proportion: float,
     chrom2hblock_lst: Dict[str, List[List[Tuple[int, int]]]],
 ) -> List[List[Tuple[int, Tuple[int, int]]]]:
 
-
-    hetsnp_lst, _, hetsnp2hidx = himut.vcflib.load_hetsnps(vcf_file, chrom, chrom_len) 
+    hetsnp_lst, _, hetsnp2hidx = himut.vcflib.load_hetsnps(vcf_file, chrom, chrom_len)
     hpos_lst = [hetsnp[0] for hetsnp in hetsnp_lst]
     edge_lst, edge2counts = get_edges(
         chrom, bam_file, min_bq, min_mapq, hpos_lst, hetsnp_lst, hetsnp2hidx
     )
-    chrom2hblock_lst[chrom] = build_haplotype_block(edge_lst, edge2counts, min_p_value, min_phase_proportion)
+    chrom2hblock_lst[chrom] = build_haplotype_block(
+        edge_lst, edge2counts, min_p_value, min_phase_proportion
+    )
 
 
 def get_chrom_hblock(
     bam_file: str,
     vcf_file: str,
     region: str,
-    region_lst: str,
-    min_bq: int, 
+    region_list: str,
+    min_bq: int,
     min_mapq: int,
-    min_p_value,
-    min_phase_proportion: float, 
+    min_p_value: float,
+    min_phase_proportion: float,
     threads: int,
     version: str,
     out_file: str,
@@ -267,23 +273,24 @@ def get_chrom_hblock(
     print("himut is phasing hetsnps with {} threads".format(threads))
     himut.util.check_num_threads(threads)
     _, tname2tsize = himut.bamlib.get_tname2tsize(bam_file)
-    chrom_lst, _ = himut.util.load_loci(region, region_lst, tname2tsize)
-    himut.util.check_phaser_input_exists(bam_file, vcf_file, out_file, chrom_lst, tname2tsize) 
-    
+    chrom_lst, _ = himut.util.load_loci(region, region_list, tname2tsize)
+    himut.util.check_phaser_input_exists(
+        bam_file, vcf_file, out_file, chrom_lst, tname2tsize
+    )
     p = mp.Pool(threads)
     manager = mp.Manager()
     chrom2hblock_lst = manager.dict()
     get_hblock_arg_lst = [
         (
             chrom,
-            tname2tsize[chrom], 
+            tname2tsize[chrom],
             bam_file,
             vcf_file,
             min_bq,
             min_mapq,
             min_p_value,
-            min_phase_proportion, 
-            chrom2hblock_lst, 
+            min_phase_proportion,
+            chrom2hblock_lst,
         )
         for chrom in chrom_lst
     ]
@@ -291,23 +298,26 @@ def get_chrom_hblock(
     p.close()
     p.join()
     print("himut finished phasing hetsnps")
-   
+
     print("himut is returning phased hetsnps")
-    himut.vcflib.dump_phased_hetsnps( 
+    himut.vcflib.dump_phased_hetsnps(
         bam_file,
         vcf_file,
-        chrom_lst,
+        region,
+        region_list,
         tname2tsize,
-        chrom2hblock_lst, 
+        min_bq, 
+        min_mapq,
+        min_p_value,
+        min_phase_proportion,
+        threads,
+        chrom_lst,
+        chrom2hblock_lst,
         version,
         out_file,
     )
-    print("himut finished returning phased hetsnps")    
+    print("himut finished returning phased hetsnps")
     cpu_end = time.time() / 60
     duration = cpu_end - cpu_start
-    print(
-        "himut haplotype phasing took {} minutes".format(
-            duration
-        )
-    )
+    print("himut haplotype phasing took {} minutes".format(duration))
     himut.util.exit()

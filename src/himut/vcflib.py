@@ -23,10 +23,12 @@ class VCF:
         self.info = arr[7]
         self.format_lst = arr[8].split(":")
         self.sample_format_lst = arr[9].split(":")
-        hsh = {i:j for i,j in zip(self.format_lst, self.sample_format_lst)}
-        if "GT" in hsh: self.sample_gt = hsh["GT"] 
-        if "PS" in hsh: self.sample_phase_set = hsh["PS"] 
-        if "AD" in hsh: 
+        hsh = {i: j for i, j in zip(self.format_lst, self.sample_format_lst)}
+        if "GT" in hsh:
+            self.sample_gt = hsh["GT"]
+        if "PS" in hsh:
+            self.sample_phase_set = hsh["PS"]
+        if "AD" in hsh:
             arr = hsh["AD"].split(",")
             self.ref_count = arr[0]
             self.alt_count_arr = arr[1:]
@@ -41,9 +43,9 @@ class VCF:
                 self.is_snp = True
             elif len(self.ref) == len(self.alt) == 2:
                 self.is_dbs = True
-            elif len(self.ref) > len(self.alt): # del
+            elif len(self.ref) > len(self.alt):  # del
                 self.is_indel = True
-            elif len(self.ref) < len(self.alt): # ins
+            elif len(self.ref) < len(self.alt):  # ins
                 self.is_indel = True
         else:
             self.is_biallelic = False
@@ -61,9 +63,19 @@ def get_sample(vcf_file: str) -> str:
         return sample
 
 
-def get_vcf_header(
+def get_phased_vcf_header(
     bam_file: str,
+    vcf_file: str,
+    region: str,
+    region_list: str,
+    tname2tsize: Dict[str, int],
+    min_bq: int,
+    min_mapq: int,
+    min_p_value: float,
+    min_phase_proportion: float,
+    threads: int,
     version: str,
+    out_file,
 ) -> str:
 
     vcf_header_lst = [
@@ -72,7 +84,7 @@ def get_vcf_header(
         "##fileDate={}".format(datetime.now().strftime("%d%m%Y")),
         "##source=himut",
         "##source_version={}".format(version),
-        '##content=himut somatic single base substitutions',
+        "##content=himut somatic single base substitutions",
         '##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">',
         '##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Conditional genotype quality">',
         '##FORMAT=<ID=BQ,Number=1,Type=Float,Description="Average base quality">',
@@ -82,13 +94,34 @@ def get_vcf_header(
         '##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Phred-scaled genotype likelihoods rounded to the closest integer">',
         '##FORMAT=<ID=PS,Number=1,Type=Integer,Description="Phase set">',
     ]
+    for tname in natsort.natsorted(list(tname2tsize.keys())):
+        vcf_header_lst.append(
+            "##contig=<ID={},length={}>".format(tname, tname2tsize[tname])
+        )
 
-    tname_lst, tname2tsize = himut.bamlib.get_tname2tsize(bam_file)
-    for tname in tname_lst:
-        vcf_header_lst.append("##contig=<ID={},length={}>".format(tname, tname2tsize[tname]))
+    if region is None and region_list is not None:
+        region_param = "--region_list {}".format(region_list)
+    elif region is not None and region_list is None:
+        region_param = "--region {}".format(region)
+    elif region is not None and region_list is not None:
+        region_param = "--region_list {}".format(region_list)
 
+    cmdline = "##himut_command=himut phase -i {} --vcf {} {} --min_bq {} --min_mapq {} --min_p_value {} --min_phase_proportion {} --threads {} -o {}".format(
+        bam_file,
+        vcf_file,
+        region_param,
+        min_bq,
+        min_mapq,
+        min_p_value,
+        min_phase_proportion,
+        threads,
+        out_file,
+    )
+    vcf_header_lst.append(cmdline)
     vcf_header_lst.append(
-        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{}".format(himut.bamlib.get_sample(bam_file))
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{}".format(
+            himut.bamlib.get_sample(bam_file)
+        )
     )
     vcf_header = "\n".join(vcf_header_lst)
     return vcf_header
@@ -104,12 +137,12 @@ def get_himut_vcf_header(
     common_snps: str,
     panel_of_normals: str,
     min_mapq: int,
-    min_trim: float,
     min_sequence_identity: float,
     min_hq_base_proportion: float,
     min_alignment_proportion: float,
     min_gq: int,
     min_bq: int,
+    min_trim: float,
     mismatch_window: int,
     max_mismatch_count: int,
     min_ref_count: int,
@@ -117,7 +150,7 @@ def get_himut_vcf_header(
     md_threshold: int,
     min_hap_count: int,
     threads: int,
-    somatic_snv_prior: float, 
+    somatic_snv_prior: float,
     germline_snv_prior: float,
     germline_indel_prior: float,
     phase: bool,
@@ -133,18 +166,26 @@ def get_himut_vcf_header(
         "##fileDate={}".format(datetime.now().strftime("%d%m%Y")),
         "##source=himut",
         "##source_version={}".format(version),
-        '##content=himut somatic single base substitutions',
+        "##content=himut somatic single base substitutions",
         '##FILTER=<ID=PASS,Description="All filters passed">',
-        '##FILTER=<ID=LowBQ,Description="Base quality score is below the minimum base quality score of {}">'.format(min_bq),
-        '##FILTER=<ID=LowGQ,Description="Germline genotype quality score is below the minimum genotype quality score of {}">'.format(min_gq),
+        '##FILTER=<ID=LowBQ,Description="Base quality score is below the minimum base quality score of {}">'.format(
+            min_bq
+        ),
+        '##FILTER=<ID=LowGQ,Description="Germline genotype quality score is below the minimum genotype quality score of {}">'.format(
+            min_gq
+        ),
         '##FILTER=<ID=HetSite,Description="Somatic substitution at heterzygous SNP site is not considered">',
         '##FILTER=<ID=HetAltSite,Description="Somatic substitution at tri-allelic SNP site is not considered">',
         '##FILTER=<ID=HomAltSite,Description="Somatic substitution at homozygous alternative SNP site is not considered">',
         '##FILTER=<ID=IndelSite,Description="Somatic substitution at indel site is not considered">',
         '##FILTER=<ID=ContRead,Description="Substitution is potentially from genomic DNA contamination">',
         '##FILTER=<ID=PanelOfNormal,Description="Substitution is found within the Panel of Normal VCF file">',
-        '##FILTER=<ID=LowDepth,Description="Read depth is above the minimum depth threshold of {}">'.format(min_ref_count + min_alt_count),
-        '##FILTER=<ID=HighDepth,Description="Read depth is above the maximum depth threshold of {}">'.format(md_threshold),
+        '##FILTER=<ID=LowDepth,Description="Read depth is above the minimum depth threshold of {}">'.format(
+            min_ref_count + min_alt_count
+        ),
+        '##FILTER=<ID=HighDepth,Description="Read depth is above the maximum depth threshold of {}">'.format(
+            md_threshold
+        ),
         '##FILTER=<ID=Trimmed,Description="Substitution is positioned near the end of reads">',
         '##FILTER=<ID=MismatchConflict,Description="Substitution is found next to a mismatch within a given mismatch window">',
         '##FILTER=<ID=Unphased,Description="CCS read is not haplotype phased">',
@@ -155,9 +196,10 @@ def get_himut_vcf_header(
         '##FORMAT=<ID=VAF,Number=A,Type=Float,Description="Variant allele fractions">',
         '##FORMAT=<ID=PS,Number=1,Type=Integer,Description="Phase set">',
     ]
-    tname_lst = natsort.natsorted(list(tname2tsize.keys()))
-    for tname in tname_lst:
-        vcf_header_lst.append("##contig=<ID={},length={}>".format(tname, tname2tsize[tname]))
+    for tname in natsort.natsorted(list(tname2tsize.keys())):
+        vcf_header_lst.append(
+            "##contig=<ID={},length={}>".format(tname, tname2tsize[tname])
+        )
 
     if region is None and region_list is not None:
         region_param = "--region_list {}".format(region_list)
@@ -166,10 +208,9 @@ def get_himut_vcf_header(
     elif region is not None and region_list is not None:
         region_param = "--region_list {}".format(region_list)
 
-    cmdline = "{} --min_mapq {} --min_trim {} --min_sequence_identity {} --min_hq_base_proportion {} --min_alignment_proportion {} --min_gq {} --min_bq {} --min_ref_count {} --min_alt_count {} --min_hap_count {} --mismatch_window {} --max_mismatch_count {} --somatic_snv_prior {} --germline_snv_prior {} --germline_indel_prior {} --threads {} -o {}".format(
+    param = "{} --min_mapq {} --min_sequence_identity {} --min_hq_base_proportion {} --min_alignment_proportion {} --min_gq {} --min_bq {} --min_ref_count {} --min_alt_count {} --min_hap_count {} --min_trim {} --mismatch_window {} --max_mismatch_count {} --somatic_snv_prior {} --germline_snv_prior {} --germline_indel_prior {} --threads {} -o {}".format(
         region_param,
         min_mapq,
-        min_trim,
         min_sequence_identity,
         min_hq_base_proportion,
         min_alignment_proportion,
@@ -178,46 +219,96 @@ def get_himut_vcf_header(
         min_ref_count,
         min_alt_count,
         min_hap_count,
+        min_trim,
         mismatch_window,
         max_mismatch_count,
-        somatic_snv_prior, 
+        somatic_snv_prior,
         germline_snv_prior,
         germline_indel_prior,
         threads,
-        out_file 
+        out_file,
     )
-    if phase:
-        if non_human_sample and not create_panel_of_normals:
-            if reference_sample:
-                cmdline = "##himut_command=himut call -i {} --vcf {} --phased_vcf {} {} --phase --non_human_sample --reference_sample".format(bam_file, vcf_file, phased_vcf_file, cmdline)
-            else: 
-                cmdline = "##himut_command=himut call -i {} --vcf {} --phased_vcf {} {} --phase --non_human_sample".format(bam_file, vcf_file, phased_vcf_file, cmdline)
-        elif not non_human_sample and create_panel_of_normals:
-            cmdline = "##himut_command=himut call -i {} --vcf {} --phased_vcf {} {} --phase --create_panel_of_normals".format(bam_file, vcf_file, phased_vcf_file, cmdline)
-        elif not non_human_sample and not create_panel_of_normals:
-            cmdline = "##himut_command=himut call -i {} --vcf {} --phased_vcf {} --common_snps {} --panel_of_normals {} {} --phase".format(bam_file, vcf_file, phased_vcf_file, common_snps, panel_of_normals, cmdline)
-    else:
-        if non_human_sample and not create_panel_of_normals:
-            if reference_sample:
-                cmdline = "##himut_command=himut call -i {} --vcf {} {} --reference_sample --non_human_sample".format(bam_file, vcf_file, cmdline)
-            else:
-                cmdline = "##himut_command=himut call -i {} --vcf {} {} --non_human_sample".format(bam_file, vcf_file, cmdline)
-        elif not non_human_sample and create_panel_of_normals:
-            cmdline = "##himut_command=himut call -i {} --vcf {} {} --create_panel_of_normals".format(bam_file, vcf_file, cmdline)
-        elif not non_human_sample and not create_panel_of_normals:
-            cmdline = "##himut_command=himut call -i {} --vcf {} --common_snps {} --panel_of_normals {} {}".format(bam_file, vcf_file, common_snps, panel_of_normals, cmdline)
+    if phase and non_human_sample and reference_sample: 
+        cmdline = "##himut_command=himut call -i {} --vcf {} --phased_vcf {} {} --phase --non_human_sample --reference_sample".format(
+            bam_file, 
+            vcf_file, 
+            phased_vcf_file, 
+            param
+        )
+    elif phase and non_human_sample and not reference_sample:
+        cmdline = "##himut_command=himut call -i {} --vcf {} --phased_vcf {} {} --phase --non_human_sample".format(
+            bam_file, 
+            vcf_file, 
+            phased_vcf_file, 
+            param
+        )
+    elif phase and not non_human_sample and not reference_sample:
+        cmdline = "##himut_command=himut call -i {} --phased_vcf {} {} --common_snps {} --panel_of_normals {} --phase".format(
+            bam_file,
+            phased_vcf_file,
+            param,
+            common_snps,
+            panel_of_normals,
+        )
+    elif (
+        not phase
+        and non_human_sample
+        and reference_sample
+        and not create_panel_of_normals
+    ):
+        cmdline = "##himut_command=himut call -i {} --vcf {} {} --non_human_sample --reference_sample".format(
+            bam_file, 
+            vcf_file, 
+            param
+        )
+    elif (
+        not phase
+        and non_human_sample
+        and not reference_sample
+        and not create_panel_of_normals
+    ):
+        cmdline = (
+            "##himut_command=himut call -i {} --vcf {} {} --non_human_sample".format(
+                bam_file, 
+                vcf_file,
+                param
+            )
+        )
+    elif (
+        not phase
+        and not non_human_sample
+        and not reference_sample
+        and create_panel_of_normals
+    ):
+        cmdline = "##himut_command=himut call -i {} --vcf {} {} --create_panel_of_normals".format(
+            bam_file, 
+            vcf_file, 
+            param
+        )
+    elif (
+        not phase
+        and not non_human_sample
+        and not reference_sample
+        and not create_panel_of_normals
+    ):
+        cmdline = "##himut_command=himut call -i {} --vcf {} {} --common_snps {} --panel_of_normals {}".format(
+            bam_file, 
+            vcf_file, 
+            param, 
+            common_snps, 
+            panel_of_normals
+        )
     vcf_header_lst.append(cmdline)
     vcf_header_lst.append(
-        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{}".format(himut.bamlib.get_sample(bam_file))
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{}".format(
+            himut.bamlib.get_sample(bam_file)
+        )
     )
     vcf_header = "\n".join(vcf_header_lst)
     return vcf_header
 
 
-def load_snp(
-    chrom: str,
-    vcf_file: str
-) -> Set[Tuple[int, str, str]]:
+def load_snp(chrom: str, vcf_file: str) -> Set[Tuple[int, str, str]]:
 
     snp_set = set()
     for line in open(vcf_file):
@@ -234,19 +325,18 @@ def load_snp(
                 for alt in v.alt_lst:
                     if len(v.ref) == 1 and len(alt) == 1:
                         snp_set.add((v.pos, v.ref, alt))
-    return snp_set 
-      
-                     
+    return snp_set
+
+
 def load_bgz_snp(
-    loci: Tuple[str, int, int],
-    vcf_file: str
+    loci: Tuple[str, int, int], vcf_file: str
 ) -> Set[Tuple[int, str, str]]:
 
     snp_set = set()
     tb = tabix.open(vcf_file)
     records = tb.query(*loci)
     for record in records:
-        v = VCF("\t".join(record))           
+        v = VCF("\t".join(record))
         if v.is_pass:
             if v.is_biallelic:
                 if v.is_snp:
@@ -259,16 +349,15 @@ def load_bgz_snp(
 
 
 def load_pon(
-    chrom: str,
-    vcf_file: str
+    chrom: str, vcf_file: str
 ) -> Tuple[Set[Tuple[str, int, str, str]], Set[Tuple[str, int, str, str]]]:
 
-    sbs_set = set() 
+    sbs_set = set()
     for line in open(vcf_file):
         if line.startswith("#"):
             continue
         v = VCF(line)
-        if chrom != v.chrom: 
+        if chrom != v.chrom:
             continue
         if v.is_snp and v.is_pass and v.is_biallelic:
             sbs_set.add((v.pos, v.ref, v.alt))
@@ -276,31 +365,27 @@ def load_pon(
 
 
 def load_bgz_pon(
-    loci: Tuple[str, int, int],
-    vcf_file: str
+    loci: Tuple[str, int, int], vcf_file: str
 ) -> Tuple[Set[Tuple[str, int, str, str]], Set[Tuple[str, int, str, str]]]:
-   
-    sbs_set = set() 
+
+    sbs_set = set()
     tb = tabix.open(vcf_file)
     records = tb.query(*loci)
     for record in records:
-        v = VCF("\t".join(record))            
+        v = VCF("\t".join(record))
         if v.is_snp and v.is_pass and v.is_biallelic:
             sbs_set.add((v.pos, v.ref, v.alt))
     return sbs_set
 
 
-def load_common_snp(
-    chrom: str,
-    vcf_file: str
-) -> Set[Tuple[str, int, str, str]]:
-    
+def load_common_snp(chrom: str, vcf_file: str) -> Set[Tuple[str, int, str, str]]:
+
     snp_set = set()
     for line in open(vcf_file).readlines():
         if line.startswith("#"):
             continue
         arr = line.strip().split()
-        alt_lst = arr[4].split(",") 
+        alt_lst = arr[4].split(",")
         if chrom != arr[0] and arr[6] == "PASS" and len(alt_lst) == 1:
             pos = int(arr[1])
             ref = arr[3]
@@ -314,12 +399,12 @@ def load_bgz_common_snp(
     loci: Tuple[str, int, int],
     vcf_file: str,
 ) -> Set[Tuple[str, int, str, str]]:
-  
+
     snp_set = set()
     tb = tabix.open(vcf_file)
     records = tb.query(*loci)
     for arr in records:
-        alt_lst = arr[4].split(",") 
+        alt_lst = arr[4].split(",")
         if arr[6] == "PASS" and len(alt_lst) == 1:
             pos = int(arr[1])
             ref = arr[3]
@@ -336,21 +421,32 @@ def load_hetsnps(
 ):
 
     hetsnp_lst = []
-    hidx2hetsnp = {} 
-    hetsnp2hidx = {} 
+    hidx2hetsnp = {}
+    hetsnp2hidx = {}
     if vcf_file.endswith(".vcf"):
         for line in open(vcf_file):
             if line.startswith("#"):
                 continue
             v = VCF(line)
-            if chrom == v.chrom and v.is_snp and v.is_pass and v.is_biallelic and (v.sample_gt == "0/1" or v.sample_gt == "1/0"):
+            if (
+                chrom == v.chrom
+                and v.is_snp
+                and v.is_pass
+                and v.is_biallelic
+                and (v.sample_gt == "0/1" or v.sample_gt == "1/0")
+            ):
                 hetsnp_lst.append((v.pos, v.ref, v.alt))
     elif vcf_file.endswith(".bgz"):
         tb = tabix.open(vcf_file)
         records = tb.query(chrom, 0, chrom_len)
         for record in records:
-            v = VCF("\t".join(record))            
-            if v.is_snp and v.is_pass and v.is_biallelic and (v.sample_gt == "0/1" or v.sample_gt == "1/0"):
+            v = VCF("\t".join(record))
+            if (
+                v.is_snp
+                and v.is_pass
+                and v.is_biallelic
+                and (v.sample_gt == "0/1" or v.sample_gt == "1/0")
+            ):
                 hetsnp_lst.append((v.pos, v.ref, v.alt))
     for hidx, hetsnp in enumerate(hetsnp_lst):
         hidx2hetsnp[hidx] = hetsnp
@@ -360,27 +456,37 @@ def load_hetsnps(
 
 def load_hblock_hsh(
     vcf_file: str,
-    chrom_lst: List[str], 
+    chrom_lst: List[str],
     tname2tsize: Dict[str, int],
-    chrom2hblock_lst: Dict[str, List[Tuple[str, str]]]
+    chrom2hblock_lst: Dict[str, List[Tuple[str, str]]],
 ):
 
-    chrom2hetsnp_lst = defaultdict(list)    
+    chrom2hetsnp_lst = defaultdict(list)
     chrom2hidx2hetsnp = defaultdict(dict)
     if vcf_file.endswith(".vcf"):
         for line in open(vcf_file):
             if line.startswith("#"):
                 continue
             v = VCF(line)
-            if v.is_snp and v.is_pass and v.is_biallelic and (v.sample_gt == "0/1" or v.sample_gt == "1/0"):
+            if (
+                v.is_snp
+                and v.is_pass
+                and v.is_biallelic
+                and (v.sample_gt == "0/1" or v.sample_gt == "1/0")
+            ):
                 chrom2hetsnp_lst[v.chrom].append((v.pos, v.ref, v.alt))
     elif vcf_file.endswith(".bgz"):
         tb = tabix.open(vcf_file)
         for chrom in chrom_lst:
             records = tb.query(chrom, 0, tname2tsize[chrom])
             for record in records:
-                v = VCF("\t".join(record))            
-                if v.is_snp and v.is_pass and v.is_biallelic and (v.sample_gt == "0/1" or v.sample_gt == "1/0"):
+                v = VCF("\t".join(record))
+                if (
+                    v.is_snp
+                    and v.is_pass
+                    and v.is_biallelic
+                    and (v.sample_gt == "0/1" or v.sample_gt == "1/0")
+                ):
                     chrom2hetsnp_lst[v.chrom].append((v.pos, v.ref, v.alt))
 
     hetsnp2hstate = {}
@@ -395,14 +501,11 @@ def load_hblock_hsh(
             for (hidx, hstate) in hblock:
                 hetsnp = chrom2hidx2hetsnp[chrom][hidx]
                 hetsnp2hstate[hetsnp] = hstate
-                hetsnp2phase_set[hetsnp] = phase_set 
-    return hetsnp2hstate, hetsnp2phase_set 
+                hetsnp2phase_set[hetsnp] = phase_set
+    return hetsnp2hstate, hetsnp2phase_set
 
 
-def load_germline_counts(
-    vcf_file: str,
-    chrom_lst: List[str]
-):
+def load_germline_counts(vcf_file: str, chrom_lst: List[str]):
 
     chrom2hetsnp_count = defaultdict(lambda: 0)
     chrom2homsnp_count = defaultdict(lambda: 0)
@@ -446,32 +549,29 @@ def load_germline_counts(
 
 
 def get_germline_priors(
-    chrom_lst: List[str],
-    ref_file: str,
-    vcf_file: str,
-    reference_sample: bool
+    chrom_lst: List[str], ref_file: str, vcf_file: str, reference_sample: bool
 ):
-    
+
     refseq = pyfastx.Fasta(ref_file)
     target_sum = sum([len(str(refseq[chrom])) for chrom in chrom_lst])
-    hetsnp_count, homsnp_count, hetindel_count, homindel_count = load_germline_counts(vcf_file, chrom_lst)
+    hetsnp_count, homsnp_count, hetindel_count, homindel_count = load_germline_counts(
+        vcf_file, chrom_lst
+    )
     if reference_sample:
-        germline_snv_frequency = (2 * hetsnp_count)/target_sum
-        germline_indel_frequency = (2 * hetindel_count)/target_sum
+        germline_snv_frequency = (2 * hetsnp_count) / target_sum
+        germline_indel_frequency = (2 * hetindel_count) / target_sum
     else:
-        germline_snv_frequency = (hetsnp_count + homsnp_count)/target_sum
-        germline_indel_frequency = (hetindel_count + homindel_count)/target_sum
+        germline_snv_frequency = (hetsnp_count + homsnp_count) / target_sum
+        germline_indel_frequency = (hetindel_count + homindel_count) / target_sum
     germline_snv_prior = himut.util.get_truncated_float(germline_snv_frequency)
     germline_indel_prior = himut.util.get_truncated_float(germline_indel_frequency)
     return germline_snv_prior, germline_indel_prior
 
 
 def get_chrom2hblock_loci(
-    vcf_file: str,
-    chrom_lst: List[str],
-    tname2tsize: Dict[str, int] 
+    vcf_file: str, chrom_lst: List[str], tname2tsize: Dict[str, int]
 ):
-    chrom2ps2pos_lst = {chrom :{} for chrom in chrom_lst}
+    chrom2ps2pos_lst = {chrom: {} for chrom in chrom_lst}
     if vcf_file.endswith(".vcf"):
         for line in open(vcf_file):
             if line.startswith("#"):
@@ -482,35 +582,46 @@ def get_chrom2hblock_loci(
     elif vcf_file.endswith(".bgz"):
         tb = tabix.open(vcf_file)
         for chrom in chrom_lst:
-            ps2pos_lst = defaultdict(list) 
+            ps2pos_lst = defaultdict(list)
             records = tb.query(chrom, 0, tname2tsize[chrom])
             for record in records:
-                v = VCF("\t".join(record))           
+                v = VCF("\t".join(record))
                 if v.sample_gt == "0|1" or v.sample_gt == "1|0":
                     ps2pos_lst[v.sample_phase_set].append(v.pos)
-            chrom2ps2pos_lst[chrom]  = ps2pos_lst
+            chrom2ps2pos_lst[chrom] = ps2pos_lst
 
-    chrom2chunkloci_lst = {} 
+    chrom2chunkloci_lst = {}
     for chrom in chrom_lst:
         chrom2chunkloci_lst[chrom] = []
-        for _, pos_lst in chrom2ps2pos_lst[chrom].items():
+        for _ps, pos_lst in chrom2ps2pos_lst[chrom].items():
             start = pos_lst[0]
             end = pos_lst[-1]
             chrom2chunkloci_lst[chrom].append((chrom, start, end))
     return chrom2chunkloci_lst
-    
+
+
+def get_hap_block_sum(chrom2chunkloci_lst):
+    bsum = 0
+    for chrom in chrom2chunkloci_lst:
+        chrom_bsum = 0
+        for (chrom, start, end) in chrom2chunkloci_lst[chrom]:
+            chrom_bsum += (end - start)
+        print(chrom, chrom_bsum)
+        bsum += chrom_bsum
+    print(bsum)
+
 
 def load_phased_hetsnps(
-    vcf_file: str, 
+    vcf_file: str,
     chrom: str,
     chrom_len: int,
 ) -> Dict[str, List[List[Tuple[int, str]]]]:
 
     hpos_lst = []
     hpos2phase_set = {}
-    phase_set2hbit_lst = defaultdict(list) 
-    phase_set2hpos_lst = defaultdict(list) 
-    phase_set2hetsnp_lst = defaultdict(list) 
+    phase_set2hbit_lst = defaultdict(list)
+    phase_set2hpos_lst = defaultdict(list)
+    phase_set2hetsnp_lst = defaultdict(list)
     if vcf_file.endswith(".vcf"):
         for line in open(vcf_file):
             if line.startswith("#"):
@@ -526,35 +637,72 @@ def load_phased_hetsnps(
         tb = tabix.open(vcf_file)
         records = tb.query(chrom, 0, chrom_len)
         for record in records:
-            v = VCF("\t".join(record))           
+            v = VCF("\t".join(record))
             if v.sample_gt == "0|1" or v.sample_gt == "1|0":
                 hpos_lst.append(v.pos)
                 hpos2phase_set[v.pos] = v.sample_phase_set
                 phase_set2hpos_lst[v.sample_phase_set].append(v.pos)
                 phase_set2hetsnp_lst[v.sample_phase_set].append((v.pos, v.ref, v.alt))
                 phase_set2hbit_lst[v.sample_phase_set].append(v.sample_gt.split("|")[0])
-    return hpos_lst, hpos2phase_set, phase_set2hbit_lst, phase_set2hpos_lst, phase_set2hetsnp_lst
+    return (
+        hpos_lst,
+        hpos2phase_set,
+        phase_set2hbit_lst,
+        phase_set2hpos_lst,
+        phase_set2hetsnp_lst,
+    )
 
 
 def dump_phased_hetsnps(
     bam_file: str,
     vcf_file: str,
-    chrom_lst: List[str],
+    region: str,
+    region_list: str,
     tname2tsize: Dict[str, int],
+    min_bq: int,
+    min_mapq: int,
+    min_p_value: float,
+    min_phase_proportion: float,
+    threads: int,
+    chrom_lst: List[str],
     chrom2hblock_lst: List[List[Tuple[int, int]]],
     version: str,
     out_file: str,
 ) -> None:
 
     o = open(out_file, "w")
-    o.write("{}\n".format(himut.vcflib.get_vcf_header(bam_file, version)))
-    hetsnp2hstate, hetsnp2phase_set = load_hblock_hsh(vcf_file, chrom_lst, tname2tsize, chrom2hblock_lst)
+    o.write(
+        "{}\n".format(
+            himut.vcflib.get_phased_vcf_header(
+                bam_file,
+                vcf_file,
+                region,
+                region_list,
+                tname2tsize,
+                min_bq,
+                min_mapq,
+                min_p_value,
+                min_phase_proportion,
+                threads,
+                version,
+                out_file,
+            )
+        )
+    )
+    hetsnp2hstate, hetsnp2phase_set = load_hblock_hsh(
+        vcf_file, chrom_lst, tname2tsize, chrom2hblock_lst
+    )
     if vcf_file.endswith(".vcf"):
         for line in open(vcf_file):
             if line.startswith("#"):
                 continue
             v = VCF(line)
-            if v.is_snp and v.is_pass and v.is_biallelic and (v.sample_gt == "0/1" or v.sample_gt == "1/0"):
+            if (
+                v.is_snp
+                and v.is_pass
+                and v.is_biallelic
+                and (v.sample_gt == "0/1" or v.sample_gt == "1/0")
+            ):
                 hetsnp = (v.pos, v.ref, v.alt)
                 fmt, sample_fmt = line.strip().split()[-2:]
                 if hetsnp in hetsnp2hstate:
@@ -562,27 +710,62 @@ def dump_phased_hetsnps(
                     sample_gt = "0|1" if hetsnp2hstate[hetsnp] == "0" else "1|0"
                     sample_fmt_arr = sample_fmt.split(":")
                     sample_fmt_arr[0] = sample_gt
-                    o.write("{}\t{}\t.\t{}\t{}\t{}\tPASS\t.\t{}:PS\t{}:{}\n".format(v.chrom, v.pos, v.ref, v.alt, v.qual, fmt, ":".join(sample_fmt_arr), phase_set))
+                    o.write(
+                        "{}\t{}\t.\t{}\t{}\t{}\tPASS\t.\t{}:PS\t{}:{}\n".format(
+                            v.chrom,
+                            v.pos,
+                            v.ref,
+                            v.alt,
+                            v.qual,
+                            fmt,
+                            ":".join(sample_fmt_arr),
+                            phase_set,
+                        )
+                    )
                 else:
-                    o.write("{}\t{}\t.\t{}\t{}\t{}\tPASS\t.\t{}:PS\t{}:.\n".format(v.chrom, v.pos, v.ref, v.alt, v.qual, fmt, sample_fmt))
+                    o.write(
+                        "{}\t{}\t.\t{}\t{}\t{}\tPASS\t.\t{}:PS\t{}:.\n".format(
+                            v.chrom, v.pos, v.ref, v.alt, v.qual, fmt, sample_fmt
+                        )
+                    )
     elif vcf_file.endswith(".bgz"):
         tb = tabix.open(vcf_file)
         for chrom in chrom_lst:
             records = tb.query(chrom, 0, tname2tsize[chrom])
             for record in records:
                 line = "\t".join(record)
-                v = VCF(line)            
+                v = VCF(line)
                 fmt, sample_fmt = line.strip().split()[-2:]
-                if v.is_snp and v.is_pass and v.is_biallelic and (v.sample_gt == "0/1" or v.sample_gt == "1/0"):
+                if (
+                    v.is_snp
+                    and v.is_pass
+                    and v.is_biallelic
+                    and (v.sample_gt == "0/1" or v.sample_gt == "1/0")
+                ):
                     hetsnp = (v.pos, v.ref, v.alt)
                     if hetsnp in hetsnp2hstate:
                         phase_set = hetsnp2phase_set[hetsnp]
                         sample_gt = "0|1" if hetsnp2hstate[hetsnp] == "0" else "1|0"
                         sample_fmt_arr = sample_fmt.split(":")
                         sample_fmt_arr[0] = sample_gt
-                        o.write("{}\t{}\t.\t{}\t{}\t{}\tPASS\t.\t{}:PS\t{}:{}\n".format(v.chrom, v.pos, v.ref, v.alt, v.qual, fmt, ":".join(sample_fmt_arr), phase_set))
+                        o.write(
+                            "{}\t{}\t.\t{}\t{}\t{}\tPASS\t.\t{}:PS\t{}:{}\n".format(
+                                v.chrom,
+                                v.pos,
+                                v.ref,
+                                v.alt,
+                                v.qual,
+                                fmt,
+                                ":".join(sample_fmt_arr),
+                                phase_set,
+                            )
+                        )
                     else:
-                        o.write("{}\t{}\t.\t{}\t{}\t{}\tPASS\t.\t{}:PS\t{}:.\n".format(v.chrom, v.pos, v.ref, v.alt, v.qual, fmt, sample_fmt))
+                        o.write(
+                            "{}\t{}\t.\t{}\t{}\t{}\tPASS\t.\t{}:PS\t{}:.\n".format(
+                                v.chrom, v.pos, v.ref, v.alt, v.qual, fmt, sample_fmt
+                            )
+                        )
     o.close()
 
 
@@ -590,89 +773,191 @@ def dump_sbs(
     vcf_file: str,
     vcf_header: str,
     chrom_lst: List[str],
-    chrom2tsbs_lst: Dict[str, List[Tuple[str, int, str, str, str, int, int, int, float]]],
+    chrom2tsbs_lst: Dict[
+        str, List[Tuple[str, int, str, str, str, int, int, int, float]]
+    ],
 ):
 
     if not vcf_file.endswith(".vcf"):
         print("VCF file must have .vcf suffix")
         himut.util.exit()
-    
+
     o = open(vcf_file, "w")
     p = open(vcf_file.replace(".vcf", ".single_molecule_mutations.vcf"), "w")
     o.write("{}\n".format(vcf_header))
     p.write("{}\n".format(vcf_header))
     for chrom in chrom_lst:
-        for (chrom, pos, ref, alt, status, bq, read_depth, ref_count, alt_count, vaf, phase_set) in chrom2tsbs_lst[chrom]:
+        for (
+            chrom,
+            pos,
+            ref,
+            alt,
+            status,
+            bq,
+            read_depth,
+            ref_count,
+            alt_count,
+            vaf,
+            phase_set,
+        ) in chrom2tsbs_lst[chrom]:
             if status == "HetAltSite":
                 o.write(
                     "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF\t./.:{}:{:0.0f}:{:0.0f},{}:{}\n".format(
-                        chrom, pos, ref, alt, status, bq, read_depth, ref_count, alt_count, vaf
+                        chrom,
+                        pos,
+                        ref,
+                        alt,
+                        status,
+                        bq,
+                        read_depth,
+                        ref_count,
+                        alt_count,
+                        vaf,
                     )
                 )
                 if int(ref_count) == 1:
                     p.write(
                         "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF\t./.:{}:{:0.0f}:{:0.0f},{}:{}\n".format(
-                            chrom, pos, ref, alt, status, bq, read_depth, ref_count, alt_count, vaf
+                            chrom,
+                            pos,
+                            ref,
+                            alt,
+                            status,
+                            bq,
+                            read_depth,
+                            ref_count,
+                            alt_count,
+                            vaf,
                         )
                     )
             else:
                 o.write(
                     "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF\t./.:{:0.1f}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}\n".format(
-                        chrom, pos, ref, alt, status, bq, read_depth, ref_count, alt_count, vaf
+                        chrom,
+                        pos,
+                        ref,
+                        alt,
+                        status,
+                        bq,
+                        read_depth,
+                        ref_count,
+                        alt_count,
+                        vaf,
                     )
                 )
                 if int(alt_count) == 1:
                     p.write(
                         "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF\t./.:{:0.1f}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}\n".format(
-                            chrom, pos, ref, alt, status, bq, read_depth, ref_count, alt_count, vaf
+                            chrom,
+                            pos,
+                            ref,
+                            alt,
+                            status,
+                            bq,
+                            read_depth,
+                            ref_count,
+                            alt_count,
+                            vaf,
                         )
                     )
-    o.close()    
+    o.close()
     p.close()
-    
+
 
 def dump_phased_sbs(
     vcf_file: str,
     vcf_header: str,
     chrom_lst: List[str],
-    chrom2tsbs_lst: Dict[str, List[Tuple[str, int, str, str, str, int, int, int, float]]],
+    chrom2tsbs_lst: Dict[
+        str, List[Tuple[str, int, str, str, str, int, int, int, float]]
+    ],
 ):
 
     if not vcf_file.endswith(".vcf"):
         print("VCF file must have .vcf suffix")
         himut.util.exit()
-    
+
     o = open(vcf_file, "w")
     p = open(vcf_file.replace(".vcf", ".single_molecule_mutations.vcf"), "w")
     o.write("{}\n".format(vcf_header))
     p.write("{}\n".format(vcf_header))
     for chrom in chrom_lst:
-        for (chrom, pos, ref, alt, status, bq, read_depth, ref_count, alt_count, vaf, phase_set) in chrom2tsbs_lst[chrom]:
+        for (
+            chrom,
+            pos,
+            ref,
+            alt,
+            status,
+            bq,
+            read_depth,
+            ref_count,
+            alt_count,
+            vaf,
+            phase_set,
+        ) in chrom2tsbs_lst[chrom]:
             if status == "HetAltSite":
                 o.write(
                     "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF\t./.:{}:{:0.0f}:{:0.0f},{}:{}:{}\n".format(
-                        chrom, pos, ref, alt, status, bq, read_depth, ref_count, alt_count, vaf, phase_set
+                        chrom,
+                        pos,
+                        ref,
+                        alt,
+                        status,
+                        bq,
+                        read_depth,
+                        ref_count,
+                        alt_count,
+                        vaf,
+                        phase_set,
                     )
                 )
                 if int(ref_count) == 1:
                     p.write(
                         "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF:PS\t./.:{}:{:0.0f}:{:0.0f},{}:{}:{}\n".format(
-                            chrom, pos, ref, alt, status, bq, read_depth, ref_count, alt_count, vaf, phase_set
+                            chrom,
+                            pos,
+                            ref,
+                            alt,
+                            status,
+                            bq,
+                            read_depth,
+                            ref_count,
+                            alt_count,
+                            vaf,
+                            phase_set,
                         )
                     )
             else:
                 o.write(
                     "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF:PS\t./.:{:0.1f}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}:{}\n".format(
-                        chrom, pos, ref, alt, status, bq, read_depth, ref_count, alt_count, vaf, phase_set
+                        chrom,
+                        pos,
+                        ref,
+                        alt,
+                        status,
+                        bq,
+                        read_depth,
+                        ref_count,
+                        alt_count,
+                        vaf,
+                        phase_set,
                     )
                 )
                 if int(alt_count) == 1:
                     p.write(
                         "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF:PS\t./.:{:0.1f}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}:{}\n".format(
-                            chrom, pos, ref, alt, status, bq, read_depth, ref_count, alt_count, vaf, phase_set
+                            chrom,
+                            pos,
+                            ref,
+                            alt,
+                            status,
+                            bq,
+                            read_depth,
+                            ref_count,
+                            alt_count,
+                            vaf,
+                            phase_set,
                         )
                     )
     o.close()
     p.close()
-    
-    
