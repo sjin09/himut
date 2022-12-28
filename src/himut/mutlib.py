@@ -54,7 +54,7 @@ def get_sbs96(
     return sbs96
 
 
-def load_sbs96_counts(vcf_file: str, ref_file: str) -> Dict[str, int]:
+def load_sbs96_counts(vcf_file: str, ref_file: str) -> Tuple[List[str], Dict[str, int]]:
 
     chrom_lst = []
     refseq = pyfastx.Fasta(ref_file)
@@ -72,9 +72,8 @@ def load_sbs96_counts(vcf_file: str, ref_file: str) -> Dict[str, int]:
                 continue
             v = himut.vcflib.VCF(line)
             if v.is_snp and v.is_pass:
-                chrom2sbs2counts[v.chrom][
-                    get_sbs96(v.chrom, int(v.pos) - 1, v.ref, v.alt, refseq)
-                ] += 1
+                sbs96 = get_sbs96(v.chrom, int(v.pos) - 1, v.ref, v.alt, refseq)
+                chrom2sbs2counts[v.chrom][sbs96] += 1
     elif vcf_file.endswith(".vcf.bgz"):
         for line in cyvcf2.VCF(vcf_file).raw_header.split("\n"):
             if line.startswith("##"):
@@ -88,10 +87,21 @@ def load_sbs96_counts(vcf_file: str, ref_file: str) -> Dict[str, int]:
         for i in cyvcf2.VCF(vcf_file):
             v = himut.vcflib.VCF(str(i))
             if v.is_snp and v.is_pass:
-                chrom2sbs2counts[v.chrom][
-                    get_sbs96(v.chrom, int(v.pos) - 1, v.ref, v.alt, refseq)
-                ] += 1
-    return chrom2sbs2counts
+                sbs96 = get_sbs96(v.chrom, int(v.pos) - 1, v.ref, v.alt, refseq)
+                chrom2sbs2counts[v.chrom][sbs96] += 1
+
+    chrom_lst = []
+    sbs2counts = defaultdict(lambda: 0)
+    for chrom in chrom2sbs2counts:
+        chrom_sbs_sum = 0
+        for sbs in sbs_lst:
+            count = chrom2sbs2counts[chrom][sbs]
+            sbs2counts[sbs] += count
+            chrom_sbs_sum += count
+        if chrom_sbs_sum != 0:
+           chrom_lst.append(chrom) 
+    chrom_lst = natsort.natsorted(chrom_lst)
+    return chrom_lst, sbs2counts
 
 
 def dump_sbs96_counts(
@@ -179,31 +189,6 @@ def dump_norm_sbs96_plt(infile: str, sample: str, outfile: str) -> None:
     plot.save(outfile, width=22, height=10)
 
 
-def load_sbs_count(
-    vcf_file: str, ref_file: str
-) -> Tuple[List[str], Dict[str, Dict[str, int]]]:
-
-    chrom_set = set()
-    refseq = pyfastx.Fasta(ref_file)
-    sbs2count = defaultdict(lambda: 0)
-    if vcf_file.endswith(".vcf"):
-        for line in open(vcf_file).readlines():
-            if line.startswith("#"):
-                continue
-            v = himut.vcflib.VCF(line)
-            if v.is_pass:
-                chrom_set.add(v.chrom)
-                sbs2count[get_sbs96(v.chrom, int(v.pos) - 1, v.ref, v.alt, refseq)] += 1
-    elif vcf_file.endswith(".bgz"):
-        for i in cyvcf2.VCF(vcf_file):
-            v = himut.vcflib.VCF(str(i))
-            if v.is_pass:
-                chrom_set.add(v.chrom)
-                sbs2count[get_sbs96(v.chrom, int(v.pos) - 1, v.ref, v.alt, refseq)] += 1
-    chrom_lst = natsort.natsorted(list(chrom_set))
-    return chrom_lst, sbs2count
-
-
 def get_trifreq(tri2count: Dict[str, int]) -> Dict[str, float]:
 
     tri_sum = sum(tri2count.values())
@@ -259,7 +244,7 @@ def get_phased_proportion(
         chunkloci_end = chunkloci_lst[-1][2]
         chunkloci_start = chunkloci_lst[0][1]
         target_sum += chunkloci_end - chunkloci_start
-        for (chrom, chunk_start, chunk_end) in chunkloci_lst:
+        for (_chrom, chunk_start, chunk_end) in chunkloci_lst:
             chunk_len = chunk_end - chunk_start
             callable_target_sum += chunk_len
     phased_proportion = callable_target_sum / target_sum
@@ -371,7 +356,7 @@ def get_normcounts_cmdline(
 
 def dump_normcounts(
     cmdline: str,
-    sbs2counts: Dict[str, int],
+    sbs2count: Dict[str, int],
     chrom2ref_tri2count: Dict[str, int],
     chrom2ccs_tri2count: Dict[str, int],
     phase: bool,
@@ -384,7 +369,7 @@ def dump_normcounts(
     ref_tri_sum, ref_tri2count = get_cumsum_tricounts(chrom2ref_tri2count)
     ccs_tri_sum, ccs_tri2count = get_cumsum_tricounts(chrom2ccs_tri2count)
     tri2freq_ratio = get_trifreq_ratio(ref_tri2count, ccs_tri2count)
-    norm_sum, sbs2normcounts = get_norm_sbs96_counts(sbs2counts, tri2freq_ratio)
+    norm_sum, sbs2normcounts = get_norm_sbs96_counts(sbs2count, tri2freq_ratio)
     if phase:
         phased_proportion = get_phased_proportion(chrom2chunkloci_lst)  ## TODO
     burden = get_burden_per_cell(
@@ -409,7 +394,7 @@ def dump_normcounts(
 
     for sbs in sbs_lst:
         tri = sbs2tri[sbs]
-        count = sbs2counts[sbs]
+        count = sbs2count[sbs]
         normcount = sbs2normcounts[sbs]
         ref_tricount = ref_tri2count[tri]
         ccs_tricount = ccs_tri2count[tri]

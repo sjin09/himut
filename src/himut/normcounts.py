@@ -144,7 +144,7 @@ def get_callable_tricounts(
             germ_gt, germ_gq, germ_gt_state = himut.gtlib.get_germ_gt(
                 ref, allele2bq_lst
             )
-            if himut.caller.is_low_gq(min_gq, germ_gq):
+            if himut.caller.is_low_gq(germ_gq, min_gq):
                 continue
             if germ_gt_state == "het":
                 continue

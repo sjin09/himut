@@ -604,7 +604,7 @@ def check_normcounts_input_exists(
             )
         )
         himut.util.exit()
-    chrom_lst, sbs2count = himut.mutlib.load_sbs_count(sbs_file, ref_file)
+    chrom_lst, sbs2count = himut.mutlib.load_sbs96_counts(sbs_file, ref_file)
     counter += check_bam_file(bam_file, chrom_lst) 
     counter += check_ref_file(ref_file, chrom_lst)
 
