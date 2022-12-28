@@ -67,19 +67,23 @@ def is_germ_gt(
             return False
 
 
-def is_low_bq(alt: str, min_bq: int, allele2bq_lst: Dict[str, List[int]]) -> bool:
-    alt_bq_lst = allele2bq_lst[himut.util.base2idx[alt]]
-    if alt_bq_lst.count(min_bq) == 0:
-        return True
-    else:
-        return False
-
-
 def is_low_gq(
     germ_gq: float,
     min_gq: int,
 ) -> bool:
     if germ_gq < min_gq:
+        return True
+    else:
+        return False
+
+
+def is_low_bq(
+    alt: str, 
+    min_bq: int, 
+    allele2bq_lst: Dict[str, List[int]]
+) -> bool:
+    alt_bq_lst = allele2bq_lst[himut.util.base2idx[alt]]
+    if alt_bq_lst.count(min_bq) == 0:
         return True
     else:
         return False
