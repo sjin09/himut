@@ -381,6 +381,7 @@ def dump_normcounts(
 ) -> None:
 
     print("returning normalised counts")
+    phased_proportion = ""
     ref_tri_sum, ref_tri2count = get_cumsum_tricounts(chrom2ref_tri2count)
     ccs_tri_sum, ccs_tri2count = get_cumsum_tricounts(chrom2ccs_tri2count)
     tri2freq_ratio = get_trifreq_ratio(ref_tri2count, ccs_tri2count)
