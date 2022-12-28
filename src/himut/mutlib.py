@@ -192,7 +192,6 @@ def load_sbs_count(
                 continue
             v = himut.vcflib.VCF(line)
             if v.is_pass:
-                print(v.chrom, v.pos, v.ref, v.alt)
                 chrom_set.add(v.chrom)
                 sbs2count[get_sbs96(v.chrom, int(v.pos) - 1, v.ref, v.alt, refseq)] += 1
     elif vcf_file.endswith(".bgz"):
