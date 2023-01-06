@@ -5,7 +5,7 @@ import itertools
 import himut.util
 import himut.vcflib
 import pandas as pd
-# from plotnine import *
+from plotnine import *
 from collections import defaultdict
 from typing import Dict, List, Tuple
 
