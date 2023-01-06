@@ -21,6 +21,8 @@ def main():
             options.ref,  # reference FASTA file
             options.vcf,  # VCF file: germline mutations
             options.phased_vcf,  # VCF file: phased germline mutations
+            options.common_snps,  # common snps
+            options.panel_of_normals,  # panel of normals
             options.region,  # target contigs/scaffolds/chromosomes
             options.region_list,  # target contigs/scaffolds/chromosomes fofn
             options.min_mapq,  # int: 0-60
@@ -35,8 +37,6 @@ def main():
             options.min_ref_count,  # number of reads supporting the reference base
             options.min_alt_count,  # number of reads supporting the alterantive base
             options.min_hap_count,  # number of reads supporting h0 and h1 haplotype
-            options.common_snps,  # common snps
-            options.panel_of_normals,  # panel of normals
             options.somatic_snv_prior,
             options.germline_snv_prior,
             options.germline_indel_prior,
@@ -93,6 +93,10 @@ def main():
             options.sbs,
             options.vcf,
             options.phased_vcf,
+            options.common_snps,
+            options.panel_of_normals,
+            options.region,  
+            options.region_list,  
             options.min_mapq,
             options.min_sequence_identity,
             options.min_hq_base_proportion,
@@ -104,8 +108,6 @@ def main():
             options.max_mismatch_count,
             options.min_ref_count,
             options.min_alt_count,
-            options.common_snps,
-            options.panel_of_normals,
             options.somatic_snv_prior,
             options.germline_snv_prior,
             options.germline_indel_prior,

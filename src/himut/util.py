@@ -162,9 +162,8 @@ def check_bam_file(
             if os.path.exists(bam_file) and os.path.exists(idxfile):
                 if os.path.getsize(bam_file) != 0 and os.path.getsize(idxfile) != 0:
                     if is_bam_file_corrupt(bam_file, chrom_lst):
-                        return 1
-                    else:
                         return 0
+                    return 0
                 else:
                     return 1
             elif not os.path.exists(bam_file) and os.path.exists(idxfile):
@@ -219,7 +218,6 @@ def is_vcf_file_corrupt(
                 )
             )
             state = 1
-
     if state == 1:
         print("{} {} might be corrupted".format(param, vcf_file))
         return 1
@@ -244,16 +242,14 @@ def check_vcf_file(
                     return 1
                 else:
                     if is_vcf_file_corrupt(param, vcf_file, chrom_lst, tname2tsize):
-                        return 1
-                    else:
                         return 0
+                    return 0
             elif vcf_file.endswith(".bgz"):
                 tbi_file = vcf_file + ".tbi"
                 if os.path.exists(tbi_file):
                     if is_vcf_file_corrupt(param, vcf_file, chrom_lst, tname2tsize):
-                        return 1
-                    else:
                         return 0
+                    return 0
                 else:
                     print(
                         "tabix index file does not exist {} {}".format(param, vcf_file)
@@ -273,91 +269,6 @@ def check_vcf_file(
                 return 1
         else:
             print("{} {} file is missing".format(param, vcf_file))
-            return 1
-
-
-def is_sbs_file_corrupt(
-    vcf_file: str, tname_lst: List[str], tname2tsize: Dict[str, int]
-) -> bool:
-
-    hsh = defaultdict(lambda: 0)
-    if vcf_file.endswith(".vcf"):
-        for line in open(vcf_file):
-            if line.startswith("#"):
-                continue
-            arr = line.strip().split()
-            chrom = arr[0]
-            ref = arr[3]
-            alt_lst = arr[4].split(",")
-            if arr[6] == "PASS" and len(alt_lst) == 1:
-                alt = alt_lst[0]
-                if len(ref) == 1 and len(alt) == 1:
-                    hsh[chrom] += 1
-    elif vcf_file.endswith(".bgz"):
-        tb = tabix.open(vcf_file)
-        for tname in tname_lst:
-            try:
-                records = tb.query(tname, 0, tname2tsize[tname])
-                hsh[tname] = len(list(records))
-            except tabix.TabixError:
-                continue
-
-    state = 0
-    for tname in tname_lst:
-        if hsh[tname] != 0:
-            state = 1
-    if state == 1:
-        return 0
-    else:
-        return 1
-
-
-def check_sbs_file(
-    param: str, sbs_file: str, tname_lst: List[str], tname2tsize: Dict[str, int]
-):
-    if sbs_file is None:
-        print(
-            "Please provide the path to the sbs file for the following argument: {}".format(
-                param
-            )
-        )
-        return 1
-    else:
-        if os.path.exists(sbs_file):
-            if sbs_file.endswith(".vcf"):
-                if os.path.getsize(sbs_file) == 0:
-                    return 1
-                else:
-                    if is_sbs_file_corrupt(sbs_file, tname_lst, tname2tsize):
-                        return 1
-                    else:
-                        return 0
-            elif sbs_file.endswith(".bgz"):
-                tbi_file = sbs_file + ".tbi"
-                if os.path.exists(tbi_file):
-                    if is_sbs_file_corrupt(sbs_file, tname_lst, tname2tsize):
-                        return 1
-                    else:
-                        return 0
-                else:
-                    print(
-                        "tabix index file does not exist {} {}".format(param, sbs_file)
-                    )
-                    return 1
-            elif sbs_file.endswith(".gz"):
-                print(
-                    "himut doesn't support loading of gzip compressed sbs files {} {}".format(
-                        param, sbs_file
-                    )
-                )
-                return 1
-            else:
-                print(
-                    "sbs file must have the .vcf suffix {} {}".format(param, sbs_file)
-                )
-                return 1
-        else:
-            print("{} {} file is missing".format(param, sbs_file))
             return 1
 
 
@@ -588,7 +499,7 @@ def check_normcounts_input_exists(
     phased_vcf_file: str,
     common_snps: str,
     panel_of_normals: str,
-    tname_lst: List[str],
+    chrom_lst: List[str],
     tname2tsize: Dict[str, int],
     phase: bool,
     reference_sample: bool,
@@ -597,17 +508,10 @@ def check_normcounts_input_exists(
 ) -> None:
 
     counter = 0
-    if himut.util.check_sbs_file("--sbs", sbs_file, tname_lst, tname2tsize):
-        print(
-            "--sbs file {} might be corrupted or doesn't have any PASSed somatic single base substitutions".format(
-                sbs_file
-            )
-        )
-        himut.util.exit()
-    chrom_lst, sbs2count = himut.mutlib.load_sbs96_counts(sbs_file, ref_file)
     counter += check_bam_file(bam_file, chrom_lst) 
     counter += check_ref_file(ref_file, chrom_lst)
-
+    counter += check_vcf_file("--sbs", sbs_file, chrom_lst, tname2tsize)
+    
     if phase:
         counter += check_phased_vcf_file(phased_vcf_file, chrom_lst, tname2tsize)
 
@@ -626,7 +530,6 @@ def check_normcounts_input_exists(
         print("One or more inputs and parameters are missing")
         print("Please provide the correct inputs and parameters")
         exit()
-    return chrom_lst, sbs2count
 
 
 def get_truncated_float(f: float) -> float:

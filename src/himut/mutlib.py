@@ -5,7 +5,7 @@ import itertools
 import himut.util
 import himut.vcflib
 import pandas as pd
-from plotnine import *
+# from plotnine import *
 from collections import defaultdict
 from typing import Dict, List, Tuple
 
@@ -54,11 +54,14 @@ def get_sbs96(
     return sbs96
 
 
-def load_sbs96_counts(vcf_file: str, ref_file: str) -> Tuple[List[str], Dict[str, int]]:
+def load_sbs96_counts(
+    vcf_file: str, 
+    ref_file: str, 
+    chrom_lst: List[str]
+) -> Dict[str, int]:
 
-    chrom_lst = []
-    refseq = pyfastx.Fasta(ref_file)
     chrom2sbs2counts = defaultdict()
+    refseq = pyfastx.Fasta(ref_file)
     if vcf_file.endswith(".vcf"):
         for line in open(vcf_file).readlines():
             if line.startswith("##"):
@@ -90,18 +93,11 @@ def load_sbs96_counts(vcf_file: str, ref_file: str) -> Tuple[List[str], Dict[str
                 sbs96 = get_sbs96(v.chrom, int(v.pos) - 1, v.ref, v.alt, refseq)
                 chrom2sbs2counts[v.chrom][sbs96] += 1
 
-    chrom_lst = []
-    sbs2counts = defaultdict(lambda: 0)
-    for chrom in chrom2sbs2counts:
-        chrom_sbs_sum = 0
-        for sbs in sbs_lst:
-            count = chrom2sbs2counts[chrom][sbs]
-            sbs2counts[sbs] += count
-            chrom_sbs_sum += count
-        if chrom_sbs_sum != 0:
-           chrom_lst.append(chrom) 
-    chrom_lst = natsort.natsorted(chrom_lst)
-    return chrom_lst, sbs2counts
+    sbs2count = defaultdict(lambda: 0)
+    for chrom in chrom_lst:
+        for sbs, count in chrom2sbs2counts[chrom].items():
+            sbs2count[sbs] += count
+    return sbs2count
 
 
 def dump_sbs96_counts(

@@ -65,18 +65,6 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         help="phased deepvariant VCF file",
     )
     parser_call.add_argument(
-        "--region",
-        type=str,
-        required=False,
-        help="target chromosome",
-    )
-    parser_call.add_argument(
-        "--region_list",
-        type=str,
-        required=False,
-        help="list of target chromosomes separated by new line",
-    )
-    parser_call.add_argument(
         "--common_snps",
         type=str,
         required=False,
@@ -87,6 +75,18 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         type=str,
         required=False,
         help="panel of normal VCF file",
+    )
+    parser_call.add_argument(
+        "--region",
+        type=str,
+        required=False,
+        help="target chromosome",
+    )
+    parser_call.add_argument(
+        "--region_list",
+        type=str,
+        required=False,
+        help="list of target chromosomes separated by new line",
     )
     parser_call.add_argument(
         "--min_mapq",
@@ -420,11 +420,16 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         help="panel of normal VCF file",
     )
     parser_normcounts.add_argument(
-        "--ploidy",
+        "--region",
         type=str,
-        default="diploid",
         required=False,
-        help="haploid, diploid or polyploid",
+        help="target chromosome",
+    )
+    parser_normcounts.add_argument(
+        "--region_list",
+        type=str,
+        required=False,
+        help="list of target chromosomes separated by new line",
     )
     parser_normcounts.add_argument(
         "--min_mapq",

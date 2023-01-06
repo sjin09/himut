@@ -215,6 +215,10 @@ def get_normcounts(
     sbs_file: str,
     vcf_file: str,
     phased_vcf_file: str,
+    common_snps: str,
+    panel_of_normals: str,
+    region: str,
+    region_list: str,
     min_mapq: int,
     min_sequence_identity: float,
     min_hq_base_proportion: float,
@@ -226,8 +230,6 @@ def get_normcounts(
     max_mismatch_count: int,
     min_ref_count: int,
     min_alt_count: int,
-    common_snps: str,
-    panel_of_normals: str,
     somatic_snv_prior: float,
     germline_snv_prior: float,
     germline_indel_prior: float,
@@ -239,8 +241,9 @@ def get_normcounts(
 ) -> None:
 
     cpu_start = time.time() / 60
-    tname_lst, tname2tsize = himut.bamlib.get_tname2tsize(bam_file)
-    chrom_lst, sbs2count = himut.util.check_normcounts_input_exists(
+    _, tname2tsize = himut.bamlib.get_tname2tsize(bam_file)
+    chrom_lst, _ = himut.util.load_loci(region, region_list, tname2tsize)
+    himut.util.check_normcounts_input_exists(
         bam_file,
         ref_file,
         sbs_file,
@@ -248,14 +251,17 @@ def get_normcounts(
         phased_vcf_file,
         common_snps,
         panel_of_normals,
-        tname_lst,
+        chrom_lst,
         tname2tsize,
         phase,
         reference_sample,
         non_human_sample,
         out_file,
     )
+    
+    print("starting himut SBS96 count normalisation with {} threads".format(threads))
     refseq = pyfastx.Fasta(ref_file)
+    sbs2count = himut.mutlib.load_sbs96_counts(sbs_file, ref_file, chrom_lst)
     qlen_lower_limit, qlen_upper_limit, md_threshold = himut.bamlib.get_thresholds(
         bam_file, chrom_lst, tname2tsize
     )
@@ -270,11 +276,7 @@ def get_normcounts(
         )
     else:
         chrom2chunkloci_lst = himut.reflib.load_seq_loci(ref_file, chrom_lst)
-    chrom2ref_tri2count = himut.reflib.get_ref_tricounts(
-        refseq, chrom2chunkloci_lst, threads
-    )
 
-    print("starting himut SBS96 count normalisation with {} threads".format(threads))
     p = mp.Pool(threads)
     manager = mp.Manager()
     chrom2ccs_tri2count = manager.dict()
@@ -343,7 +345,7 @@ def get_normcounts(
     himut.mutlib.dump_normcounts(
         cmdline, 
         sbs2count, 
-        chrom2ref_tri2count, 
+        himut.reflib.get_ref_tricounts(refseq, chrom2chunkloci_lst, threads),
         chrom2ccs_tri2count, 
         phase,
         chrom2chunkloci_lst,
