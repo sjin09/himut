@@ -1,8 +1,8 @@
 import pyfastx
 import himut.mutlib
 import multiprocessing as mp
+from collections import defaultdict
 from typing import Dict, List, Tuple
-from collections import Counter, defaultdict
 from himut.mutlib import purine, purine2pyrimidine
 
 
@@ -11,20 +11,20 @@ def load_ref_tricounts(
     chrom_seq: str,
     chunkloci_lst: List[Tuple[str, int, int]],
     chrom2tri2count: Dict[str, Dict[str, int]],
-) -> None:
+) -> Dict[str, Dict[str, int]]:
 
-    tri_pyr_lst = []
-    for (chrom, chunk_start, chunk_end) in chunkloci_lst:
+    tri2count = defaultdict(lambda: 0)
+    for (_chrom, chunk_start, chunk_end) in chunkloci_lst:
         for i in range(chunk_start, chunk_end):
             tri = chrom_seq[i : i + 3]
             if tri[1] in purine:
                 tri_pyr = "".join(
                     [purine2pyrimidine.get(base, "N") for base in tri[::-1]]
                 )
-                tri_pyr_lst.append(tri_pyr)
+                tri2count[tri_pyr] += 1
             else:
-                tri_pyr_lst.append(tri)
-    chrom2tri2count[chrom] = dict(Counter(tri_pyr_lst))
+                tri2count[tri] += 1
+    chrom2tri2count[chrom] = dict(tri2count)
 
 
 def get_ref_tricounts(

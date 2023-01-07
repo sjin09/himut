@@ -205,16 +205,16 @@ def get_trifreq_ratio(
     return trifreq_ratio
 
 
-def get_cumsum_tricounts(chrom2tri2count: Dict[str, Dict[str, int]]):
+def get_cumsum_tricounts(chrom2tri2count: Dict[str, Dict[str, int]]) -> Tuple[int, Dict[str, int]]:
 
-    total_tri_sum = 0
+    tri_sum = 0
     tri2count = defaultdict(lambda: 0)
     for chrom in chrom2tri2count:
         for tri in tri_lst:
             tri_count = chrom2tri2count[chrom][tri]
             tri2count[tri] += tri_count
-            total_tri_sum += tri_count
-    return total_tri_sum, tri2count
+            tri_sum += tri_count
+    return tri_sum, tri2count
 
 
 def get_norm_sbs96_counts(
@@ -232,18 +232,16 @@ def get_norm_sbs96_counts(
 
 
 def get_phased_proportion(
+    tname2tsize: Dict[str, int],
     chrom2chunkloci_lst: Dict[chr, List[Tuple[str, int, int]]],
 ):
-    target_sum = 0
-    callable_target_sum = 0
-    for chunkloci_lst in chrom2chunkloci_lst.values():
-        chunkloci_end = chunkloci_lst[-1][2]
-        chunkloci_start = chunkloci_lst[0][1]
-        target_sum += chunkloci_end - chunkloci_start
+    tsize_sum = 0  
+    phased_sum = 0
+    for chrom, chunkloci_lst in chrom2chunkloci_lst.items():
+        tsize_sum += tname2tsize[chrom]
         for (_chrom, chunk_start, chunk_end) in chunkloci_lst:
-            chunk_len = chunk_end - chunk_start
-            callable_target_sum += chunk_len
-    phased_proportion = callable_target_sum / target_sum
+            phased_sum += (chunk_end - chunk_start)
+    phased_proportion = phased_sum/float(tsize_sum)
     return phased_proportion
 
 
@@ -356,18 +354,18 @@ def dump_normcounts(
     chrom2ref_tri2count: Dict[str, int],
     chrom2ccs_tri2count: Dict[str, int],
     phase: bool,
+    tname2tsize: Dict[str, int],
     chrom2chunkloci_lst: Dict[str, List[Tuple[str, int, int]]],
     out_file: str,
 ) -> None:
 
-    print("returning normalised counts")
     phased_proportion = ""
     ref_tri_sum, ref_tri2count = get_cumsum_tricounts(chrom2ref_tri2count)
     ccs_tri_sum, ccs_tri2count = get_cumsum_tricounts(chrom2ccs_tri2count)
     tri2freq_ratio = get_trifreq_ratio(ref_tri2count, ccs_tri2count)
     norm_sum, sbs2normcounts = get_norm_sbs96_counts(sbs2count, tri2freq_ratio)
     if phase:
-        phased_proportion = get_phased_proportion(chrom2chunkloci_lst)  ## TODO
+        phased_proportion = get_phased_proportion(tname2tsize, chrom2chunkloci_lst) 
     burden = get_burden_per_cell(
         norm_sum, ccs_tri_sum, ref_tri_sum, phase, phased_proportion
     )

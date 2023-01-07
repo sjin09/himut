@@ -569,7 +569,9 @@ def get_germline_priors(
 
 
 def get_chrom2hblock_loci(
-    vcf_file: str, chrom_lst: List[str], tname2tsize: Dict[str, int]
+    vcf_file: str, 
+    chrom_lst: List[str], 
+    tname2tsize: Dict[str, int]
 ):
     chrom2ps2pos_lst = {chrom: {} for chrom in chrom_lst}
     if vcf_file.endswith(".vcf"):
@@ -598,17 +600,6 @@ def get_chrom2hblock_loci(
             end = pos_lst[-1]
             chrom2chunkloci_lst[chrom].append((chrom, start, end))
     return chrom2chunkloci_lst
-
-
-def get_hap_block_sum(chrom2chunkloci_lst):
-    bsum = 0
-    for chrom in chrom2chunkloci_lst:
-        chrom_bsum = 0
-        for (chrom, start, end) in chrom2chunkloci_lst[chrom]:
-            chrom_bsum += (end - start)
-        print(chrom, chrom_bsum)
-        bsum += chrom_bsum
-    print(bsum)
 
 
 def load_phased_hetsnps(

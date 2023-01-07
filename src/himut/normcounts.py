@@ -260,8 +260,12 @@ def get_normcounts(
     )
     
     print("starting himut SBS96 count normalisation with {} threads".format(threads))
-    refseq = pyfastx.Fasta(ref_file)
-    sbs2count = himut.mutlib.load_sbs96_counts(sbs_file, ref_file, chrom_lst)
+    if phase:
+        chrom2chunkloci_lst = himut.vcflib.get_chrom2hblock_loci(
+            phased_vcf_file, chrom_lst, tname2tsize
+        )
+    else:
+        chrom2chunkloci_lst = himut.reflib.load_seq_loci(ref_file, chrom_lst)
     qlen_lower_limit, qlen_upper_limit, md_threshold = himut.bamlib.get_thresholds(
         bam_file, chrom_lst, tname2tsize
     )
@@ -270,15 +274,9 @@ def get_normcounts(
             chrom_lst, ref_file, vcf_file, reference_sample
         )
 
-    if phase:
-        chrom2chunkloci_lst = himut.vcflib.get_chrom2hblock_loci(
-            phased_vcf_file, chrom_lst, tname2tsize
-        )
-    else:
-        chrom2chunkloci_lst = himut.reflib.load_seq_loci(ref_file, chrom_lst)
-
     p = mp.Pool(threads)
     manager = mp.Manager()
+    refseq = pyfastx.Fasta(ref_file)
     chrom2ccs_tri2count = manager.dict()
     tricount_arg_lst = [
         (
@@ -310,7 +308,7 @@ def get_normcounts(
         )
         for chrom in chrom_lst
     ]
-    p.starmap(get_callable_tricounts, tricount_arg_lst)
+    p.starmap(get_callable_tricounts, tricount_arg_lst) 
     p.close()
     p.join()
     print("finished himut SBS96 count normalisation with {} threads".format(threads))
@@ -342,12 +340,15 @@ def get_normcounts(
         reference_sample,
         out_file, 
     )
+    sbs2count = himut.mutlib.load_sbs96_counts(sbs_file, ref_file, chrom_lst)
+    chrom2ref_tri2count = himut.reflib.get_ref_tricounts(refseq, chrom2chunkloci_lst, threads)
     himut.mutlib.dump_normcounts(
         cmdline, 
-        sbs2count, 
-        himut.reflib.get_ref_tricounts(refseq, chrom2chunkloci_lst, threads),
+        sbs2count,
+        chrom2ref_tri2count, 
         chrom2ccs_tri2count, 
         phase,
+        tname2tsize,
         chrom2chunkloci_lst,
         out_file
     )
