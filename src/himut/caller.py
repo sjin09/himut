@@ -71,7 +71,7 @@ def is_low_gq(
     germ_gq: float,
     min_gq: int,
 ) -> bool:
-    if germ_gq <= min_gq:
+    if germ_gq < min_gq:
         return True
     else:
         return False
@@ -258,10 +258,7 @@ def get_somatic_substitutions(
             som_gt = "{}{}".format(ref, alt)
             allelecounts = tpos2allelecounts[tpos]
             allele2bq_lst = tpos2allele2bq_lst[tpos]
-            
-            germ_gt, _, germ_gt_state, gt2gt_state = himut.gtlib.get_germ_gt(
-                ref, allele2bq_lst
-            )
+            germ_gt, _, germ_gt_state, gt2gt_state = himut.gtlib.get_germ_gt(ref, allele2bq_lst)
             (
                 ref_count,
                 alt_bq,
