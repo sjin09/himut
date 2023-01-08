@@ -402,9 +402,7 @@ def get_somatic_substitutions(
                     )
                 )
                 continue
-            if (
-                tsbs in common_snp_set and not non_human_sample
-            ):  ## haplotype based estimation of contamiantion prior ## TODO
+            if tsbs in common_snp_set and not non_human_sample:
                 filtered_somatic_tsbs_lst.append(
                     (
                         chrom,
