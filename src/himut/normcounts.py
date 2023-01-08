@@ -141,11 +141,9 @@ def get_callable_tricounts(
             allelecounts = tpos2allelecounts[tpos]
             allele2bq_lst = tpos2allele2bq_lst[tpos]
             read_depth, indel_count = get_allelecounts(allelecounts)
-            germ_gt, germ_gq, germ_gt_state = himut.gtlib.get_germ_gt(
+            germ_gt, germ_gq, germ_gt_state, gt2gt_state = himut.gtlib.get_germ_gt(
                 ref, allele2bq_lst
             )
-            if himut.caller.is_low_gq(germ_gq, min_gq):
-                continue
             if germ_gt_state == "het":
                 continue
             elif germ_gt_state == "hetalt":
@@ -162,13 +160,17 @@ def get_callable_tricounts(
             gt_base = germ_gt[1]
             gt_base_count = allelecounts[himut.util.base2idx[gt_base]]
             gt_min_bq_count = allele2bq_lst[himut.util.base2idx[gt_base]].count(min_bq)
-            if (
-                read_depth == gt_base_count
-            ):  # homozygous reference without single molecule single-base-substitution
-                update_tricounts(rpos, gt_base, gt_min_bq_count, chrom_seq, tri2count)
+            if read_depth == gt_base_count:  
+                if not himut.caller.is_low_gq(germ_gq, min_gq):
+                    update_tricounts(rpos, gt_base, gt_min_bq_count, chrom_seq, tri2count)
+                    continue
+                continue
+            
+            alt_base_lst = himut.util.base_set.difference(gt_base)
+            germ_gq = himut.gtlib.get_normcount_germ_gq(gt2gt_state, alt_base_lst, allele2bq_lst)
+            if himut.caller.is_low_gq(germ_gq, min_gq):
                 continue
 
-            alt_base_lst = himut.util.base_set.difference(gt_base)
             for alt_base in alt_base_lst:
                 som_state = 0
                 tsbs = (tpos, ref, alt_base)
@@ -352,9 +354,11 @@ def get_normcounts(
         chrom2chunkloci_lst,
         out_file
     )
-    himut.mutlib.dump_norm_sbs96_plt(
-        out_file, himut.bamlib.get_sample(bam_file), "{}.pdf".format(out_file)
-    )
+    if out_file.endswith(".tsv"):
+        pdf_file = out_file.replace(".tsv", ".pdf")
+    else:
+        pdf_file = "{}.pdf".format(out_file)
+    himut.mutlib.dump_norm_sbs96_plt(out_file, himut.bamlib.get_sample(bam_file), pdf_file)
     print("finished returning normcounts")
     cpu_end = time.time() / 60
     duration = cpu_end - cpu_start

@@ -258,7 +258,8 @@ def get_somatic_substitutions(
             som_gt = "{}{}".format(ref, alt)
             allelecounts = tpos2allelecounts[tpos]
             allele2bq_lst = tpos2allele2bq_lst[tpos]
-            germ_gt, germ_gq, germ_gt_state = himut.gtlib.get_germ_gt(
+            
+            germ_gt, _, germ_gt_state, gt2gt_state = himut.gtlib.get_germ_gt(
                 ref, allele2bq_lst
             )
             (
@@ -273,23 +274,6 @@ def get_somatic_substitutions(
                 continue
 
             seen.add(tpos)
-            if is_low_gq(germ_gq, min_gq):
-                filtered_somatic_tsbs_lst.append(
-                    (
-                        chrom,
-                        tpos,
-                        ref,
-                        alt,
-                        "LowGQ",
-                        alt_bq,
-                        read_depth,
-                        ref_count,
-                        alt_count,
-                        alt_vaf,
-                        ".",
-                    )
-                )
-                continue
             if germ_gt_state == "het":
                 filtered_somatic_tsbs_lst.append(
                     (
@@ -363,6 +347,26 @@ def get_somatic_substitutions(
                     )
                 )
                 continue
+            
+            germ_gq = himut.gtlib.get_germ_gq(som_gt, gt2gt_state, allele2bq_lst)
+            if is_low_gq(germ_gq, min_gq):
+                filtered_somatic_tsbs_lst.append(
+                    (
+                        chrom,
+                        tpos,
+                        ref,
+                        alt,
+                        "LowGQ",
+                        alt_bq,
+                        read_depth,
+                        ref_count,
+                        alt_count,
+                        alt_vaf,
+                        ".",
+                    )
+                )
+                continue
+            
             if is_low_bq(alt, min_bq, allele2bq_lst):
                 filtered_somatic_tsbs_lst.append(
                     (
@@ -608,6 +612,7 @@ def get_somatic_substitutions(
                         alt_vaf,
                         ".",
                     )
+                
                 )
     chrom2tsbs_lst[chrom] = natsort.natsorted(
         list(set(somatic_tsbs_lst + filtered_somatic_tsbs_lst))
