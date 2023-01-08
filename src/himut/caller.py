@@ -71,7 +71,7 @@ def is_low_gq(
     germ_gq: float,
     min_gq: int,
 ) -> bool:
-    if germ_gq < min_gq:
+    if germ_gq <= min_gq:
         return True
     else:
         return False
