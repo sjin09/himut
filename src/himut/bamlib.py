@@ -160,67 +160,6 @@ def get_thresholds(
     return qlen_lower_limit, qlen_upper_limit, md_threshold
 
 
-def get_basecounts(chrom: str, start: int, alignments):
-
-    basecounts = [0] * 4
-    base2bq_lst = {0: [], 1: [], 2: [], 3: []}
-    for pileupcolumn in alignments.pileup(
-        chrom,
-        start,
-        start + 1,
-        stepper="samtools",
-        flag_filter=256,
-        min_base_quality=0,
-        min_mapping_quality=0,
-    ):
-        if pileupcolumn.pos == start - 1:
-            for pileupread in pileupcolumn.pileups:
-                if not pileupread.is_del and not pileupread.is_refskip:
-                    base = pileupread.alignment.query_sequence[
-                        pileupread.query_position
-                    ]
-                    base_bq = pileupread.alignment.query_qualities[
-                        pileupread.query_position
-                    ]
-                    basecounts[himut.util.base2idx[base]] += 1
-                    base2bq_lst[himut.util.base2idx[base]].append(base_bq)
-            break
-    return basecounts, base2bq_lst
-
-
-def get_allelecounts(chrom: str, pos: int, alignments):
-
-    tpos2allelecounts = defaultdict(lambda: np.zeros(6))
-    tpos2allele2bq_lst = defaultdict(lambda: {0: [], 1: [], 2: [], 3: [], 4: [], 5: []})
-    for i in alignments.fetch(chrom, pos - 1, pos + 1):
-        ccs = himut.bamlib.BAM(i)
-        tpos = ccs.tstart
-        qpos = ccs.qstart
-        for (state, ref, alt, ref_len, alt_len) in ccs.cstuple_lst:
-            if state == 1:  # match
-                for i, alt_base in enumerate(alt):
-                    tpos2allelecounts[tpos + i + 1][himut.util.base2idx[alt_base]] += 1
-                    tpos2allele2bq_lst[tpos + i + 1][
-                        himut.util.base2idx[alt_base]
-                    ].append(ccs.bq_int_lst[qpos + i])
-            elif state == 2:  # sub
-                tpos2allelecounts[tpos + 1][himut.util.base2idx[alt]] += 1
-                tpos2allele2bq_lst[tpos + 1][himut.util.base2idx[alt]].append(
-                    ccs.bq_int_lst[qpos]
-                )
-            elif state == 3:  # insertion
-                tpos2allelecounts[tpos + 1][4] += 1
-                pass
-            elif state == 4:  # deletion
-                for j in range(len(ref[1:])):
-                    tpos2allelecounts[tpos + j + 1][5] += 1
-            tpos += ref_len
-            qpos += alt_len
-    allelecounts = tpos2allelecounts[pos]
-    allele2bq_lst = tpos2allele2bq_lst[pos]
-    return allelecounts, allele2bq_lst
-
-
 def get_sbs_allelecounts(
     ref: str,
     alt: str,
@@ -239,14 +178,21 @@ def get_sbs_allelecounts(
     return ref_count, alt_bq, alt_vaf, alt_count, indel_count, read_depth
 
 
-def is_trimmed(
-    ccs,
-    qpos: int,
+def get_trimmed_range(
+    qlen: int,
     min_trim: float,
+):
+    trimmed_qstart = math.floor(min_trim * qlen)
+    trimmed_qend = math.ceil((1 - min_trim) * qlen)
+    return trimmed_qstart, trimmed_qend
+    
+
+def is_trimmed(
+    qpos: int,
+    trimmed_qstart: float,
+    trimmed_qend: float
 ) -> bool:
 
-    trimmed_qstart = math.floor(min_trim * ccs.qlen)
-    trimmed_qend = math.ceil((1 - min_trim) * ccs.qlen)
     if qpos < trimmed_qstart:
         return True
     elif qpos > trimmed_qend:
@@ -271,20 +217,53 @@ def get_mismatch_range(tpos: int, qpos: int, qlen: int, window: int):
     return tstart, tend
 
 
+def get_mismatch_positions(ccs):
+    mismatch_tpos_lst = [mismatch[0] for mismatch in ccs.mismatch_lst]
+    return mismatch_tpos_lst
+
+
 def is_mismatch_conflict(
     ccs, tpos: int, qpos: int, mismatch_window: int, max_mismatch_count: int
 ) -> bool:
 
-    mpos_lst = [mismatch[0] for mismatch in ccs.mismatch_lst]
+    mismatch_tpos_lst = himut.bamlib.get_mismatch_positions(ccs) 
     mismatch_start, mismatch_end = get_mismatch_range(
         tpos, qpos, ccs.qlen, mismatch_window
     )
     mismatch_count = (
-        bisect.bisect_right(mpos_lst, mismatch_end)
-        - bisect.bisect_left(mpos_lst, mismatch_start)
+        bisect.bisect_right(mismatch_tpos_lst, mismatch_end)
+        - bisect.bisect_left(mismatch_tpos_lst, mismatch_start)
         - 1
     )
     if mismatch_count > max_mismatch_count:
         return True
     else:
         return False
+
+
+# def get_basecounts(chrom: str, start: int, alignments):
+
+#     basecounts = [0] * 4
+#     base2bq_lst = {0: [], 1: [], 2: [], 3: []}
+#     for pileupcolumn in alignments.pileup(
+#         chrom,
+#         start,
+#         start + 1,
+#         stepper="samtools",
+#         flag_filter=256,
+#         min_base_quality=0,
+#         min_mapping_quality=0,
+#     ):
+#         if pileupcolumn.pos == start - 1:
+#             for pileupread in pileupcolumn.pileups:
+#                 if not pileupread.is_del and not pileupread.is_refskip:
+#                     base = pileupread.alignment.query_sequence[
+#                         pileupread.query_position
+#                     ]
+#                     base_bq = pileupread.alignment.query_qualities[
+#                         pileupread.query_position
+#                     ]
+#                     basecounts[himut.util.base2idx[base]] += 1
+#                     base2bq_lst[himut.util.base2idx[base]].append(base_bq)
+#             break
+#     return basecounts, base2bq_lst

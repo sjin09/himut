@@ -568,81 +568,54 @@ def get_germline_priors(
     return germline_snv_prior, germline_indel_prior
 
 
-def get_chrom2hblock_loci(
-    vcf_file: str, 
-    chrom_lst: List[str], 
-    tname2tsize: Dict[str, int]
-):
-    chrom2ps2pos_lst = {chrom: {} for chrom in chrom_lst}
-    if vcf_file.endswith(".vcf"):
-        for line in open(vcf_file):
-            if line.startswith("#"):
-                continue
-            v = VCF(line)
-            if v.sample_gt == "0|1" or v.sample_gt == "1|0":
-                chrom2ps2pos_lst[v.chrom][v.sample_phase_set].append(v.pos)
-    elif vcf_file.endswith(".bgz"):
-        tb = tabix.open(vcf_file)
-        for chrom in chrom_lst:
-            ps2pos_lst = defaultdict(list)
-            records = tb.query(chrom, 0, tname2tsize[chrom])
-            for record in records:
-                v = VCF("\t".join(record))
-                if v.sample_gt == "0|1" or v.sample_gt == "1|0":
-                    ps2pos_lst[v.sample_phase_set].append(v.pos)
-            chrom2ps2pos_lst[chrom] = ps2pos_lst
-
-    chrom2chunkloci_lst = {}
-    for chrom in chrom_lst:
-        chrom2chunkloci_lst[chrom] = []
-        for _ps, pos_lst in chrom2ps2pos_lst[chrom].items():
-            start = pos_lst[0]
-            end = pos_lst[-1]
-            chrom2chunkloci_lst[chrom].append((chrom, start, end))
-    return chrom2chunkloci_lst
-
 
 def load_phased_hetsnps(
     vcf_file: str,
-    chrom: str,
-    chrom_len: int,
+    chrom_lst: List[str],
+    tname2tsize: Dict[str, int]
 ) -> Dict[str, List[List[Tuple[int, str]]]]:
 
-    hpos_lst = []
-    hpos2phase_set = {}
-    phase_set2hbit_lst = defaultdict(list)
-    phase_set2hpos_lst = defaultdict(list)
-    phase_set2hetsnp_lst = defaultdict(list)
+    chrom2phase_set2hbit_lst = defaultdict()
+    chrom2phase_set2hpos_lst = defaultdict()
+    chrom2phase_set2hetsnp_lst = defaultdict()
+    for tname in tname2tsize:
+        chrom2phase_set2hbit_lst[tname] = defaultdict(list)
+        chrom2phase_set2hpos_lst[tname] = defaultdict(list) 
+        chrom2phase_set2hetsnp_lst[tname] = defaultdict(list)
     if vcf_file.endswith(".vcf"):
         for line in open(vcf_file):
             if line.startswith("#"):
                 continue
             v = VCF(line)
             if chrom == v.chrom and (v.sample_gt == "0|1" or v.sample_gt == "1|0"):
-                hpos_lst.append(v.pos)
-                hpos2phase_set[v.pos] = v.sample_phase_set
-                phase_set2hpos_lst[v.sample_phase_set].append(v.pos)
-                phase_set2hetsnp_lst[v.sample_phase_set].append((v.pos, v.ref, v.alt))
-                phase_set2hbit_lst[v.sample_phase_set].append(v.sample_gt.split("|")[0])
+                chrom2phase_set2hpos_lst[v.chrom][v.sample_phase_set].append(v.pos)
+                chrom2phase_set2hetsnp_lst[v.chrom][v.sample_phase_set].append((v.pos, v.ref, v.alt))
+                chrom2phase_set2hbit_lst[v.chrom][v.sample_phase_set].append(v.sample_gt.split("|")[0])
     elif vcf_file.endswith(".bgz"):
         tb = tabix.open(vcf_file)
-        records = tb.query(chrom, 0, chrom_len)
-        for record in records:
-            v = VCF("\t".join(record))
-            if v.sample_gt == "0|1" or v.sample_gt == "1|0":
-                hpos_lst.append(v.pos)
-                hpos2phase_set[v.pos] = v.sample_phase_set
-                phase_set2hpos_lst[v.sample_phase_set].append(v.pos)
-                phase_set2hetsnp_lst[v.sample_phase_set].append((v.pos, v.ref, v.alt))
-                phase_set2hbit_lst[v.sample_phase_set].append(v.sample_gt.split("|")[0])
-    return (
-        hpos_lst,
-        hpos2phase_set,
-        phase_set2hbit_lst,
-        phase_set2hpos_lst,
-        phase_set2hetsnp_lst,
-    )
+        for chrom in chrom_lst:
+            records = tb.query(chrom, 0, tname2tsize[chrom])
+            for record in records:
+                v = VCF("\t".join(record))
+                if v.sample_gt == "0|1" or v.sample_gt == "1|0":
+                    chrom2phase_set2hpos_lst[v.chrom][v.sample_phase_set].append(v.pos)
+                    chrom2phase_set2hetsnp_lst[v.chrom][v.sample_phase_set].append((v.pos, v.ref, v.alt))
+                    chrom2phase_set2hbit_lst[v.chrom][v.sample_phase_set].append(v.sample_gt.split("|")[0])
 
+    chrom2chunkloci_lst = {} 
+    chrom_set = set(chrom_lst)
+    for tname in tname2tsize:
+        if tname not in chrom_set:
+            del chrom2phase_set2hbit_lst[tname] 
+            del chrom2phase_set2hpos_lst[tname] 
+            del chrom2phase_set2hetsnp_lst[tname] 
+            continue
+        chrom2chunkloci_lst[tname] = []
+        for _ps, hpos_lst in chrom2phase_set2hpos_lst[tname].items():
+            start = hpos_lst[0]
+            end = hpos_lst[-1]
+            chrom2chunkloci_lst[tname].append((tname, start, end))
+    return chrom2phase_set2hbit_lst, chrom2phase_set2hpos_lst, chrom2phase_set2hetsnp_lst, chrom2chunkloci_lst, 
 
 def dump_phased_hetsnps(
     bam_file: str,
@@ -784,6 +757,7 @@ def dump_sbs(
             ref,
             alt,
             status,
+            gq,
             bq,
             read_depth,
             ref_count,
@@ -793,12 +767,13 @@ def dump_sbs(
         ) in chrom2tsbs_lst[chrom]:
             if status == "HetAltSite":
                 o.write(
-                    "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF\t./.:{}:{:0.0f}:{:0.0f},{}:{}\n".format(
+                    "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:GQ:BQ:DP:AD:VAF\t./.:{}:{:0.0f}:{:0.0f},{}:{}\n".format(
                         chrom,
                         pos,
                         ref,
                         alt,
                         status,
+                        gq,
                         bq,
                         read_depth,
                         ref_count,
@@ -808,12 +783,13 @@ def dump_sbs(
                 )
                 if int(ref_count) == 1:
                     p.write(
-                        "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF\t./.:{}:{:0.0f}:{:0.0f},{}:{}\n".format(
+                        "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:GQ:BQ:DP:AD:VAF\t./.:{}:{:0.0f}:{:0.0f},{}:{}\n".format(
                             chrom,
                             pos,
                             ref,
                             alt,
                             status,
+                            gq,
                             bq,
                             read_depth,
                             ref_count,
@@ -823,12 +799,13 @@ def dump_sbs(
                     )
             else:
                 o.write(
-                    "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF\t./.:{:0.1f}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}\n".format(
+                    "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:GQ:BQ:DP:AD:VAF\t./.:{:0.1f}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}\n".format(
                         chrom,
                         pos,
                         ref,
                         alt,
                         status,
+                        gq,
                         bq,
                         read_depth,
                         ref_count,
@@ -838,13 +815,14 @@ def dump_sbs(
                 )
                 if int(alt_count) == 1:
                     p.write(
-                        "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF\t./.:{:0.1f}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}\n".format(
+                        "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:GQ:BQ:DP:AD:VAF\t./.:{:0.1f}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}\n".format(
                             chrom,
                             pos,
                             ref,
                             alt,
                             status,
                             bq,
+                            gq,
                             read_depth,
                             ref_count,
                             alt_count,
@@ -879,6 +857,7 @@ def dump_phased_sbs(
             ref,
             alt,
             status,
+            gq,
             bq,
             read_depth,
             ref_count,
@@ -888,12 +867,13 @@ def dump_phased_sbs(
         ) in chrom2tsbs_lst[chrom]:
             if status == "HetAltSite":
                 o.write(
-                    "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF\t./.:{}:{:0.0f}:{:0.0f},{}:{}:{}\n".format(
+                    "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:GQ:BQ:DP:AD:VAF\t./.:{}:{}:{:0.0f}:{:0.0f},{}:{}:{}\n".format(
                         chrom,
                         pos,
                         ref,
                         alt,
                         status,
+                        gq,
                         bq,
                         read_depth,
                         ref_count,
@@ -904,12 +884,13 @@ def dump_phased_sbs(
                 )
                 if int(ref_count) == 1:
                     p.write(
-                        "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF:PS\t./.:{}:{:0.0f}:{:0.0f},{}:{}:{}\n".format(
+                        "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:GQ:BQ:DP:AD:VAF:PS\t./.:{}:{}:{:0.0f}:{:0.0f},{}:{}:{}\n".format(
                             chrom,
                             pos,
                             ref,
                             alt,
                             status,
+                            gq,
                             bq,
                             read_depth,
                             ref_count,
@@ -920,12 +901,13 @@ def dump_phased_sbs(
                     )
             else:
                 o.write(
-                    "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF:PS\t./.:{:0.1f}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}:{}\n".format(
+                    "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:GQ:BQ:DP:AD:VAF:PS\t./.:{}:{:0.1f}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}:{}\n".format(
                         chrom,
                         pos,
                         ref,
                         alt,
                         status,
+                        gq,
                         bq,
                         read_depth,
                         ref_count,
@@ -936,12 +918,13 @@ def dump_phased_sbs(
                 )
                 if int(alt_count) == 1:
                     p.write(
-                        "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF:PS\t./.:{:0.1f}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}:{}\n".format(
+                        "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:GQ:BQ:DP:AD:VAF:PS\t./.:{}:{:0.1f}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}:{}\n".format(
                             chrom,
                             pos,
                             ref,
                             alt,
                             status,
+                            gq,
                             bq,
                             read_depth,
                             ref_count,

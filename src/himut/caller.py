@@ -6,12 +6,20 @@ import himut.cslib
 import himut.gtlib
 import himut.bamlib
 import himut.haplib
-import himut.mutlib
-import himut.somlib
 import himut.vcflib
+import numpy as np
 import multiprocessing as mp
 from collections import defaultdict
 from typing import Dict, List, Tuple
+
+
+def init_allelecounts():
+    rpos2allelecounts = defaultdict(lambda: np.zeros(6))
+    rpos2allele2bq_lst = defaultdict(lambda: {0: [], 1: [], 2: [], 3: [], 4: [], 5: []})
+    rpos2allele2ccs_lst = defaultdict(
+        lambda: {0: [], 1: [], 2: [], 3: [], 4: [], 5: []}
+    )
+    return rpos2allele2bq_lst, rpos2allele2ccs_lst, rpos2allelecounts
 
 
 def is_low_mapq(ccs_mapq: int, min_mapq: int):
@@ -90,20 +98,22 @@ def is_low_bq(
 
 
 def get_hetalt_counts(
-    a1: str,
-    a2: str,
+    p: str,
+    q: str,
     read_depth: int,
     allelecounts: Dict[int, int],
     allele2bq_lst: Dict[str, List[int]],
 ):
-    a1_count = allelecounts[himut.util.base2idx[a1]]
-    a2_count = allelecounts[himut.util.base2idx[a2]]
-    a1_bq = sum(allele2bq_lst[himut.util.base2idx[a1]]) / float(a1_count)
-    a2_bq = sum(allele2bq_lst[himut.util.base2idx[a2]]) / float(a2_count)
-    alt_bq = "{:0.1f},{:0.1f}".format(a1_bq, a2_bq)
-    alt_count = "{:0.0f},{:0.0f}".format(a1_count, a2_count)
+    pidx = himut.util.base2idx[p]
+    qidx = himut.util.base2idx[q]
+    p_count = allelecounts[pidx]
+    q_count = allelecounts[qidx]
+    pbq = sum(allele2bq_lst[pidx])/float(p_count)
+    qbq = sum(allele2bq_lst[qidx])/float(q_count)
+    alt_bq = "{:0.1f},{:0.1f}".format(pbq, qbq)
+    alt_count = "{:0.0f},{:0.0f}".format(p_count, q_count)
     alt_vaf = "{:.2f},{:.2f}".format(
-        a1_count / float(read_depth), a2_count / float(read_depth)
+        p_count/float(read_depth), q_count/float(read_depth)
     )
     return alt_bq, alt_vaf, alt_count
 
@@ -124,12 +134,13 @@ def is_hap_phased(
 
 def get_somatic_substitutions(
     chrom: str,
-    chrom_len: int,
     bam_file: str,
-    phased_vcf_file: str,
     common_snps: str,
     panel_of_normals: str,
-    loci_lst: List[Tuple[str, int, int]],
+    chunkloci_lst: List[Tuple[str, int, int]],
+    phase_set2hbit_lst: Dict[str, List[str]],
+    phase_set2hpos_lst: Dict[int, List[int]],
+    phase_set2hetsnp_lst: Dict[int, List[Tuple[int, str, str]]], 
     min_mapq: int,
     min_trim: float,
     qlen_lower_limit: int,
@@ -160,7 +171,6 @@ def get_somatic_substitutions(
     pon_sbs_set = set()
     common_snp_set = set()
     himut.gtlib.init(germline_snv_prior)
-    himut.somlib.init(germline_snv_prior)
     if not non_human_sample and common_snps.endswith(".vcf"):
         common_snp_set = himut.vcflib.load_common_snp(chrom, common_snps)
 
@@ -170,22 +180,6 @@ def get_somatic_substitutions(
         and panel_of_normals.endswith(".vcf")
     ):
         pon_sbs_set = himut.vcflib.load_pon(chrom, panel_of_normals)
-
-    if phase:
-        (
-            hpos_lst,
-            hpos2phase_set,
-            phase_set2hbit_lst,
-            phase_set2hpos_lst,
-            phase_set2hetsnp_lst,
-        ) = himut.vcflib.load_phased_hetsnps(phased_vcf_file, chrom, chrom_len)
-
-    if phase:
-        chunkloci_lst = himut.haplib.phase_set2chunkloci_lst(chrom, phase_set2hpos_lst)
-    else:
-        chunkloci_lst = [
-            chunkloci for loci in loci_lst for chunkloci in himut.util.chunkloci(loci)
-        ]
 
     somatic_tsbs_lst = []
     filtered_somatic_tsbs_lst = []
@@ -216,17 +210,13 @@ def get_somatic_substitutions(
             )
 
         somatic_tsbs_candidate_lst = []
-        (
-            tpos2allele2bq_lst,
-            tpos2allele2ccs_lst,
-            tpos2allelecounts,
-        ) = himut.util.init_allelecounts()
+        rpos2allele2bq_lst, rpos2allele2ccs_lst, rpos2allelecounts = init_allelecounts()
         for i in alignments.fetch(chrom, chunk_start, chunk_end):
             ccs = himut.bamlib.BAM(i)
             if not ccs.is_primary:
                 continue
             himut.cslib.update_allelecounts(
-                ccs, tpos2allelecounts, tpos2allele2bq_lst, tpos2allele2ccs_lst
+                ccs, rpos2allelecounts, rpos2allele2bq_lst, rpos2allele2ccs_lst
             )
             if is_low_mapq(ccs.mapq, min_mapq):
                 continue
@@ -248,17 +238,22 @@ def get_somatic_substitutions(
             somatic_tsbs_candidate_lst.extend(ccs_somatic_tsbs_candidate_lst)
 
         for tsbs in set(somatic_tsbs_candidate_lst):
-
             tpos, ref, alt = tsbs
             if tpos in seen:
                 continue
             if not is_chunk(tpos, chunk_start, chunk_end):
                 continue
 
+            rpos = tpos - 1 # reference FASTA file position 
             som_gt = "{}{}".format(ref, alt)
-            allelecounts = tpos2allelecounts[tpos]
-            allele2bq_lst = tpos2allele2bq_lst[tpos]
+            allelecounts = rpos2allelecounts[rpos]
+            allele2bq_lst = rpos2allele2bq_lst[rpos]
             germ_gt, _, germ_gt_state, gt2gt_state = himut.gtlib.get_germ_gt(ref, allele2bq_lst)
+            if is_germ_gt(som_gt, germ_gt, germ_gt_state, allelecounts):
+                continue
+
+            seen.add(tpos)
+            germ_gq = himut.gtlib.get_germ_gq(som_gt, gt2gt_state, allele2bq_lst)
             (
                 ref_count,
                 alt_bq,
@@ -267,10 +262,6 @@ def get_somatic_substitutions(
                 indel_count,
                 read_depth,
             ) = himut.bamlib.get_sbs_allelecounts(ref, alt, allelecounts, allele2bq_lst)
-            if is_germ_gt(som_gt, germ_gt, germ_gt_state, allelecounts):
-                continue
-
-            seen.add(tpos)
             if germ_gt_state == "het":
                 filtered_somatic_tsbs_lst.append(
                     (
@@ -279,6 +270,7 @@ def get_somatic_substitutions(
                         ref,
                         alt,
                         "HetSite",
+                        germ_gq,
                         alt_bq,
                         read_depth,
                         ref_count,
@@ -301,6 +293,7 @@ def get_somatic_substitutions(
                         ref,
                         alt,
                         "HetAltSite",
+                        germ_gq,
                         alt_bq,
                         read_depth,
                         ref_count,
@@ -318,6 +311,7 @@ def get_somatic_substitutions(
                         ref,
                         alt,
                         "HomAltSite",
+                        germ_gq,
                         alt_bq,
                         read_depth,
                         ref_count,
@@ -335,6 +329,7 @@ def get_somatic_substitutions(
                         ref,
                         alt,
                         "IndelSite",
+                        germ_gq,
                         alt_bq,
                         read_depth,
                         ref_count,
@@ -344,8 +339,6 @@ def get_somatic_substitutions(
                     )
                 )
                 continue
-            
-            germ_gq = himut.gtlib.get_germ_gq(som_gt, gt2gt_state, allele2bq_lst)
             if is_low_gq(germ_gq, min_gq):
                 filtered_somatic_tsbs_lst.append(
                     (
@@ -354,6 +347,7 @@ def get_somatic_substitutions(
                         ref,
                         alt,
                         "LowGQ",
+                        germ_gq,
                         alt_bq,
                         read_depth,
                         ref_count,
@@ -363,7 +357,6 @@ def get_somatic_substitutions(
                     )
                 )
                 continue
-            
             if is_low_bq(alt, min_bq, allele2bq_lst):
                 filtered_somatic_tsbs_lst.append(
                     (
@@ -372,6 +365,7 @@ def get_somatic_substitutions(
                         ref,
                         alt,
                         "LowBQ",
+                        germ_gq,
                         alt_bq,
                         read_depth,
                         ref_count,
@@ -393,6 +387,7 @@ def get_somatic_substitutions(
                         ref,
                         alt,
                         "PanelOfNormal",
+                        germ_gq,
                         alt_bq,
                         read_depth,
                         ref_count,
@@ -410,6 +405,7 @@ def get_somatic_substitutions(
                         ref,
                         alt,
                         "ContRead",
+                        germ_gq,
                         alt_bq,
                         read_depth,
                         ref_count,
@@ -427,6 +423,7 @@ def get_somatic_substitutions(
                         ref,
                         alt,
                         "LowDepth",
+                        germ_gq,
                         alt_bq,
                         read_depth,
                         ref_count,
@@ -444,6 +441,7 @@ def get_somatic_substitutions(
                         ref,
                         alt,
                         "LowDepth",
+                        germ_gq,
                         alt_bq,
                         read_depth,
                         ref_count,
@@ -461,6 +459,7 @@ def get_somatic_substitutions(
                         ref,
                         alt,
                         "LowDepth",
+                        germ_gq,
                         alt_bq,
                         read_depth,
                         ref_count,
@@ -478,6 +477,7 @@ def get_somatic_substitutions(
                         ref,
                         alt,
                         "HighDepth",
+                        germ_gq,
                         alt_bq,
                         read_depth,
                         ref_count,
@@ -489,15 +489,16 @@ def get_somatic_substitutions(
                 continue
 
             som_state = 0
-            wt_ccs_set = tpos2allele2ccs_lst[tpos][himut.util.base2idx[ref]]
-            alt_ccs_set = set(tpos2allele2ccs_lst[tpos][himut.util.base2idx[alt]])
+            wt_ccs_set = rpos2allele2ccs_lst[rpos][himut.util.base2idx[ref]]
+            alt_ccs_set = set(rpos2allele2ccs_lst[rpos][himut.util.base2idx[alt]])
+            trimmed_qstart, trimmed_qend = himut.bamlib.get_trimmed_range(ccs.qlen, min_trim)
             for ij in alignments.fetch(chrom, tpos, tpos + 1):
                 ccs = himut.bamlib.BAM(ij)
                 if ccs.qname not in alt_ccs_set:
                     continue
                 ccs.cs2subindel()
                 qpos = ccs.qsbs_lst[ccs.tsbs_lst.index(tsbs)][0]
-                if himut.bamlib.is_trimmed(ccs, qpos, min_trim):
+                if himut.bamlib.is_trimmed(qpos, trimmed_qstart, trimmed_qend):
                     som_state = 1
                     filtered_somatic_tsbs_lst.append(
                         (
@@ -506,6 +507,7 @@ def get_somatic_substitutions(
                             ref,
                             alt,
                             "Trimmed",
+                            germ_gq,
                             alt_bq,
                             read_depth,
                             ref_count,
@@ -526,6 +528,7 @@ def get_somatic_substitutions(
                             ref,
                             alt,
                             "MismatchConflict",
+                            germ_gq,
                             alt_bq,
                             read_depth,
                             ref_count,
@@ -540,10 +543,8 @@ def get_somatic_substitutions(
 
             if phase:
                 som_hap_set = set()
+                phase_set = str(chunk_start)
                 hap2count = defaultdict(lambda: 0)
-                phase_set = himut.haplib.get_phase_set(
-                    chunk_start, chunk_end, hpos_lst, hpos2phase_set
-                )
                 ccs_hap_lst = himut.haplib.get_loci_hap(
                     alignments,
                     (chrom, tpos, tpos + 1),
@@ -567,6 +568,7 @@ def get_somatic_substitutions(
                             ref,
                             alt,
                             "PASS",
+                            germ_gq,
                             alt_bq,
                             read_depth,
                             ref_count,
@@ -583,6 +585,7 @@ def get_somatic_substitutions(
                             ref,
                             alt,
                             "Unphased",
+                            germ_gq,
                             alt_bq,
                             read_depth,
                             ref_count,
@@ -600,6 +603,7 @@ def get_somatic_substitutions(
                         ref,
                         alt,
                         "PASS",
+                        germ_gq,
                         alt_bq,
                         read_depth,
                         ref_count,
@@ -650,7 +654,15 @@ def call_somatic_substitutions(
 
     cpu_start = time.time() / 60
     _, tname2tsize = himut.bamlib.get_tname2tsize(bam_file)
-    chrom_lst, chrom2loci_lst = himut.util.load_loci(region, region_list, tname2tsize)
+    
+    chrom_lst, chrom2chunkloci_lst = himut.util.load_loci(region, region_list, tname2tsize)
+    if phase:
+        (
+            chrom2ps2hbit_lst,
+            chrom2ps2hpos_lst,
+            chrom2ps2hetsnp_lst,
+            chrom2chunkloci_lst,
+        ) = himut.vcflib.load_phased_hetsnps(phased_vcf_file, chrom_lst, tname2tsize)
     qlen_lower_limit, qlen_upper_limit, md_threshold = himut.bamlib.get_thresholds(
         bam_file, chrom_lst, tname2tsize
     )
@@ -732,12 +744,13 @@ def call_somatic_substitutions(
     get_somatic_substitutions_arg_lst = [
         (
             chrom,
-            tname2tsize[chrom],
             bam_file,
-            phased_vcf_file,
             common_snps,
             panel_of_normals,
-            chrom2loci_lst[chrom],
+            chrom2chunkloci_lst[chrom],
+            chrom2ps2hbit_lst[chrom],
+            chrom2ps2hpos_lst[chrom],
+            chrom2ps2hetsnp_lst[chrom], 
             min_mapq,
             min_trim,
             qlen_lower_limit,

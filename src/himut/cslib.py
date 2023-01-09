@@ -53,7 +53,7 @@ def cs2subindel(ccs):
     ccs.qsbs_bq_lst = []
     ccs.mismatch_lst = []
     for (state, ref, alt, ref_len, alt_len) in ccs.cstuple_lst:
-        if state == 2 and ref != "N":  # snp
+        if ref != "N" and state == 2:  # snp
             ccs.qsbs_bq_lst.append(ccs.bq_int_lst[qpos])
             ccs.tsbs_lst.append((tpos + 1, ref, alt))
             ccs.qsbs_lst.append((qpos, alt, ref))
@@ -150,41 +150,6 @@ def cs2mut(ccs):
             state = 0
 
 
-def update_allelecounts(
-    ccs,
-    tpos2allelecounts: Dict[int, np.ndarray],
-    tpos2allele2bq_lst: Dict[int, Dict[int, List[int]]],
-    tpos2allele2ccs_lst: Dict[int, Dict[int, List[str]]],
-) -> None:
-
-    tpos = ccs.tstart
-    qpos = ccs.qstart
-    for (state, ref, alt, ref_len, alt_len) in ccs.cstuple_lst:
-        if state == 1:  # match
-            for i, alt_base in enumerate(alt):
-                tpos2allelecounts[tpos + i + 1][himut.util.base2idx[alt_base]] += 1
-                tpos2allele2ccs_lst[tpos + i + 1][himut.util.base2idx[alt_base]].append(
-                    ccs.qname
-                )
-                tpos2allele2bq_lst[tpos + i + 1][himut.util.base2idx[alt_base]].append(
-                    ccs.bq_int_lst[qpos + i]
-                )
-        elif state == 2:  # sub
-            tpos2allelecounts[tpos + 1][himut.util.base2idx[alt]] += 1
-            tpos2allele2ccs_lst[tpos + 1][himut.util.base2idx[alt]].append(ccs.qname)
-            tpos2allele2bq_lst[tpos + 1][himut.util.base2idx[alt]].append(
-                ccs.bq_int_lst[qpos]
-            )
-        elif state == 3:  # insertion
-            tpos2allelecounts[tpos + 1][4] += 1
-            pass
-        elif state == 4:  # deletion
-            for j in range(len(ref[1:])):
-                tpos2allelecounts[tpos + j + 1][5] += 1
-        tpos += ref_len
-        qpos += alt_len
-
-
 def cs2tpos2qbase(ccs):
 
     tpos = ccs.tstart
@@ -201,5 +166,37 @@ def cs2tpos2qbase(ccs):
         elif state == 4:  # deletion
             for j in range(len(ref[1:])):
                 ccs.tpos2qbase[tpos + j + 1] = ("-", 0)
+        tpos += ref_len
+        qpos += alt_len
+
+
+
+def update_allelecounts(
+    ccs,
+    rpos2allelecounts: Dict[int, np.ndarray],
+    rpos2allele2bq_lst: Dict[int, Dict[int, List[int]]],
+    rpos2allele2ccs_lst: Dict[int, Dict[int, List[str]]],
+) -> None:
+
+    tpos = ccs.tstart
+    qpos = ccs.qstart
+    for (state, ref, alt, ref_len, alt_len) in ccs.cstuple_lst:
+        if state == 1:  # match
+            for i, alt_base in enumerate(alt):
+                epos = tpos + i
+                bidx = himut.util.base2idx[alt_base]
+                rpos2allelecounts[epos][bidx] += 1
+                rpos2allele2ccs_lst[epos][bidx].append(ccs.qname)
+                rpos2allele2bq_lst[epos][bidx].append(ccs.bq_int_lst[qpos + i])
+        elif state == 2:  # sub
+            bidx = himut.util.base2idx[alt]
+            rpos2allelecounts[tpos][bidx] += 1
+            rpos2allele2ccs_lst[tpos][bidx].append(ccs.qname)
+            rpos2allele2bq_lst[tpos][bidx].append(ccs.bq_int_lst[qpos])
+        elif state == 3:  # insertion
+            rpos2allelecounts[tpos][4] += 1
+        elif state == 4:  # deletion
+            for j in range(len(ref[1:])):
+                rpos2allelecounts[tpos + j][5] += 1
         tpos += ref_len
         qpos += alt_len

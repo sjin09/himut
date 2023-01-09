@@ -93,10 +93,15 @@ def load_loci(
         for tname, tsize in tname2tsize.items():
             chrom2loci_lst[tname].append((tname, 0, tsize))
 
+
+    chrom2chunkloci_lst = defaultdict(list)
     chrom_lst = natsort.natsorted(list(chrom2loci_lst.keys()))
-    for chrom in chrom_lst:
-        chrom2loci_lst[chrom] = natsort.natsorted(chrom2loci_lst[chrom])
-    return chrom_lst, chrom2loci_lst
+    for chrom, loci_lst in chrom2loci_lst.items():
+        chunkloci_lst = [
+            chunkloci for loci in loci_lst for chunkloci in himut.util.chunkloci(loci)
+        ]
+        chrom2chunkloci_lst[chrom] = chunkloci_lst
+    return chrom_lst, chrom2chunkloci_lst
 
 
 def load_chrom(
@@ -538,12 +543,3 @@ def get_truncated_float(f: float) -> float:
     mindex = max([j for j, k in enumerate(flst) if k == 0.0]) + 1
     tf = flst[mindex]
     return tf
-
-
-def init_allelecounts():
-    tpos2allelecounts = defaultdict(lambda: np.zeros(6))
-    tpos2allele2bq_lst = defaultdict(lambda: {0: [], 1: [], 2: [], 3: [], 4: [], 5: []})
-    tpos2allele2ccs_lst = defaultdict(
-        lambda: {0: [], 1: [], 2: [], 3: [], 4: [], 5: []}
-    )
-    return tpos2allele2bq_lst, tpos2allele2ccs_lst, tpos2allelecounts
