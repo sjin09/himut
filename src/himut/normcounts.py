@@ -195,7 +195,7 @@ def get_callable_tricounts(
         if panel_of_normals.endswith(".vcf"):
             pon_sbs_set = himut.vcflib.load_pon(chrom, panel_of_normals)
 
-    for (_chrom, chunk_start, chunk_end) in chunkloci_lst:  ## TODO
+    for (_chrom, chunk_start, chunk_end) in chunkloci_lst[0:10]: 
         if not non_human_sample:
             if common_snps.endswith(".bgz"):
                 common_snp_set = himut.vcflib.load_bgz_common_snp(
@@ -215,14 +215,16 @@ def get_callable_tricounts(
                     ),
                     panel_of_normals,
                 )
-
-        rpos2basecounts, rpos2allele2bq_lst, rpos2allele2ccs_lst, rpos2allelecounts = init_allelecounts()
-        for i in alignments.fetch(chrom, chunk_start, chunk_end):
-            ccs = himut.bamlib.BAM(i)
+        if phase:
             phase_set = str(chunk_start)
             hbit_lst = phase_set2hbit_lst[phase_set] 
             hpos_lst = phase_set2hpos_lst[phase_set] 
             hetsnp_lst = phase_set2hetsnp_lst[phase_set] 
+           
+
+        rpos2basecounts, rpos2allele2bq_lst, rpos2allele2ccs_lst, rpos2allelecounts = init_allelecounts()
+        for i in alignments.fetch(chrom, chunk_start, chunk_end):
+            ccs = himut.bamlib.BAM(i)
             if not ccs.is_primary:
                 continue
             himut.cslib.update_allelecounts(
