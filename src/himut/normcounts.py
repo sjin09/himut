@@ -351,6 +351,9 @@ def get_normcounts(
             chrom2chunkloci_lst,
         ) = himut.vcflib.load_phased_hetsnps(phased_vcf_file, chrom_lst, tname2tsize)
     else:
+        chrom2ps2hbit_lst = defaultdict(dict)
+        chrom2ps2hpos_lst = defaultdict(dict)
+        chrom2ps2hetsnp_lst = defaultdict(dict)
         chrom2chunkloci_lst = himut.reflib.load_seq_loci(ref_file, chrom_lst)
     qlen_lower_limit, qlen_upper_limit, md_threshold = himut.bamlib.get_thresholds(
         bam_file, chrom_lst, tname2tsize

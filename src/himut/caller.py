@@ -654,7 +654,9 @@ def call_somatic_substitutions(
 
     cpu_start = time.time() / 60
     _, tname2tsize = himut.bamlib.get_tname2tsize(bam_file)
-    
+    chrom2ps2hbit_lst = defaultdict(dict)
+    chrom2ps2hpos_lst = defaultdict(dict)
+    chrom2ps2hetsnp_lst = defaultdict(dict)
     chrom_lst, chrom2chunkloci_lst = himut.util.load_loci(region, region_list, tname2tsize)
     if phase:
         (
