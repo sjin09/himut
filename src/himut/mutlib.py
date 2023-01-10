@@ -278,6 +278,7 @@ def get_normcounts_cmdline(
     max_mismatch_count: int,
     min_ref_count: int,
     min_alt_count: int,
+    min_hap_count: int,
     common_snps: str,
     panel_of_normals: str,
     somatic_snv_prior: float,
@@ -290,7 +291,7 @@ def get_normcounts_cmdline(
     out_file: str,
 ):
 
-    param = "--min_mapq {} --min_sequence_identity {} --min_hq_base_proportion {} --min_alignment_proportion {} --min_gq {} --min_bq {} --min_ref_count {} --min_alt_count {} --min_trim {} --mismatch_window {} --max_mismatch_count {} --somatic_snv_prior {} --germline_snv_prior {} --germline_indel_prior {} --threads {} -o {}".format(
+    param = "--min_mapq {} --min_sequence_identity {} --min_hq_base_proportion {} --min_alignment_proportion {} --min_gq {} --min_bq {} --min_ref_count {} --min_alt_count {} --min_hap_count {} --min_trim {} --mismatch_window {} --max_mismatch_count {} --somatic_snv_prior {} --germline_snv_prior {} --germline_indel_prior {} --threads {} -o {}".format(
         min_mapq,
         min_sequence_identity,
         min_hq_base_proportion,
@@ -299,6 +300,7 @@ def get_normcounts_cmdline(
         min_bq,
         min_ref_count,
         min_alt_count,
+        min_hap_count,
         min_trim,
         mismatch_window,
         max_mismatch_count,
@@ -394,7 +396,7 @@ def dump_normcounts(
         ccs_tricount = ccs_tri2count[tri]
         trifreq_ratio = tri2freq_ratio[tri]
         o.write(
-            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(
+            "{}\t{}\t{}\t{}\t{}\t{}\t{:0f}\t{:.0f}\n".format(
                 sbs2sub[sbs],
                 tri,
                 sbs,

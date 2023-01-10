@@ -42,6 +42,14 @@ def is_low_bq(
         return False
 
 
+def is_mismatch_conflict(mismatch_count: int, max_mismatch_count: int) -> bool:
+
+    if mismatch_count > max_mismatch_count:
+        return True
+    else:
+        return False
+
+
 def update_basecounts(
     ccs,
     min_bq: int,
@@ -51,19 +59,20 @@ def update_basecounts(
     non_human_sample: bool,
     pon_sbs_set: Set[Tuple[int, str, str]],
     common_snp_set: Set[Tuple[int, str, str]],
-    tpos2basecounts: Dict[int, int]
+    rpos2basecounts: Dict[int, int]
 ):
 
     i = 0
     ccs.cs2mut()
-    tpos = ccs.tstart
+    rpos = ccs.tstart
     qpos = ccs.qstart
     mismatch_tpos_lst = himut.bamlib.get_mismatch_positions(ccs) 
     trimmed_qstart, trimmed_qend = himut.bamlib.get_trimmed_range(ccs.qlen, min_trim)
-    mismatch_tstart, mismatch_tend = himut.bamlib.get_mismatch_range(tpos, qpos, ccs.qlen, mismatch_window)
+    # mismatch_tstart, mismatch_tend = himut.bamlib.get_mismatch_range(rpos, qpos, ccs.qlen, mismatch_window) ## TODO
     for cstuple in ccs.cstuple_lst:
         state, ref, alt, ref_len, alt_len = cstuple
         if state == 1:  # match
+            mismatch_tstart, mismatch_tend = himut.bamlib.get_mismatch_range(rpos, qpos, ccs.qlen, mismatch_window)
             for j, alt_base in enumerate(alt):
                 bq = ccs.bq_int_lst[qpos + j] 
                 mismatch_count = (
@@ -72,49 +81,54 @@ def update_basecounts(
                 )
                 if is_low_bq(bq, min_bq):
                     continue
+                if is_mismatch_conflict(mismatch_count, max_mismatch_count):
+                    continue
                 if himut.bamlib.is_trimmed(qpos, trimmed_qstart, trimmed_qend): 
                     continue
-                if mismatch_count > max_mismatch_count:
-                    continue
-                tpos2basecounts[tpos + j][himut.util.base2idx[alt_base]] += 1
-                i += 1
+                rpos2basecounts[rpos + j][himut.util.base2idx[alt_base]] += 1
+                # i += 1
         elif state == 2:  
             sbs_state = 1
-            tsbs = (tpos, ref, alt)
+            tsbs = (rpos, ref, alt)
             bq = ccs.bq_int_lst[qpos]
             mismatch_count = (
                 bisect.bisect_right(mismatch_tpos_lst, mismatch_tend + i)
                 - bisect.bisect_left(mismatch_tpos_lst, mismatch_tstart + i)
                 - 1
             )
+            mismatch_tstart, mismatch_tend = himut.bamlib.get_mismatch_range(rpos, qpos, ccs.qlen, mismatch_window)
             if is_low_bq(bq, min_bq):
                 sbs_state = 0
-            if mismatch_count > max_mismatch_count:                
-                sbs_state = 0
-            if (tsbs in pon_sbs_set or tsbs in common_snp_set) and not non_human_sample:
+            if is_mismatch_conflict(mismatch_count, max_mismatch_count):
                 sbs_state = 0
             if himut.bamlib.is_trimmed(qpos, trimmed_qstart, trimmed_qend):
                 sbs_state = 0
+            if (tsbs in pon_sbs_set or tsbs in common_snp_set) and not non_human_sample:
+                sbs_state = 0
             if sbs_state:
-                tpos2basecounts[tpos][himut.util.base2idx[alt]] += 1
-            i += 1
+                rpos2basecounts[rpos][himut.util.base2idx[alt]] += 1
+            # i += 1
         elif state == 4: # deletion
             i += ref_len
-        tpos += ref_len
+        rpos += ref_len
         qpos += alt_len 
     
 
-def is_phased(
-   ccs, 
-   hbit_lst: List[str], 
-   hpos_lst: List[int], 
-   hetsnp_lst: List[Tuple[str, int, int]]
-) -> bool:
+def is_ccs_phased(hap) -> bool:
 
-    hap = himut.haplib.get_ccs_hap(ccs, hbit_lst, hpos_lst, hetsnp_lst) 
     if hap == "0":
         return True
     elif hap == "1":
+        return True
+    else:
+        return False
+
+
+def is_chunk_phased(hap2count: Dict[str, int], min_hap_count: int) -> bool: 
+
+    h0_count = hap2count["0"]
+    h1_count = hap2count["1"]
+    if (h0_count >= min_hap_count and h1_count >= min_hap_count):
         return True
     else:
         return False
@@ -169,8 +183,9 @@ def get_callable_tricounts(
     min_bq: int,
     mismatch_window: int,
     max_mismatch_count: int,
-    min_ref_count,
-    min_alt_count,
+    min_ref_count: int,
+    min_alt_count: int,
+    min_hap_count: int,
     md_threshold: int,
     somatic_snv_prior: float,
     germline_snv_prior: float,
@@ -195,7 +210,7 @@ def get_callable_tricounts(
         if panel_of_normals.endswith(".vcf"):
             pon_sbs_set = himut.vcflib.load_pon(chrom, panel_of_normals)
 
-    for (_chrom, chunk_start, chunk_end) in chunkloci_lst[0:10]: 
+    for (_chrom, chunk_start, chunk_end) in chunkloci_lst: 
         if not non_human_sample:
             if common_snps.endswith(".bgz"):
                 common_snp_set = himut.vcflib.load_bgz_common_snp(
@@ -221,7 +236,7 @@ def get_callable_tricounts(
             hpos_lst = phase_set2hpos_lst[phase_set] 
             hetsnp_lst = phase_set2hetsnp_lst[phase_set] 
            
-
+        hap2count = defaultdict(lambda: 0)
         rpos2basecounts, rpos2allele2bq_lst, rpos2allele2ccs_lst, rpos2allelecounts = init_allelecounts()
         for i in alignments.fetch(chrom, chunk_start, chunk_end):
             ccs = himut.bamlib.BAM(i)
@@ -230,6 +245,9 @@ def get_callable_tricounts(
             himut.cslib.update_allelecounts(
                 ccs, rpos2allelecounts, rpos2allele2bq_lst, rpos2allele2ccs_lst
             )
+            if phase:
+                ccs_hap = himut.haplib.get_ccs_hap(ccs, hbit_lst, hpos_lst, hetsnp_lst)  
+                hap2count[ccs_hap] += 1
             if himut.caller.is_low_mapq(ccs.mapq, min_mapq):
                 continue
             if ccs.qlen < qlen_lower_limit or ccs.qlen > qlen_upper_limit:
@@ -240,12 +258,16 @@ def get_callable_tricounts(
                 continue
             if ccs.get_query_alignment_proportion() < min_alignment_proportion:
                 continue
-
-            if phase and is_phased(ccs, hbit_lst, hpos_lst, hetsnp_lst):
-                update_basecounts(ccs, min_bq, min_trim, mismatch_window, max_mismatch_count, non_human_sample, pon_sbs_set, common_snp_set, rpos2basecounts)
+            if phase: 
+                if is_ccs_phased(ccs_hap):
+                    update_basecounts(ccs, min_bq, min_trim, mismatch_window, max_mismatch_count, non_human_sample, pon_sbs_set, common_snp_set, rpos2basecounts)
             else:
                 update_basecounts(ccs, min_bq, min_trim, mismatch_window, max_mismatch_count, non_human_sample, pon_sbs_set, common_snp_set, rpos2basecounts)
 
+        if phase: ## TODO
+            if not is_chunk_phased(hap2count, min_hap_count): 
+               continue 
+        
         for tpos in range(chunk_start, chunk_end):  # 1-based coordinate
             rpos = tpos - 1  # 0-based coordinate
             ref = chrom_seq[rpos]
@@ -265,31 +287,31 @@ def get_callable_tricounts(
                 continue
             elif germ_gt_state == "homalt":
                 continue
+            
             if indel_count != 0:
                 continue
             if read_depth < min_read_depth:
                 continue
             elif read_depth > md_threshold:
                 continue
-            
-            ref_sum = allelecounts[himut.util.base2idx[ref]]
-            ref_count = basecounts[himut.util.base2idx[ref]]
-            if ref_sum == read_depth: 
-                if himut.caller.is_low_gq(germ_gq, min_gq):
-                    continue
-                update_tricounts(rpos, ref, ref_count, chrom_seq, tri2count)
-                continue
-            
-            alt_lst = himut.util.base_set.difference(ref)
-            alt_count_lst = [basecounts[himut.util.base2idx[alt_base]] for alt_base in alt_lst]
-            for alt, alt_count in zip(alt_lst, alt_count_lst): 
-                if alt_count == 0: 
-                    continue
-                germ_gq = himut.gtlib.get_germ_gq(alt, gt2gt_state, allele2bq_lst)
-                if himut.caller.is_low_gq(germ_gq, min_gq):
-                    continue
-                update_tricounts(rpos, alt, alt_count, chrom_seq, tri2count)
-            update_tricounts(rpos, ref, ref_count, chrom_seq, tri2count)
+           
+            ridx = himut.util.base2idx[ref]
+            ref_basecount = basecounts[ridx]
+            ref_allelecount = allelecounts[ridx]
+            if read_depth == ref_allelecount: # implict 
+                if not himut.caller.is_low_gq(germ_gq, min_gq):
+                    update_tricounts(rpos, ref, ref_basecount, chrom_seq, tri2count)
+            else:
+                alt_lst = himut.util.base_set.difference(ref)
+                alt_basecount_lst = [basecounts[himut.util.base2idx[alt]] for alt in alt_lst]
+                for alt, alt_basecount in zip(alt_lst, alt_basecount_lst): 
+                    if alt_basecount == 0: 
+                        continue
+                    germ_gq = himut.gtlib.get_germ_gq(alt, gt2gt_state, allele2bq_lst)
+                    if himut.caller.is_low_gq(germ_gq, min_gq):
+                        continue
+                    update_tricounts(rpos, alt, alt_basecount, chrom_seq, tri2count)
+                update_tricounts(rpos, ref, ref_basecount, chrom_seq, tri2count)
     chrom2ccs_tri2count[chrom] = dict(tri2count)
     alignments.close()
 
@@ -315,6 +337,7 @@ def get_normcounts(
     max_mismatch_count: int,
     min_ref_count: int,
     min_alt_count: int,
+    min_hap_count: int,
     somatic_snv_prior: float,
     germline_snv_prior: float,
     germline_indel_prior: float,
@@ -393,6 +416,7 @@ def get_normcounts(
             max_mismatch_count,
             min_ref_count,
             min_alt_count,
+            min_hap_count,
             md_threshold,
             somatic_snv_prior,
             germline_snv_prior,
@@ -424,6 +448,7 @@ def get_normcounts(
         max_mismatch_count,
         min_ref_count,
         min_alt_count,
+        min_hap_count,
         common_snps,
         panel_of_normals,
         somatic_snv_prior,

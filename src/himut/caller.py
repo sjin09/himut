@@ -118,7 +118,7 @@ def get_hetalt_counts(
     return alt_bq, alt_vaf, alt_count
 
 
-def is_hap_phased(
+def is_chunk_phased(
     hap2count: Dict[str, int],
     som_hap_count: int,
     min_hap_count: int,
@@ -553,14 +553,13 @@ def get_somatic_substitutions(
                     phase_set2hetsnp_lst[phase_set],
                 )
                 for qname, hap in ccs_hap_lst:
-                    if hap == ".":
-                        continue
                     if qname in wt_ccs_set:
                         hap2count[hap] += 1
                     if qname in alt_ccs_set:
-                        som_hap_set.add(hap)
+                        if not hap == ".":
+                            som_hap_set.add(hap)
 
-                if is_hap_phased(hap2count, len(som_hap_set), min_hap_count):
+                if is_chunk_phased(hap2count, len(som_hap_set), min_hap_count):
                     somatic_tsbs_lst.append(
                         (
                             chrom,
@@ -653,10 +652,10 @@ def call_somatic_substitutions(
 ) -> None:
 
     cpu_start = time.time() / 60
-    _, tname2tsize = himut.bamlib.get_tname2tsize(bam_file)
     chrom2ps2hbit_lst = defaultdict(dict)
     chrom2ps2hpos_lst = defaultdict(dict)
     chrom2ps2hetsnp_lst = defaultdict(dict)
+    _, tname2tsize = himut.bamlib.get_tname2tsize(bam_file)
     chrom_lst, chrom2chunkloci_lst = himut.util.load_loci(region, region_list, tname2tsize)
     if phase:
         (

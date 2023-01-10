@@ -149,7 +149,7 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         type=int,
         default=3,
         required=False,
-        help="minimum haplotype count",
+        help="minimum h0 and h1 haplotype count",
     )
     parser_call.add_argument(
         "--min_trim",
@@ -486,6 +486,13 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         default=1,
         required=False,
         help="minimum alternative allele depth",
+    )
+    parser_normcounts.add_argument(
+        "--min_hap_count",
+        type=int,
+        default=3,
+        required=False,
+        help="minimum h0 and h1 haplotype count",
     )
     parser_normcounts.add_argument(
         "--min_trim",

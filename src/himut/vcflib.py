@@ -767,7 +767,7 @@ def dump_sbs(
         ) in chrom2tsbs_lst[chrom]:
             if status == "HetAltSite":
                 o.write(
-                    "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:GQ:BQ:DP:AD:VAF\t./.:{}:{:0.0f}:{:0.0f},{}:{}\n".format(
+                    "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:GQ:BQ:DP:AD:VAF\t./.:{}:{}:{:0.0f}:{:0.0f},{}:{}\n".format(
                         chrom,
                         pos,
                         ref,
@@ -783,7 +783,7 @@ def dump_sbs(
                 )
                 if int(ref_count) == 1:
                     p.write(
-                        "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:GQ:BQ:DP:AD:VAF\t./.:{}:{:0.0f}:{:0.0f},{}:{}\n".format(
+                        "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:GQ:BQ:DP:AD:VAF\t./.:{}:{}:{:0.0f}:{:0.0f},{}:{}\n".format(
                             chrom,
                             pos,
                             ref,
@@ -799,7 +799,7 @@ def dump_sbs(
                     )
             else:
                 o.write(
-                    "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:GQ:BQ:DP:AD:VAF\t./.:{:0.1f}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}\n".format(
+                    "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:GQ:BQ:DP:AD:VAF\t./.:{}:{:0.1f}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}\n".format(
                         chrom,
                         pos,
                         ref,
@@ -815,7 +815,7 @@ def dump_sbs(
                 )
                 if int(alt_count) == 1:
                     p.write(
-                        "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:GQ:BQ:DP:AD:VAF\t./.:{:0.1f}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}\n".format(
+                        "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:GQ:BQ:DP:AD:VAF\t./.:{}:{:0.1f}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}\n".format(
                             chrom,
                             pos,
                             ref,

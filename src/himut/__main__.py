@@ -108,6 +108,7 @@ def main():
             options.max_mismatch_count,
             options.min_ref_count,
             options.min_alt_count,
+            options.min_hap_count,
             options.somatic_snv_prior,
             options.germline_snv_prior,
             options.germline_indel_prior,
