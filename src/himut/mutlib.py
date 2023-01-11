@@ -396,7 +396,7 @@ def dump_normcounts(
         ccs_tricount = ccs_tri2count[tri]
         trifreq_ratio = tri2freq_ratio[tri]
         o.write(
-            "{}\t{}\t{}\t{}\t{}\t{}\t{:0f}\t{:.0f}\n".format(
+            "{}\t{}\t{}\t{}\t{}\t{}\t{:.0f}\t{:.0f}\n".format(
                 sbs2sub[sbs],
                 tri,
                 sbs,

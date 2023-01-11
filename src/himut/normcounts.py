@@ -68,7 +68,6 @@ def update_basecounts(
     qpos = ccs.qstart
     mismatch_tpos_lst = himut.bamlib.get_mismatch_positions(ccs) 
     trimmed_qstart, trimmed_qend = himut.bamlib.get_trimmed_range(ccs.qlen, min_trim)
-    # mismatch_tstart, mismatch_tend = himut.bamlib.get_mismatch_range(rpos, qpos, ccs.qlen, mismatch_window) ## TODO
     for cstuple in ccs.cstuple_lst:
         state, ref, alt, ref_len, alt_len = cstuple
         if state == 1:  # match
@@ -83,7 +82,7 @@ def update_basecounts(
                     continue
                 if is_mismatch_conflict(mismatch_count, max_mismatch_count):
                     continue
-                if himut.bamlib.is_trimmed(qpos, trimmed_qstart, trimmed_qend): 
+                if himut.bamlib.is_trimmed(qpos + j, trimmed_qstart, trimmed_qend): # 
                     continue
                 rpos2basecounts[rpos + j][himut.util.base2idx[alt_base]] += 1
                 # i += 1
@@ -124,14 +123,14 @@ def is_ccs_phased(hap) -> bool:
         return False
 
 
-def is_chunk_phased(hap2count: Dict[str, int], min_hap_count: int) -> bool: 
+# def is_chunk_phased(hap2count: Dict[str, int], min_hap_count: int) -> bool: 
 
-    h0_count = hap2count["0"]
-    h1_count = hap2count["1"]
-    if (h0_count >= min_hap_count and h1_count >= min_hap_count):
-        return True
-    else:
-        return False
+#     h0_count = hap2count["0"]
+#     h1_count = hap2count["1"]
+#     if (h0_count >= min_hap_count and h1_count >= min_hap_count):
+#         return True
+#     else:
+#         return False
 
 
 def get_read_depth(allelecounts: np.ndarray):
@@ -238,8 +237,8 @@ def get_callable_tricounts(
            
         hap2count = defaultdict(lambda: 0)
         rpos2basecounts, rpos2allele2bq_lst, rpos2allele2ccs_lst, rpos2allelecounts = init_allelecounts()
-        for i in alignments.fetch(chrom, chunk_start, chunk_end):
-            ccs = himut.bamlib.BAM(i)
+        for i, j in enumerate(alignments.fetch(chrom, chunk_start, chunk_end)):
+            ccs = himut.bamlib.BAM(j)
             if not ccs.is_primary:
                 continue
             himut.cslib.update_allelecounts(
@@ -265,7 +264,7 @@ def get_callable_tricounts(
                 update_basecounts(ccs, min_bq, min_trim, mismatch_window, max_mismatch_count, non_human_sample, pon_sbs_set, common_snp_set, rpos2basecounts)
 
         if phase: ## TODO
-            if not is_chunk_phased(hap2count, min_hap_count): 
+            if not himut.caller.is_chunk_phased(hap2count, min_hap_count): 
                continue 
         
         for tpos in range(chunk_start, chunk_end):  # 1-based coordinate

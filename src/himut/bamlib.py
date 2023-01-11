@@ -240,30 +240,3 @@ def is_mismatch_conflict(
     else:
         return False
 
-
-# def get_basecounts(chrom: str, start: int, alignments):
-
-#     basecounts = [0] * 4
-#     base2bq_lst = {0: [], 1: [], 2: [], 3: []}
-#     for pileupcolumn in alignments.pileup(
-#         chrom,
-#         start,
-#         start + 1,
-#         stepper="samtools",
-#         flag_filter=256,
-#         min_base_quality=0,
-#         min_mapping_quality=0,
-#     ):
-#         if pileupcolumn.pos == start - 1:
-#             for pileupread in pileupcolumn.pileups:
-#                 if not pileupread.is_del and not pileupread.is_refskip:
-#                     base = pileupread.alignment.query_sequence[
-#                         pileupread.query_position
-#                     ]
-#                     base_bq = pileupread.alignment.query_qualities[
-#                         pileupread.query_position
-#                     ]
-#                     basecounts[himut.util.base2idx[base]] += 1
-#                     base2bq_lst[himut.util.base2idx[base]].append(base_bq)
-#             break
-#     return basecounts, base2bq_lst

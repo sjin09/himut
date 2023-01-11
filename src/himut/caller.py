@@ -120,13 +120,12 @@ def get_hetalt_counts(
 
 def is_chunk_phased(
     hap2count: Dict[str, int],
-    som_hap_count: int,
     min_hap_count: int,
 ) -> bool:
 
     h0_count = hap2count["0"]
     h1_count = hap2count["1"]
-    if som_hap_count == 1 and (h0_count >= min_hap_count and h1_count >= min_hap_count):
+    if (h0_count >= min_hap_count and h1_count >= min_hap_count):
         return True
     else:
         return False
@@ -194,7 +193,6 @@ def get_somatic_substitutions(
                 ),
                 common_snps,
             )
-
         if (
             not non_human_sample
             and not create_panel_of_normals
@@ -208,11 +206,17 @@ def get_somatic_substitutions(
                 ),
                 panel_of_normals,
             )
+        if phase:
+            phase_set = str(chunk_start)
+            hbit_lst = phase_set2hbit_lst[phase_set] 
+            hpos_lst = phase_set2hpos_lst[phase_set] 
+            hetsnp_lst = phase_set2hetsnp_lst[phase_set] 
+           
 
         somatic_tsbs_candidate_lst = []
         rpos2allele2bq_lst, rpos2allele2ccs_lst, rpos2allelecounts = init_allelecounts()
-        for i in alignments.fetch(chrom, chunk_start, chunk_end):
-            ccs = himut.bamlib.BAM(i)
+        for i, j in enumerate(alignments.fetch(chrom, chunk_start, chunk_end)):
+            ccs = himut.bamlib.BAM(j)
             if not ccs.is_primary:
                 continue
             himut.cslib.update_allelecounts(
@@ -243,7 +247,6 @@ def get_somatic_substitutions(
                 continue
             if not is_chunk(tpos, chunk_start, chunk_end):
                 continue
-
             rpos = tpos - 1 # reference FASTA file position 
             som_gt = "{}{}".format(ref, alt)
             allelecounts = rpos2allelecounts[rpos]
@@ -489,77 +492,75 @@ def get_somatic_substitutions(
                 continue
 
             som_state = 0
+            som_hap_set = set()
+            sbs_state_set = set()
+            hap2count = defaultdict(lambda: 0)
             wt_ccs_set = rpos2allele2ccs_lst[rpos][himut.util.base2idx[ref]]
             alt_ccs_set = set(rpos2allele2ccs_lst[rpos][himut.util.base2idx[alt]])
-            trimmed_qstart, trimmed_qend = himut.bamlib.get_trimmed_range(ccs.qlen, min_trim)
-            for ij in alignments.fetch(chrom, tpos, tpos + 1):
-                ccs = himut.bamlib.BAM(ij)
-                if ccs.qname not in alt_ccs_set:
-                    continue
-                ccs.cs2subindel()
-                qpos = ccs.qsbs_lst[ccs.tsbs_lst.index(tsbs)][0]
-                if himut.bamlib.is_trimmed(qpos, trimmed_qstart, trimmed_qend):
-                    som_state = 1
-                    filtered_somatic_tsbs_lst.append(
-                        (
-                            chrom,
-                            tpos,
-                            ref,
-                            alt,
-                            "Trimmed",
-                            germ_gq,
-                            alt_bq,
-                            read_depth,
-                            ref_count,
-                            alt_count,
-                            alt_vaf,
-                            ".",
-                        )
-                    )
-                    break
-                if himut.bamlib.is_mismatch_conflict(
-                    ccs, tpos, qpos, mismatch_window, max_mismatch_count
-                ):
-                    som_state = 1
-                    filtered_somatic_tsbs_lst.append(
-                        (
-                            chrom,
-                            tpos,
-                            ref,
-                            alt,
-                            "MismatchConflict",
-                            germ_gq,
-                            alt_bq,
-                            read_depth,
-                            ref_count,
-                            alt_count,
-                            alt_vaf,
-                            ".",
-                        )
-                    )
-                    break
+            for k in alignments.fetch(chrom, tpos, tpos + 1):
+                ccs = himut.bamlib.BAM(k)
+                trimmed_qstart, trimmed_qend = himut.bamlib.get_trimmed_range(ccs.qlen, min_trim)
+                if ccs.qname in wt_ccs_set:
+                    if phase:
+                        ccs_hap = himut.haplib.get_ccs_hap(ccs, hbit_lst, hpos_lst, hetsnp_lst)  
+                        hap2count[ccs_hap] += 1
+                elif ccs.qname in alt_ccs_set:
+                    ccs.cs2subindel()
+                    qpos = ccs.qsbs_lst[ccs.tsbs_lst.index(tsbs)][0]
+                    if phase:
+                        ccs_hap = himut.haplib.get_ccs_hap(ccs, hbit_lst, hpos_lst, hetsnp_lst)  
+                        if ccs_hap != ".":
+                            som_hap_set.add(ccs_hap)
+                    if himut.bamlib.is_trimmed(qpos, trimmed_qstart, trimmed_qend):
+                        som_state = 1
+                        sbs_state_set.add("Trimmed")
+                        continue
+                    if himut.bamlib.is_mismatch_conflict(
+                        ccs, tpos, qpos, mismatch_window, max_mismatch_count
+                    ):
+                        som_state = 1
+                        sbs_state_set.add("MismatchConflict")
+                        continue
             if som_state:
+                sbs_state = ",".join(natsort.natsorted(list(sbs_state_set)))
+                filtered_somatic_tsbs_lst.append(
+                    (
+                        chrom,
+                        tpos,
+                        ref,
+                        alt,
+                        sbs_state,
+                        germ_gq,
+                        alt_bq,
+                        read_depth,
+                        ref_count,
+                        alt_count,
+                        alt_vaf,
+                        ".",
+                    )
+                ) 
                 continue
 
             if phase:
-                som_hap_set = set()
-                phase_set = str(chunk_start)
-                hap2count = defaultdict(lambda: 0)
-                ccs_hap_lst = himut.haplib.get_loci_hap(
-                    alignments,
-                    (chrom, tpos, tpos + 1),
-                    phase_set2hbit_lst[phase_set],
-                    phase_set2hpos_lst[phase_set],
-                    phase_set2hetsnp_lst[phase_set],
-                )
-                for qname, hap in ccs_hap_lst:
-                    if qname in wt_ccs_set:
-                        hap2count[hap] += 1
-                    if qname in alt_ccs_set:
-                        if not hap == ".":
-                            som_hap_set.add(hap)
-
-                if is_chunk_phased(hap2count, len(som_hap_set), min_hap_count):
+                if is_chunk_phased(hap2count, min_hap_count) and len(som_hap_set) == 1:
+                 
+                # som_hap_set = set()
+                # phase_set = str(chunk_start)
+                # hap2count = defaultdict(lambda: 0)
+                # ccs_hap_lst = himut.haplib.get_loci_hap(
+                #     alignments,
+                #     (chrom, tpos, tpos + 1),
+                #     phase_set2hbit_lst[phase_set],
+                #     phase_set2hpos_lst[phase_set],
+                #     phase_set2hetsnp_lst[phase_set],
+                # )
+                # for qname, hap in ccs_hap_lst:
+                #     if qname in wt_ccs_set:
+                #         hap2count[hap] += 1
+                #     if qname in alt_ccs_set:
+                #         if not hap == ".":
+                #             som_hap_set.add(hap)
+                # if is_chunk_phased(hap2count, len(som_hap_set), min_hap_count):
                     somatic_tsbs_lst.append(
                         (
                             chrom,
