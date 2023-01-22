@@ -126,7 +126,7 @@ def parse_args(program_version, arguments=sys.argv[1:]):
     parser_call.add_argument(
         "--min_gq",
         type=int,
-        default=60,
+        default=40,
         required=False,
         help="minimum germline genotype quality (GQ) score ",
     )
@@ -182,21 +182,21 @@ def parse_args(program_version, arguments=sys.argv[1:]):
     parser_call.add_argument(
         "--somatic_snv_prior",
         type=float,
-        default=1 / (10**6),
+        default=1/(10**6),
         required=False,
         help="somatic single-base-substitution prior",
     )
     parser_call.add_argument(
         "--germline_snv_prior",
         type=float,
-        default=1 / (10**3),
+        default=1/(10**3),
         required=False,
         help="germline snv prior",
     )
     parser_call.add_argument(
         "--germline_indel_prior",
         type=float,
-        default=1 / (10**4),
+        default=1/(10**4),
         required=False,
         help="germline indel prior",
     )
@@ -462,7 +462,7 @@ def parse_args(program_version, arguments=sys.argv[1:]):
     parser_normcounts.add_argument(
         "--min_gq",
         type=int,
-        default=60,
+        default=40,
         required=False,
         help="minimum germline genotype quality (GQ) score",
     )
@@ -518,21 +518,21 @@ def parse_args(program_version, arguments=sys.argv[1:]):
     parser_normcounts.add_argument(
         "--somatic_snv_prior",
         type=float,
-        default=1 / (10**6),
+        default=1/(10**6),
         required=False,
         help="somatic single-base-substitution prior",
     )
     parser_normcounts.add_argument(
         "--germline_snv_prior",
         type=float,
-        default=1 / (10**3),
+        default=1/(10**3),
         required=False,
         help="germline snv prior",
     )
     parser_normcounts.add_argument(
         "--germline_indel_prior",
         type=float,
-        default=1 / (10**4),
+        default=1/(10**4),
         required=False,
         help="germline indel prior",
     )

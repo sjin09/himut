@@ -3,7 +3,6 @@ import numpy as np
 import himut.util
 import himut.cslib
 import himut.haplib
-import himut.mutlib
 import himut.bamlib
 import himut.vcflib
 from typing import Dict, List, Tuple
@@ -140,8 +139,8 @@ def get_germ_gq(
     gt2gt_state: Dict[str, str],
     allele2bq_lst: Dict[int, List[int]]
 ):
-    gt_lst = []
-    gt_pl_lst = []
+    germ_gt_lst = []
+    germ_gt_pl_lst = []
     for gt in himut.util.gt_lst:
         gt_pl = 0
         b1, b2 = list(gt)
@@ -163,13 +162,13 @@ def get_germ_gq(
                 gt_pl += sum([get_log10_epsilon(base_bq / 3) for base_bq in base_bq_lst])
         gt_pl += gt_prior
         gt_pl *= -10 
-        gt_lst.append(gt)
-        gt_pl_lst.append(gt_pl)
+        germ_gt_lst.append(gt)
+        germ_gt_pl_lst.append(gt_pl)
 
-    ilst = np.argsort(gt_pl_lst)
-    gt_pl_lst = [gt_pl_lst[i] for i in ilst]
-    gt_lst = [himut.util.gt_lst[i] for i in ilst]
-    gq = (np.array(gt_pl_lst) - min(gt_pl_lst))[1]
+    ilst = np.argsort(germ_gt_pl_lst)
+    germ_gt_pl_lst = [germ_gt_pl_lst[i] for i in ilst]
+    germ_gt_lst = [himut.util.gt_lst[i] for i in ilst]
+    gq = (np.array(germ_gt_pl_lst) - min(germ_gt_pl_lst))[1]
     gq = int(gq) if gq < 99 else 99
     return gq 
 

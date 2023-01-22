@@ -2,6 +2,7 @@ import tabix
 import cyvcf2
 import pyfastx
 import natsort
+import numpy as np
 import himut.util
 import himut.bamlib
 from datetime import datetime
@@ -137,6 +138,8 @@ def get_himut_vcf_header(
     common_snps: str,
     panel_of_normals: str,
     min_mapq: int,
+    qlen_lower_limit: float, 
+    qlen_upper_limit: float,
     min_sequence_identity: float,
     min_hq_base_proportion: float,
     min_alignment_proportion: float,
@@ -145,9 +148,9 @@ def get_himut_vcf_header(
     min_trim: float,
     mismatch_window: int,
     max_mismatch_count: int,
+    md_threshold: int,
     min_ref_count: int,
     min_alt_count: int,
-    md_threshold: int,
     min_hap_count: int,
     threads: int,
     somatic_snv_prior: float,
@@ -174,23 +177,22 @@ def get_himut_vcf_header(
         '##FILTER=<ID=LowGQ,Description="Germline genotype quality score is below the minimum genotype quality score of {}">'.format(
             min_gq
         ),
+        '##FILTER=<ID=IndelSite,Description="Somatic substitution at indel site is not considered">',
         '##FILTER=<ID=HetSite,Description="Somatic substitution at heterzygous SNP site is not considered">',
         '##FILTER=<ID=HetAltSite,Description="Somatic substitution at tri-allelic SNP site is not considered">',
         '##FILTER=<ID=HomAltSite,Description="Somatic substitution at homozygous alternative SNP site is not considered">',
-        '##FILTER=<ID=IndelSite,Description="Somatic substitution at indel site is not considered">',
-        '##FILTER=<ID=ContRead,Description="Substitution is potentially from genomic DNA contamination">',
+        '##FILTER=<ID=ComSnp,Description="Substitution is potentially from genomic DNA contamination">',
         '##FILTER=<ID=PanelOfNormal,Description="Substitution is found within the Panel of Normal VCF file">',
-        '##FILTER=<ID=LowDepth,Description="Read depth is above the minimum depth threshold of {}">'.format(
-            min_ref_count + min_alt_count
-        ),
-        '##FILTER=<ID=HighDepth,Description="Read depth is above the maximum depth threshold of {}">'.format(
+        '##FILTER=<ID=LowDepth,Description="Read depth is below the minimum reference allele and/or alterantive allele depth threshold">',
+        '##FILTER=<ID=HighDepth,Description="Read depth is above the maximum depth threshold of {:.1f}">'.format(
             md_threshold
         ),
         '##FILTER=<ID=Trimmed,Description="Substitution is positioned near the end of reads">',
         '##FILTER=<ID=MismatchConflict,Description="Substitution is found next to a mismatch within a given mismatch window">',
         '##FILTER=<ID=Unphased,Description="CCS read is not haplotype phased">',
         '##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">',
-        '##FORMAT=<ID=BQ,Number=1,Type=Float,Description="Average base quality">',
+        '##FORMAT=<ID=GQ,Number=1,Type=String,Description="Genotype quality score">',
+        '##FORMAT=<ID=BQ,Number=1,Type=Float,Description="Base quality score">',
         '##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read depth">',
         '##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Read depth for each allele">',
         '##FORMAT=<ID=VAF,Number=A,Type=Float,Description="Variant allele fractions">',
@@ -208,25 +210,50 @@ def get_himut_vcf_header(
     elif region is not None and region_list is not None:
         region_param = "--region_list {}".format(region_list)
 
-    param = "{} --min_mapq {} --min_sequence_identity {} --min_hq_base_proportion {} --min_alignment_proportion {} --min_gq {} --min_bq {} --min_ref_count {} --min_alt_count {} --min_hap_count {} --min_trim {} --mismatch_window {} --max_mismatch_count {} --somatic_snv_prior {} --germline_snv_prior {} --germline_indel_prior {} --threads {} -o {}".format(
-        region_param,
-        min_mapq,
-        min_sequence_identity,
-        min_hq_base_proportion,
-        min_alignment_proportion,
-        min_gq,
-        min_bq,
-        min_ref_count,
-        min_alt_count,
-        min_hap_count,
-        min_trim,
-        mismatch_window,
-        max_mismatch_count,
-        somatic_snv_prior,
-        germline_snv_prior,
-        germline_indel_prior,
-        threads,
-        out_file,
+    if phase:
+            param = "{} --min_mapq {} --qlen_lower_limit {} --qlen_upper_limit {} --min_sequence_identity {} --min_hq_base_proportion {} --min_alignment_proportion {} --min_gq {} --min_bq {} --min_trim {} --mismatch_window {} --max_mismatch_count {} --min_ref_count {} --min_alt_count {} --min_hap_count {} --somatic_snv_prior {} --germline_snv_prior {} --germline_indel_prior {} --threads {} -o {}".format(
+            region_param,
+            min_mapq,
+            qlen_lower_limit,
+            qlen_upper_limit,
+            min_sequence_identity,
+            min_hq_base_proportion,
+            min_alignment_proportion,
+            min_gq,
+            min_bq,
+            min_trim,
+            mismatch_window,
+            max_mismatch_count,
+            min_ref_count,
+            min_alt_count,
+            min_hap_count,
+            somatic_snv_prior,
+            germline_snv_prior,
+            germline_indel_prior,
+            threads,
+            out_file,
+    )
+    else:
+        param = "{} --min_mapq {} --qlen_lower_limit {} --qlen_upper_limit {} --min_sequence_identity {} --min_hq_base_proportion {} --min_alignment_proportion {} --min_gq {} --min_bq {} --min_trim {} --mismatch_window {} --max_mismatch_count {} --min_ref_count {} --min_alt_count {} --somatic_snv_prior {} --germline_snv_prior {} --germline_indel_prior {} --threads {} -o {}".format(
+            region_param,
+            min_mapq,
+            qlen_lower_limit,
+            qlen_upper_limit,
+            min_sequence_identity,
+            min_hq_base_proportion,
+            min_alignment_proportion,
+            min_gq,
+            min_bq,
+            min_trim,
+            mismatch_window,
+            max_mismatch_count,
+            min_ref_count,
+            min_alt_count,
+            somatic_snv_prior,
+            germline_snv_prior,
+            germline_indel_prior,
+            threads,
+            out_file,
     )
     if phase and non_human_sample and reference_sample: 
         cmdline = "##himut_command=himut call -i {} --vcf {} --phased_vcf {} {} --phase --non_human_sample --reference_sample".format(
@@ -763,7 +790,7 @@ def dump_sbs(
             ref_count,
             alt_count,
             vaf,
-            phase_set,
+            _phase_set,
         ) in chrom2tsbs_lst[chrom]:
             if status == "HetAltSite":
                 o.write(
@@ -935,3 +962,45 @@ def dump_phased_sbs(
                     )
     o.close()
     p.close()
+
+
+def dump_call_log(
+    chrom_lst: List[str], 
+    chrom2tsbs_log: Dict[str, List[int]], 
+) -> None:
+
+    row_names = [
+        "num_ccs",
+        "num_sbs",
+        "num_het_sbs",
+        "num_hetalt_sbs",
+        "num_homalt_sbs",
+        "num_somrev_sbs",
+        "num_homref_sbs",
+        "num_uncallable_sbs",
+        "num_low_gq_sbs",
+        "num_low_bq_sbs",
+        "num_pon_filtered_sbs",
+        "num_pop_filtered_sbs",
+        "num_md_filtered_sbs",
+        "num_ab_filtered_sbs",
+        "num_trimmed_sbs",
+        "num_mismatch_conflict_sbs",
+        "num_som",
+        "num_phased_som", 
+    ]
+    ncol = len(chrom_lst)
+    nrow = len(row_names)
+    dt = np.zeros((nrow, ncol))
+    for i, chrom in enumerate(chrom_lst):
+        for j, count in enumerate(chrom2tsbs_log[chrom]): 
+            dt[j][i] = count
+    
+    o = open("himut.log", "w")
+    col_lst = chrom_lst + ["total"] 
+    o.write("{:30}{}\n".format("", "\t".join(col_lst)))
+    for k in range(nrow):
+        rsum =  str(int(np.sum(dt[k])))
+        rlst = [str(int(r)) for r in dt[k].tolist()] + [rsum]
+        o.write("{:30}{}\n".format(row_names[k], "\t".join(rlst)))
+    o.close()

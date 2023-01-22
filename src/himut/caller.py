@@ -13,13 +13,66 @@ from collections import defaultdict
 from typing import Dict, List, Tuple
 
 
+class METRICS:
+    num_ccs: int = 0
+    num_sbs: int = 0
+    num_het_sbs: int = 0
+    num_hetalt_sbs: int = 0
+    num_homalt_sbs: int = 0
+    num_somrev_sbs: int = 0
+    num_homref_sbs: int = 0
+    num_uncallable_sbs: int = 0
+    num_low_gq_sbs: int = 0 
+    num_low_bq_sbs: int = 0 
+    num_pon_filtered_sbs: int = 0  
+    num_pop_filtered_sbs: int = 0  
+    num_md_filtered_sbs: int = 0
+    num_ab_filtered_sbs: int = 0
+    num_trimmed_sbs: int = 0
+    num_mismatch_conflict_sbs: int = 0
+    num_som: int = 0
+    num_phased_som: int = 0
+    
+
+
 def init_allelecounts():
     rpos2allelecounts = defaultdict(lambda: np.zeros(6))
     rpos2allele2bq_lst = defaultdict(lambda: {0: [], 1: [], 2: [], 3: [], 4: [], 5: []})
     rpos2allele2ccs_lst = defaultdict(
         lambda: {0: [], 1: [], 2: [], 3: [], 4: [], 5: []}
     )
-    return rpos2allele2bq_lst, rpos2allele2ccs_lst, rpos2allelecounts
+    return rpos2allelecounts, rpos2allele2bq_lst, rpos2allele2ccs_lst, 
+
+
+def update_allelecounts(
+    ccs,
+    rpos2allelecounts: Dict[int, np.ndarray],
+    rpos2allele2bq_lst: Dict[int, Dict[int, List[int]]],
+    rpos2allele2ccs_lst: Dict[int, Dict[int, List[str]]],
+):
+
+    tpos = ccs.tstart
+    qpos = ccs.qstart
+    for (state, ref, alt, ref_len, alt_len) in ccs.cstuple_lst:
+        if state == 1:  # match
+            for i, alt_base in enumerate(alt):
+                epos = tpos + i
+                bidx = himut.util.base2idx[alt_base]
+                rpos2allelecounts[epos][bidx] += 1
+                rpos2allele2ccs_lst[epos][bidx].append(ccs.qname)
+                rpos2allele2bq_lst[epos][bidx].append(ccs.bq_int_lst[qpos + i])
+        elif state == 2:  # sub
+            bidx = himut.util.base2idx[alt]
+            rpos2allelecounts[tpos][bidx] += 1
+            rpos2allele2ccs_lst[tpos][bidx].append(ccs.qname)
+            rpos2allele2bq_lst[tpos][bidx].append(ccs.bq_int_lst[qpos])
+        elif state == 3:  # insertion
+            rpos2allelecounts[tpos][4] += 1
+        elif state == 4:  # deletion
+            for j in range(len(ref[1:])):
+                rpos2allelecounts[tpos + j][5] += 1
+        tpos += ref_len
+        qpos += alt_len
 
 
 def is_low_mapq(ccs_mapq: int, min_mapq: int):
@@ -141,7 +194,6 @@ def get_somatic_substitutions(
     phase_set2hpos_lst: Dict[int, List[int]],
     phase_set2hetsnp_lst: Dict[int, List[Tuple[int, str, str]]], 
     min_mapq: int,
-    min_trim: float,
     qlen_lower_limit: int,
     qlen_upper_limit: int,
     min_sequence_identity: float,
@@ -149,11 +201,12 @@ def get_somatic_substitutions(
     min_alignment_proportion: float,
     min_gq: int,
     min_bq: int,
+    min_trim: float,
     mismatch_window: int,
     max_mismatch_count: int,
+    md_threshold: int,
     min_ref_count: int,
     min_alt_count: int,
-    md_threshold: int,
     min_hap_count: int,
     somatic_snv_prior: float,
     germline_snv_prior: float,
@@ -162,11 +215,13 @@ def get_somatic_substitutions(
     non_human_sample: bool,
     create_panel_of_normals: bool,
     chrom2tsbs_lst: Dict[
-        str, List[List[Tuple[str, int, str, str, int, int, int, int, str]]]
+        str, List[Tuple[str, int, str, str, int, int, int, int, str]]
     ],
+    chrom2tsbs_log: Dict[str, List[int]]
 ) -> List[Tuple[str, int, str, str, int, int, int, float, float]]:
 
-    seen = set()
+    ccs_seen = set()
+    som_seen = set()
     pon_sbs_set = set()
     common_snp_set = set()
     himut.gtlib.init(germline_snv_prior)
@@ -180,10 +235,11 @@ def get_somatic_substitutions(
     ):
         pon_sbs_set = himut.vcflib.load_pon(chrom, panel_of_normals)
 
+    m = METRICS()
     somatic_tsbs_lst = []
     filtered_somatic_tsbs_lst = []
     alignments = pysam.AlignmentFile(bam_file, "rb")
-    for (chrom, chunk_start, chunk_end) in chunkloci_lst: 
+    for (chrom, chunk_start, chunk_end) in chunkloci_lst: ## TODO
         if not non_human_sample and common_snps.endswith(".bgz"):
             common_snp_set = himut.vcflib.load_bgz_common_snp(
                 (
@@ -212,19 +268,18 @@ def get_somatic_substitutions(
             hpos_lst = phase_set2hpos_lst[phase_set] 
             hetsnp_lst = phase_set2hetsnp_lst[phase_set] 
            
-
         somatic_tsbs_candidate_lst = []
-        rpos2allele2bq_lst, rpos2allele2ccs_lst, rpos2allelecounts = init_allelecounts()
-        for i, j in enumerate(alignments.fetch(chrom, chunk_start, chunk_end)):
-            ccs = himut.bamlib.BAM(j)
+        rpos2allelecounts, rpos2allele2bq_lst, rpos2allele2ccs_lst = init_allelecounts()
+        for i in alignments.fetch(chrom, chunk_start, chunk_end): # traverse genome
+            ccs = himut.bamlib.BAM(i)
             if not ccs.is_primary:
                 continue
-            himut.cslib.update_allelecounts(
+            update_allelecounts(
                 ccs, rpos2allelecounts, rpos2allele2bq_lst, rpos2allele2ccs_lst
             )
             if is_low_mapq(ccs.mapq, min_mapq):
                 continue
-            if ccs.qlen < qlen_lower_limit or ccs.qlen > qlen_upper_limit:
+            if not (qlen_lower_limit < ccs.qlen and ccs.qlen < qlen_upper_limit):
                 continue
             if ccs.get_hq_base_proportion() < min_hq_base_proportion:
                 continue
@@ -232,31 +287,30 @@ def get_somatic_substitutions(
                 continue
             if ccs.get_query_alignment_proportion() < min_alignment_proportion:
                 continue
-
+            if ccs.qname not in ccs_seen:
+                m.num_ccs += 1
+                ccs_seen.add(ccs.qname)
+              
             ccs.cs2mut()
             ccs_somatic_tsbs_candidate_lst = [
-                tsbs for tsbs in ccs.tsbs_lst if tsbs[0] not in seen
+                tsbs for tsbs in ccs.tsbs_lst if tsbs[0] not in som_seen
             ]
             if len(ccs_somatic_tsbs_candidate_lst) == 0:
                 continue
             somatic_tsbs_candidate_lst.extend(ccs_somatic_tsbs_candidate_lst)
-
-        for tsbs in set(somatic_tsbs_candidate_lst):
-            tpos, ref, alt = tsbs
-            if tpos in seen:
+            
+        for (tpos, ref, alt) in set(somatic_tsbs_candidate_lst): # traverse sbs
+            if tpos in som_seen:
                 continue
             if not is_chunk(tpos, chunk_start, chunk_end):
                 continue
+
+            m.num_sbs += 1
             rpos = tpos - 1 # reference FASTA file position 
+            tsbs = (tpos, ref, alt)
             som_gt = "{}{}".format(ref, alt)
             allelecounts = rpos2allelecounts[rpos]
             allele2bq_lst = rpos2allele2bq_lst[rpos]
-            germ_gt, _, germ_gt_state, gt2gt_state = himut.gtlib.get_germ_gt(ref, allele2bq_lst)
-            if is_germ_gt(som_gt, germ_gt, germ_gt_state, allelecounts):
-                continue
-
-            seen.add(tpos)
-            germ_gq = himut.gtlib.get_germ_gq(som_gt, gt2gt_state, allele2bq_lst)
             (
                 ref_count,
                 alt_bq,
@@ -265,7 +319,20 @@ def get_somatic_substitutions(
                 indel_count,
                 read_depth,
             ) = himut.bamlib.get_sbs_allelecounts(ref, alt, allelecounts, allele2bq_lst)
+            germ_gt, _, germ_gt_state, gt2gt_state = himut.gtlib.get_germ_gt(ref, allele2bq_lst)
+            if is_germ_gt(som_gt, germ_gt, germ_gt_state, allelecounts):
+                if germ_gt_state == "het":
+                    m.num_het_sbs += 1
+                elif germ_gt_state == "hetalt":
+                    m.num_hetalt_sbs += 1
+                elif germ_gt_state == "homalt":
+                    m.num_homalt_sbs += 1
+                continue
+
+            som_seen.add(tpos)
+            germ_gq = himut.gtlib.get_germ_gq(som_gt, gt2gt_state, allele2bq_lst)
             if germ_gt_state == "het":
+                m.num_somrev_sbs += 1
                 filtered_somatic_tsbs_lst.append(
                     (
                         chrom,
@@ -284,6 +351,7 @@ def get_somatic_substitutions(
                 )
                 continue
             elif germ_gt_state == "hetalt":
+                m.num_somrev_sbs += 1
                 a1, a2 = list(germ_gt)
                 alt = "{},{}".format(a1, a2)
                 alt_bq, alt_vaf, alt_count = get_hetalt_counts(
@@ -307,6 +375,7 @@ def get_somatic_substitutions(
                 )
                 continue
             elif germ_gt_state == "homalt":
+                m.num_somrev_sbs += 1
                 filtered_somatic_tsbs_lst.append(
                     (
                         chrom,
@@ -324,7 +393,9 @@ def get_somatic_substitutions(
                     )
                 )
                 continue
+
             if indel_count != 0:
+                m.num_uncallable_sbs += 1
                 filtered_somatic_tsbs_lst.append(
                     (
                         chrom,
@@ -342,7 +413,10 @@ def get_somatic_substitutions(
                     )
                 )
                 continue
-            if is_low_gq(germ_gq, min_gq):
+
+            m.num_homref_sbs += 1
+            if is_low_gq(germ_gq, min_gq): # homref
+                m.num_low_gq_sbs += 1
                 filtered_somatic_tsbs_lst.append(
                     (
                         chrom,
@@ -361,6 +435,7 @@ def get_somatic_substitutions(
                 )
                 continue
             if is_low_bq(alt, min_bq, allele2bq_lst):
+                m.num_low_bq_sbs += 1
                 filtered_somatic_tsbs_lst.append(
                     (
                         chrom,
@@ -383,6 +458,7 @@ def get_somatic_substitutions(
                 and not non_human_sample
                 and not create_panel_of_normals
             ):
+                m.num_pon_filtered_sbs += 1
                 filtered_somatic_tsbs_lst.append(
                     (
                         chrom,
@@ -401,13 +477,14 @@ def get_somatic_substitutions(
                 )
                 continue
             if tsbs in common_snp_set and not non_human_sample:
+                m.num_pop_filtered_sbs += 1
                 filtered_somatic_tsbs_lst.append(
                     (
                         chrom,
                         tpos,
                         ref,
                         alt,
-                        "ContRead",
+                        "ComSnp",
                         germ_gq,
                         alt_bq,
                         read_depth,
@@ -418,43 +495,8 @@ def get_somatic_substitutions(
                     )
                 )
                 continue
-            if ref_count < min_ref_count and alt_count < min_alt_count:
-                filtered_somatic_tsbs_lst.append(
-                    (
-                        chrom,
-                        tpos,
-                        ref,
-                        alt,
-                        "LowDepth",
-                        germ_gq,
-                        alt_bq,
-                        read_depth,
-                        ref_count,
-                        alt_count,
-                        alt_vaf,
-                        ".",
-                    )
-                )
-                continue
-            elif ref_count >= min_ref_count and alt_count < min_alt_count:
-                filtered_somatic_tsbs_lst.append(
-                    (
-                        chrom,
-                        tpos,
-                        ref,
-                        alt,
-                        "LowDepth",
-                        germ_gq,
-                        alt_bq,
-                        read_depth,
-                        ref_count,
-                        alt_count,
-                        alt_vaf,
-                        ".",
-                    )
-                )
-                continue
-            elif ref_count < min_ref_count and alt_count >= min_alt_count:
+            if not (ref_count >= min_ref_count and alt_count >= min_alt_count):
+                m.num_ab_filtered_sbs += 1
                 filtered_somatic_tsbs_lst.append(
                     (
                         chrom,
@@ -473,6 +515,7 @@ def get_somatic_substitutions(
                 )
                 continue
             if read_depth > md_threshold:
+                m.num_md_filtered_sbs += 1
                 filtered_somatic_tsbs_lst.append(
                     (
                         chrom,
@@ -495,10 +538,10 @@ def get_somatic_substitutions(
             som_hap_set = set()
             sbs_state_set = set()
             hap2count = defaultdict(lambda: 0)
-            wt_ccs_set = rpos2allele2ccs_lst[rpos][himut.util.base2idx[ref]]
+            wt_ccs_set = set(rpos2allele2ccs_lst[rpos][himut.util.base2idx[ref]])
             alt_ccs_set = set(rpos2allele2ccs_lst[rpos][himut.util.base2idx[alt]])
-            for k in alignments.fetch(chrom, tpos, tpos + 1):
-                ccs = himut.bamlib.BAM(k)
+            for j in alignments.fetch(chrom, tpos, tpos + 1):
+                ccs = himut.bamlib.BAM(j)
                 trimmed_qstart, trimmed_qend = himut.bamlib.get_trimmed_range(ccs.qlen, min_trim)
                 if ccs.qname in wt_ccs_set:
                     if phase:
@@ -509,18 +552,22 @@ def get_somatic_substitutions(
                     qpos = ccs.qsbs_lst[ccs.tsbs_lst.index(tsbs)][0]
                     if phase:
                         ccs_hap = himut.haplib.get_ccs_hap(ccs, hbit_lst, hpos_lst, hetsnp_lst)  
-                        if ccs_hap != ".":
-                            som_hap_set.add(ccs_hap)
+                        som_hap_set.add(ccs_hap)
                     if himut.bamlib.is_trimmed(qpos, trimmed_qstart, trimmed_qend):
                         som_state = 1
+                        m.num_trimmed_sbs += 1
                         sbs_state_set.add("Trimmed")
                         continue
                     if himut.bamlib.is_mismatch_conflict(
                         ccs, tpos, qpos, mismatch_window, max_mismatch_count
                     ):
                         som_state = 1
+                        m.num_mismatch_conflict_sbs += 1
                         sbs_state_set.add("MismatchConflict")
                         continue
+                else:
+                    continue
+
             if som_state:
                 sbs_state = ",".join(natsort.natsorted(list(sbs_state_set)))
                 filtered_somatic_tsbs_lst.append(
@@ -542,25 +589,10 @@ def get_somatic_substitutions(
                 continue
 
             if phase:
+                m.num_som += 1
+                som_hap_set = som_hap_set.difference(set(["."]))
                 if is_chunk_phased(hap2count, min_hap_count) and len(som_hap_set) == 1:
-                 
-                # som_hap_set = set()
-                # phase_set = str(chunk_start)
-                # hap2count = defaultdict(lambda: 0)
-                # ccs_hap_lst = himut.haplib.get_loci_hap(
-                #     alignments,
-                #     (chrom, tpos, tpos + 1),
-                #     phase_set2hbit_lst[phase_set],
-                #     phase_set2hpos_lst[phase_set],
-                #     phase_set2hetsnp_lst[phase_set],
-                # )
-                # for qname, hap in ccs_hap_lst:
-                #     if qname in wt_ccs_set:
-                #         hap2count[hap] += 1
-                #     if qname in alt_ccs_set:
-                #         if not hap == ".":
-                #             som_hap_set.add(hap)
-                # if is_chunk_phased(hap2count, len(som_hap_set), min_hap_count):
+                    m.num_phased_som += 1
                     somatic_tsbs_lst.append(
                         (
                             chrom,
@@ -596,6 +628,7 @@ def get_somatic_substitutions(
                     )
                     continue
             else:
+                m.num_som += 1
                 somatic_tsbs_lst.append(
                     (
                         chrom,
@@ -616,6 +649,26 @@ def get_somatic_substitutions(
     chrom2tsbs_lst[chrom] = natsort.natsorted(
         list(set(somatic_tsbs_lst + filtered_somatic_tsbs_lst))
     )
+    chrom2tsbs_log[chrom] = [
+        m.num_ccs,
+        m.num_sbs,
+        m.num_het_sbs,
+        m.num_hetalt_sbs,
+        m.num_homalt_sbs,
+        m.num_somrev_sbs,
+        m.num_homref_sbs,
+        m.num_uncallable_sbs,
+        m.num_low_gq_sbs,
+        m.num_low_bq_sbs,
+        m.num_pon_filtered_sbs,
+        m.num_pop_filtered_sbs,
+        m.num_md_filtered_sbs,
+        m.num_ab_filtered_sbs,
+        m.num_trimmed_sbs,
+        m.num_mismatch_conflict_sbs,
+        m.num_som,
+        m.num_phased_som,
+    ]
     alignments.close()
 
 
@@ -710,6 +763,8 @@ def call_somatic_substitutions(
         common_snps,
         panel_of_normals,
         min_mapq,
+        qlen_lower_limit, 
+        qlen_upper_limit, 
         min_sequence_identity,
         min_hq_base_proportion,
         min_alignment_proportion,
@@ -718,9 +773,9 @@ def call_somatic_substitutions(
         min_trim,
         mismatch_window,
         max_mismatch_count,
+        md_threshold,
         min_ref_count,
         min_alt_count,
-        md_threshold,
         min_hap_count,
         threads,
         somatic_snv_prior,
@@ -743,6 +798,7 @@ def call_somatic_substitutions(
     p = mp.Pool(threads)
     manager = mp.Manager()
     chrom2tsbs_lst = manager.dict()
+    chrom2tsbs_log = manager.dict()
     get_somatic_substitutions_arg_lst = [
         (
             chrom,
@@ -754,7 +810,6 @@ def call_somatic_substitutions(
             chrom2ps2hpos_lst[chrom],
             chrom2ps2hetsnp_lst[chrom], 
             min_mapq,
-            min_trim,
             qlen_lower_limit,
             qlen_upper_limit,
             min_sequence_identity,
@@ -762,11 +817,12 @@ def call_somatic_substitutions(
             min_alignment_proportion,
             min_gq,
             min_bq,
+            min_trim,
             mismatch_window,
             max_mismatch_count,
+            md_threshold,
             min_ref_count,
             min_alt_count,
-            md_threshold,
             min_hap_count,
             somatic_snv_prior,
             germline_snv_prior,
@@ -775,6 +831,7 @@ def call_somatic_substitutions(
             non_human_sample,
             create_panel_of_normals,
             chrom2tsbs_lst,
+            chrom2tsbs_log
         )
         for chrom in chrom_lst
     ]
@@ -786,8 +843,10 @@ def call_somatic_substitutions(
     p.join()
 
     if phase:
+        himut.vcflib.dump_call_log(chrom_lst, chrom2tsbs_log)
         himut.vcflib.dump_phased_sbs(out_file, vcf_header, chrom_lst, chrom2tsbs_lst)
     else:
+        himut.vcflib.dump_call_log(chrom_lst, chrom2tsbs_log)
         himut.vcflib.dump_sbs(out_file, vcf_header, chrom_lst, chrom2tsbs_lst)
 
     if phase:

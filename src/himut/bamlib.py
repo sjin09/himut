@@ -41,13 +41,13 @@ class BAM:
         himut.cslib.cs2tpos2qbase(self)
 
     def get_hq_base_proportion(self):
-        hq_base_proportion = self.bq_int_lst.count(93) / float(self.qlen)
+        hq_base_proportion = self.bq_int_lst.count(93)/float(self.qlen)
         return hq_base_proportion
 
     def get_blast_sequence_identity(self):
 
         mismatch_count = 0
-        target_alignment_len = self.tstart - self.tend
+        taln_len = self.tstart - self.tend
         for cstuple in self.cstuple_lst:
             mstate, _, _, ref_len, alt_len = cstuple
             if mstate == 1:  # match
@@ -58,14 +58,12 @@ class BAM:
                 mismatch_count += alt_len
             elif mstate == 4:  # mismatch: deletion
                 mismatch_count += ref_len
-        blast_sequence_identity = (target_alignment_len - mismatch_count) / float(
-            target_alignment_len
-        )
+        blast_sequence_identity = (taln_len - mismatch_count)/float(taln_len)
         return blast_sequence_identity
 
     def get_query_alignment_proportion(self):
-        query_alignment_proportion = (self.qend - self.qstart) / float(self.qlen)
-        return query_alignment_proportion
+        qaln_proportion = (self.qend - self.qstart)/float(self.qlen)
+        return qaln_proportion
 
 
 def get_sample(bam_file: str) -> str:
@@ -218,7 +216,7 @@ def get_mismatch_range(tpos: int, qpos: int, qlen: int, window: int):
 
 
 def get_mismatch_positions(ccs):
-    mismatch_tpos_lst = [mismatch[0] for mismatch in ccs.mismatch_lst]
+    mismatch_tpos_lst = [mismatch[0] for mismatch in ccs.mismatch_lst] # 1-coordinate
     return mismatch_tpos_lst
 
 

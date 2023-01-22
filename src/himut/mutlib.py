@@ -4,6 +4,7 @@ import pyfastx
 import itertools
 import himut.util
 import himut.vcflib
+import numpy as np 
 import pandas as pd
 from plotnine import *
 from collections import defaultdict
@@ -60,42 +61,43 @@ def load_sbs96_counts(
     chrom_lst: List[str]
 ) -> Dict[str, int]:
 
-    chrom2sbs2counts = defaultdict()
+    tname_lst = []
+    tname2sbs2counts = defaultdict()
     refseq = pyfastx.Fasta(ref_file)
     if vcf_file.endswith(".vcf"):
         for line in open(vcf_file).readlines():
             if line.startswith("##"):
                 if line.startswith("##contig"):
-                    chrom = line.strip().replace("##contig=<ID=", "").split(",")[0]
-                    chrom_lst.append(chrom)
+                    tname = line.strip().replace("##contig=<ID=", "").split(",")[0]
+                    tname_lst.append(tname)
                 continue
             elif line.startswith("#CHROM"):
-                for chrom in chrom_lst:
-                    chrom2sbs2counts[chrom] = defaultdict(lambda: 0)
+                for tname in tname_lst:
+                    tname2sbs2counts[tname] = defaultdict(lambda: 0)
                 continue
             v = himut.vcflib.VCF(line)
             if v.is_snp and v.is_pass:
                 sbs96 = get_sbs96(v.chrom, int(v.pos) - 1, v.ref, v.alt, refseq)
-                chrom2sbs2counts[v.chrom][sbs96] += 1
+                tname2sbs2counts[v.chrom][sbs96] += 1
     elif vcf_file.endswith(".vcf.bgz"):
         for line in cyvcf2.VCF(vcf_file).raw_header.split("\n"):
             if line.startswith("##"):
                 if line.startswith("##contig"):
-                    chrom = line.replace("##contig=<ID=", "").split(",")[0]
-                    chrom_lst.append(chrom)
+                    tname = line.replace("##contig=<ID=", "").split(",")[0]
+                    tname_lst.append(tname)
                 continue
             elif line.startswith("#CHROM"):
-                for chrom in chrom_lst:
-                    chrom2sbs2counts[chrom] = defaultdict(lambda: 0)
+                for tname in tname_lst:
+                    tname2sbs2counts[tname] = defaultdict(lambda: 0)
         for i in cyvcf2.VCF(vcf_file):
             v = himut.vcflib.VCF(str(i))
             if v.is_snp and v.is_pass:
                 sbs96 = get_sbs96(v.chrom, int(v.pos) - 1, v.ref, v.alt, refseq)
-                chrom2sbs2counts[v.chrom][sbs96] += 1
+                tname2sbs2counts[v.chrom][sbs96] += 1
 
     sbs2count = defaultdict(lambda: 0)
     for chrom in chrom_lst:
-        for sbs, count in chrom2sbs2counts[chrom].items():
+        for sbs, count in tname2sbs2counts[chrom].items():
             sbs2count[sbs] += count
     return sbs2count
 
@@ -409,6 +411,46 @@ def dump_normcounts(
         )
     print("finished returning normalised counts")
 
+
+
+def dump_norm_log(
+    chrom_lst: List[str],
+    chrom2norm_log: Dict[str, List[int]],
+):
+
+    row_names = [
+        "num_ccs",
+        "num_bases",
+        "num_alt_bases",
+        "num_hetalt_bases",
+        "num_homalt_bases",
+        "num_homref_bases",
+        ## "num_aligned_bases",
+        ## "num_trimmed_bases",
+        "num_uncallable_bases",
+        "num_low_gq_bases",
+        "num_md_filtered_bases",
+        "num_ab_filtered_bases",
+        "num_pon_filtered_bases",  
+        "num_pop_filtered_bases",  
+        ## "num_mismatch_conflict_bases",
+        "num_callable_bases",
+    ]
+    ncol = len(chrom_lst)
+    nrow = len(row_names)
+    dt = np.zeros((nrow, ncol))
+    for i, chrom in enumerate(chrom_lst):
+        for j, count in enumerate(chrom2norm_log[chrom]): 
+            dt[j][i] = count
+
+    o = open("norm.log", "w")
+    col_lst = chrom_lst + ["total"] 
+    o.write("{:30}{}\n".format("", "\t".join(col_lst)))
+    for k in range(nrow):
+        rsum =  str(int(np.sum(dt[k])))
+        rlst = [str(int(r)) for r in dt[k].tolist()] + [rsum]
+        o.write("{:30}{}\n".format(row_names[k], "\t".join(rlst)))
+    o.close() 
 
 # dbs2dbs78 = {
 #     "AA>CC":("TT","GG"),

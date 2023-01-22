@@ -6,10 +6,9 @@ import cyvcf2
 import psutil
 import pyfastx
 import natsort
-import numpy as np
 import himut.vcflib
 from collections import defaultdict
-from typing import Set, List, Dict, Tuple
+from typing import List, Dict, Tuple
 
 
 base_lst = list("ATGC")
@@ -20,6 +19,7 @@ idx2base = {idx: base for idx, base in enumerate(base_lst)}
 allele2idx = {allele: idx for idx, allele in enumerate(allele_lst)}
 idx2allele = {idx: allele for idx, allele in enumerate(allele_lst)}
 gt_lst = ["AA", "TA", "CA", "GA", "TT", "CT", "GT", "CC", "GC", "GG"]
+
 
 class NestedDefaultDict(defaultdict):
     def __init__(self, *args, **kwargs):
@@ -91,7 +91,6 @@ def load_loci(
     else:
         for tname, tsize in tname2tsize.items():
             chrom2loci_lst[tname].append((tname, 0, tsize))
-
 
     chrom2chunkloci_lst = defaultdict(list)
     chrom_lst = natsort.natsorted(list(chrom2loci_lst.keys()))
