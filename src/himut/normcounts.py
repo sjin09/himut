@@ -371,21 +371,20 @@ def get_callable_tricounts(
     chrom2ccs_tri2count[chrom] = dict(ccs_tri2count) # return
     chrom2norm_log[chrom] = [
         m.num_ccs,
-        m.num_hq_ccs,
         m.num_bases,
         m.num_alt_bases,
         m.num_hetalt_bases,
         m.num_homalt_bases,
         m.num_homref_bases,
-        m.num_aligned_bases,
-        m.num_trimmed_bases,
+        ## m.num_aligned_bases,
+        ## m.num_trimmed_bases,
         m.num_uncallable_bases,
         m.num_low_gq_bases,
+        m.num_md_filtered_bases,
+        m.num_ab_filtered_bases,
         m.num_pon_filtered_bases,  
         m.num_pop_filtered_bases,  
-        m.num_mismatch_conflict_bases,
-        m.num_ab_filtered_bases,
-        m.num_md_filtered_bases,
+        ## m.num_mismatch_conflict_bases,
         m.num_callable_bases,
     ]
     alignments.close()

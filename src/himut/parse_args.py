@@ -117,18 +117,18 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         help="minimum proportion of aligned CCS bases",
     )
     parser_call.add_argument(
-        "--min_bq",
-        type=int,
-        default=93,
-        required=False,
-        help="minimum base quality score threshold",
-    )
-    parser_call.add_argument(
         "--min_gq",
         type=int,
         default=40,
         required=False,
         help="minimum germline genotype quality (GQ) score ",
+    )
+    parser_call.add_argument(
+        "--min_bq",
+        type=int,
+        default=93,
+        required=False,
+        help="minimum base quality score threshold",
     )
     parser_call.add_argument(
         "--min_ref_count",
