@@ -553,11 +553,11 @@ def get_normcounts(
         chrom_lst, 
         chrom2norm_log,
     )
-    # if out_file.endswith(".tsv"):
-    #     pdf_file = out_file.replace(".tsv", ".pdf")
-    # else:
-    #     pdf_file = "{}.pdf".format(out_file)
-    # himut.mutlib.dump_norm_sbs96_plt(out_file, himut.bamlib.get_sample(bam_file), pdf_file)
+    if out_file.endswith(".tsv"):
+        pdf_file = out_file.replace(".tsv", ".pdf")
+    else:
+        pdf_file = "{}.pdf".format(out_file)
+    himut.mutlib.dump_norm_sbs96_plt(out_file, himut.bamlib.get_sample(bam_file), pdf_file)
     print("finished returning normcounts")
     cpu_end = time.time() / 60
     duration = cpu_end - cpu_start
