@@ -28,9 +28,9 @@ class METRICS:
     num_bases: int = 0
     # num_aligned_bases: int = 0
     # num_trimmed_bases: int = 0
-    num_alt_bases: int = 0
-    num_hetalt_bases: int = 0
-    num_homalt_bases: int = 0
+    num_het_bases: int = 0 ## TODO
+    num_hetalt_bases: int = 0 ## TODO
+    num_homalt_bases: int = 0 ## TODO
     num_homref_bases: int = 0
     num_uncallable_bases: int = 0
     num_low_gq_bases: int = 0
@@ -101,23 +101,16 @@ def get_tri_context(
     pos: int,
 ):
 
-    tri = seq[pos-1:pos+2]     
-    if tri[1] in purine:
-        tri_pyr = "".join(
-            [purine2pyrimidine.get(base, "N") for base in tri[::-1]]
-        )
-        return tri_pyr
+    try:
+        tri = seq[pos-1:pos+2]     
+        if tri[1] in purine:
+            tri_pyr = "".join(
+                [purine2pyrimidine.get(base, "N") for base in tri[::-1]]
+            )
+            return tri_pyr
+    except IndexError:
+        print(pos, len(seq))
     return tri
-
-
-def is_ccs_phased(hap) -> bool:
-
-    if hap == "0":
-        return True
-    elif hap == "1":
-        return True
-    else:
-        return False
 
 
 def get_read_depth(allelecounts: np.ndarray):
@@ -224,10 +217,6 @@ def get_callable_tricounts(
                 ccs_hap = himut.haplib.get_ccs_hap(ccs, hbit_lst, hpos_lst, hetsnp_lst)  
                 hap2count[ccs_hap] += 1 ## TODO
 
-            if ccs.qname in seen:
-                update_allelecounts(ccs, rpos2allelecounts, rpos2allele2bq_lst)
-                continue
-
             update_allelecounts(ccs, rpos2allelecounts, rpos2allele2bq_lst)
             if himut.caller.is_low_mapq(ccs.mapq, min_mapq):
                 continue
@@ -237,17 +226,20 @@ def get_callable_tricounts(
                 continue
             if ccs.get_blast_sequence_identity() < min_sequence_identity:
                 continue
-            if ccs.get_query_alignment_proportion()< min_alignment_proportion:
+            if ccs.get_query_alignment_proportion() < min_alignment_proportion:
                 continue
-            if phase: 
-                if not is_ccs_phased(ccs_hap):
+            if phase:
+                ccs_hap = himut.haplib.get_ccs_hap(ccs, hbit_lst, hpos_lst, hetsnp_lst)  
+                if not himut.caller.is_ccs_phased(ccs_hap):
                     continue
+            if ccs.qname not in seen:
+                m.num_ccs += 1
+                seen.add(ccs.qname)
+               
            
-            m.num_ccs += 1
             ccs.cs2subindel()
             rpos = ccs.tstart
             qpos = ccs.qstart
-            seen.add(ccs.qname)
             mismatch_tpos_lst = himut.bamlib.get_mismatch_positions(ccs) 
             trimmed_qstart, trimmed_qend = himut.bamlib.get_trimmed_range(ccs.qlen, min_trim)
             for cstuple in ccs.cstuple_lst:
@@ -281,8 +273,8 @@ def get_callable_tricounts(
                         pass
                     if himut.bamlib.is_trimmed(qpos, trimmed_qstart, trimmed_qend):
                         pass
-                    rpos2basecounts[rpos+j][himut.util.base2idx[alt]] += 1
-                    tri = get_tri_context(seq, rpos+j)               
+                    rpos2basecounts[rpos][himut.util.base2idx[alt]] += 1
+                    tri = get_tri_context(seq, rpos)               
                     rpos2tri2count[rpos][tri] += 1
                 rpos += ref_len
                 qpos += alt_len 
@@ -304,13 +296,16 @@ def get_callable_tricounts(
             
             m.num_bases += base_sum
             if germ_gt_state == "het":
-                m.num_alt_bases += base_sum
+                m.num_het_bases += base_sum
+                # print(chrom, rpos, "het", allele2bq_lst)
                 continue
             elif germ_gt_state == "hetalt":
                 m.num_hetalt_bases += base_sum
+                # print(chrom, rpos, "hetalt", allele2bq_lst)
                 continue
             elif germ_gt_state == "homalt":
                 m.num_homalt_bases += base_sum
+                # print(chrom, rpos, "homalt", allele2bq_lst)
                 continue
 
             m.num_homref_bases += base_sum
@@ -332,6 +327,7 @@ def get_callable_tricounts(
             ref_allelecount = allelecounts[ridx]
             if read_depth == ref_allelecount: # implict 
                 if ref_allelecount < min_ref_count:
+                    # print(chrom, rpos, "allele imbalance", ref_allelecount)
                     m.num_ab_filtered_bases += base_sum
                     continue
                 m.num_callable_bases += base_sum
@@ -355,7 +351,7 @@ def get_callable_tricounts(
                         break
                 if alt_state:
                     continue
-                
+               
                 alt = alt_lst[alt_basecount_lst.index(max(alt_basecount_lst))]
                 germ_gq = himut.gtlib.get_germ_gq(alt, gt2gt_state, allele2bq_lst)
                 if himut.caller.is_low_gq(germ_gq, min_gq):
@@ -366,13 +362,14 @@ def get_callable_tricounts(
                 if not (ref_allelecount >= min_ref_count and alt_allelecount >= min_alt_count):
                     m.num_ab_filtered_bases += 1
                     continue
+                # print(chrom, rpos, ref, alt, "PASS") ## TODO
                 update_tricounts(tri2count, ccs_tri2count)
                 
     chrom2ccs_tri2count[chrom] = dict(ccs_tri2count) # return
     chrom2norm_log[chrom] = [
         m.num_ccs,
         m.num_bases,
-        m.num_alt_bases,
+        m.num_het_bases,
         m.num_hetalt_bases,
         m.num_homalt_bases,
         m.num_homref_bases,
@@ -455,9 +452,7 @@ def get_normcounts(
         chrom2ps2hpos_lst = defaultdict(dict)
         chrom2ps2hetsnp_lst = defaultdict(dict)
         chrom2chunkloci_lst = himut.reflib.load_seq_loci(ref_file, chrom_lst)
-    qlen_lower_limit, qlen_upper_limit, md_threshold = himut.bamlib.get_thresholds(
-        bam_file, chrom_lst, tname2tsize
-    )
+    qlen_lower_limit, qlen_upper_limit, md_threshold = himut.vcflib.get_thresholds(sbs_file)       
     if non_human_sample:
         germline_snv_prior, germline_indel_prior = himut.vcflib.get_germline_priors(
             chrom_lst, ref_file, vcf_file, reference_sample

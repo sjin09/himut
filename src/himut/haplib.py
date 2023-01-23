@@ -1,6 +1,7 @@
 import bisect
 import himut.bamlib
-from typing import Dict, List, Tuple
+from collections import defaultdict
+from typing import Set, Dict, List, Tuple
 bit_complement_hsh = {"0": "1", "1": "0", "-": "-"}
 
 
@@ -82,7 +83,7 @@ def get_ccs_hap(
         return ccs_hap
 
 
-def get_loci_hap(
+def get_tpos_hap(
     alignments,
     loci: Tuple[str, int, int],
     hbit_lst: List[str],

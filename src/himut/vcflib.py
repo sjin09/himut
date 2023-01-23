@@ -631,7 +631,7 @@ def load_phased_hetsnps(
 
     chrom2chunkloci_lst = {} 
     chrom_set = set(chrom_lst)
-    for tname in tname2tsize:
+    for tname, tlen in tname2tsize.items():
         if tname not in chrom_set:
             del chrom2phase_set2hbit_lst[tname] 
             del chrom2phase_set2hpos_lst[tname] 
@@ -643,6 +643,45 @@ def load_phased_hetsnps(
             end = hpos_lst[-1]
             chrom2chunkloci_lst[tname].append((tname, start, end))
     return chrom2phase_set2hbit_lst, chrom2phase_set2hpos_lst, chrom2phase_set2hetsnp_lst, chrom2chunkloci_lst, 
+
+
+def get_thresholds(sbs_file: str) -> Tuple[float, float ,float]:
+
+
+    hsh = {}
+    if sbs_file.endswith(".vcf"):
+        for line in open(sbs_file).readlines():
+            if line.startswith("##FILTER=<ID=HighDepth"):
+                md_threshold = line.strip().split()[-1].replace('">', "")
+            elif line.startswith("##himut_command"):
+                arr = line.strip().replace("##himut_command=himut call", "").split() 
+                for x, y in enumerate(arr):
+                    z = x%2
+                    if z == 0:
+                        k = y
+                    elif z == 1 and not y.startswith("--"):
+                        hsh[k] = y
+            elif line.startswith("#CHROM"):
+                break
+    elif sbs_file.endswith(".vcf.bgz"):
+        for line in cyvcf2.VCF(sbs_file).raw_header.split("\n"):
+            if line.startswith("##FILTER=<ID=HighDepth"):
+                md_threshold = line.strip().split()[-1].replace('">', "")
+            elif line.startswith("##himut_command"):
+                arr = line.strip().replace("##himut_command=himut call", "").split() 
+                for x, y in enumerate(arr):
+                    z = x%2
+                    if z == 0:
+                        k = y
+                    elif z == 1 and not y.startswith("--"):
+                        hsh[k] = y
+            elif line.startswith("#CHROM"):
+                break
+    qlen_lower_limit = int(hsh["--qlen_lower_limit"])
+    qlen_upper_limit = int(hsh["--qlen_upper_limit"])
+    return qlen_lower_limit, qlen_upper_limit, float(md_threshold)
+
+
 
 def dump_phased_hetsnps(
     bam_file: str,
@@ -984,10 +1023,7 @@ def dump_call_log(
         "num_pop_filtered_sbs",
         "num_md_filtered_sbs",
         "num_ab_filtered_sbs",
-        "num_trimmed_sbs",
-        "num_mismatch_conflict_sbs",
         "num_som",
-        "num_phased_som", 
     ]
     ncol = len(chrom_lst)
     nrow = len(row_names)

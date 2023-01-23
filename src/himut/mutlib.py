@@ -421,7 +421,7 @@ def dump_norm_log(
     row_names = [
         "num_ccs",
         "num_bases",
-        "num_alt_bases",
+        "num_het_bases",
         "num_hetalt_bases",
         "num_homalt_bases",
         "num_homref_bases",
