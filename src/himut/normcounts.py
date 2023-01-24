@@ -26,17 +26,14 @@ from himut.mutlib import (
 class METRICS:
     num_ccs: int = 0
     num_bases: int = 0
-    # num_aligned_bases: int = 0
-    # num_trimmed_bases: int = 0
-    num_het_bases: int = 0 ## TODO
-    num_hetalt_bases: int = 0 ## TODO
-    num_homalt_bases: int = 0 ## TODO
+    num_het_bases: int = 0 
+    num_hetalt_bases: int = 0 
+    num_homalt_bases: int = 0 
     num_homref_bases: int = 0
     num_uncallable_bases: int = 0
     num_low_gq_bases: int = 0
     num_pon_filtered_bases: int = 0  
     num_pop_filtered_bases: int = 0  
-    # num_mismatch_conflict_bases: int = 0
     num_ab_filtered_bases: int = 0
     num_md_filtered_bases: int = 0
     num_callable_bases: int = 0
@@ -102,7 +99,7 @@ def get_tri_context(
 ):
 
     tri = seq[pos-1:pos+2]    
-    if len(tri) != 3: 
+    if len(tri) == 3: 
         if tri[1] in purine:
             tri_pyr = "".join(
                 [purine2pyrimidine.get(base, "N") for base in tri[::-1]]
@@ -179,7 +176,7 @@ def get_callable_tricounts(
             pon_sbs_set = himut.vcflib.load_pon(chrom, panel_of_normals)
 
     m = METRICS()
-    for (_chrom, chunk_start, chunk_end) in chunkloci_lst[0:2]: # traverse reads 
+    for (_chrom, chunk_start, chunk_end) in chunkloci_lst: # traverse reads 
         print(chrom, chunk_start, chunk_end)
         if not non_human_sample: # load
             if common_snps.endswith(".bgz"):
@@ -213,9 +210,9 @@ def get_callable_tricounts(
             ccs = himut.bamlib.BAM(i)
             if not ccs.is_primary:
                 continue
-            if phase: ## TODO
-                ccs_hap = himut.haplib.get_ccs_hap(ccs, hbit_lst, hpos_lst, hetsnp_lst)  
-                hap2count[ccs_hap] += 1 ## TODO
+            # if phase: ## TODO
+            #     ccs_hap = himut.haplib.get_ccs_hap(ccs, hbit_lst, hpos_lst, hetsnp_lst)  
+            #     hap2count[ccs_hap] += 1 ## TODO
 
             update_allelecounts(ccs, rpos2allelecounts, rpos2allele2bq_lst)
             if himut.caller.is_low_mapq(ccs.mapq, min_mapq):
@@ -282,9 +279,9 @@ def get_callable_tricounts(
                 rpos += ref_len
                 qpos += alt_len 
             
-        if phase: ## TODO 
-            if not himut.caller.is_chunk_phased(hap2count, min_hap_count): 
-               continue 
+        # if phase: ## TODO 
+        #     if not himut.caller.is_chunk_phased(hap2count, min_hap_count): 
+        #        continue 
            
         for rpos in range(chunk_start, chunk_end):  
             ref = seq[rpos]
@@ -301,15 +298,15 @@ def get_callable_tricounts(
             m.num_bases += base_sum
             if germ_gt_state == "het":
                 m.num_het_bases += base_sum
-                # print(chrom, rpos, "het", allele2bq_lst)
+                print(chrom, rpos, "het", allele2bq_lst)
                 continue
             elif germ_gt_state == "hetalt":
                 m.num_hetalt_bases += base_sum
-                # print(chrom, rpos, "hetalt", allele2bq_lst)
+                print(chrom, rpos, "hetalt", allele2bq_lst)
                 continue
             elif germ_gt_state == "homalt":
                 m.num_homalt_bases += base_sum
-                # print(chrom, rpos, "homalt", allele2bq_lst)
+                print(chrom, rpos, "homalt", allele2bq_lst)
                 continue
 
             m.num_homref_bases += base_sum
@@ -331,7 +328,7 @@ def get_callable_tricounts(
             ref_allelecount = allelecounts[ridx]
             if read_depth == ref_allelecount: # implict 
                 if ref_allelecount < min_ref_count:
-                    # print(chrom, rpos, "allele imbalance", ref_allelecount)
+                    print(chrom, rpos, "allele imbalance", ref_allelecount)
                     m.num_ab_filtered_bases += base_sum
                     continue
                 m.num_callable_bases += base_sum
@@ -365,8 +362,9 @@ def get_callable_tricounts(
                 alt_allelecount = allelecounts[himut.util.base2idx[alt]]
                 if not (ref_allelecount >= min_ref_count and alt_allelecount >= min_alt_count):
                     m.num_ab_filtered_bases += 1
+                    print(chrom, rpos, "allele imbalance", ref_allelecount, alt_allelecount) ## TODO
                     continue
-                # print(chrom, rpos, ref, alt, "PASS") ## TODO
+                print(chrom, rpos, ref, alt, "PASS") ## TODO
                 update_tricounts(tri2count, ccs_tri2count)
                 
     chrom2ccs_tri2count[chrom] = dict(ccs_tri2count) # return
