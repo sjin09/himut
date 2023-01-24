@@ -118,13 +118,13 @@ def load_chrom(
 
 def chunkloci(loci: Tuple[str, int, int]) -> List[Tuple[str, int, int]]:
 
-    chunk_loci_lst = []
     chrom, start, end = loci
-    chunk_start_lst = list(range(start, end, 200000))
+    chunk_loci_lst = [(chrom, 1, 200000)]
+    chunk_start_lst = list(range(200000, end, 200000))
     for i, chunk_start in enumerate(chunk_start_lst[:-1]):
-        chunk_loci_lst.append((chrom, chunk_start, chunk_start_lst[i + 1]))
+        chunk_loci_lst.append((chrom, chunk_start, chunk_start_lst[i+1]))
     if (chrom, chunk_start_lst[-1], end) not in chunk_loci_lst:
-        chunk_loci_lst.append((chrom, chunk_start_lst[-1], end))
+        chunk_loci_lst.append((chrom, chunk_start_lst[-1], end-2))
     return chunk_loci_lst
 
 

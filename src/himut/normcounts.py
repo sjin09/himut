@@ -101,16 +101,15 @@ def get_tri_context(
     pos: int,
 ):
 
-    try:
-        tri = seq[pos-1:pos+2]     
+    tri = seq[pos-1:pos+2]    
+    if len(tri) != 3: 
         if tri[1] in purine:
             tri_pyr = "".join(
                 [purine2pyrimidine.get(base, "N") for base in tri[::-1]]
             )
             return tri_pyr
-    except IndexError:
-        print(pos, len(seq))
-    return tri
+        return tri
+    return "NNN"
 
 
 def get_read_depth(allelecounts: np.ndarray):
@@ -180,7 +179,8 @@ def get_callable_tricounts(
             pon_sbs_set = himut.vcflib.load_pon(chrom, panel_of_normals)
 
     m = METRICS()
-    for (_chrom, chunk_start, chunk_end) in chunkloci_lst: # traverse reads 
+    for (_chrom, chunk_start, chunk_end) in chunkloci_lst[0:2]: # traverse reads 
+        print(chrom, chunk_start, chunk_end)
         if not non_human_sample: # load
             if common_snps.endswith(".bgz"):
                 common_snp_set = himut.vcflib.load_bgz_common_snp(
@@ -236,7 +236,8 @@ def get_callable_tricounts(
                 m.num_ccs += 1
                 seen.add(ccs.qname)
                
-           
+          
+            counter = 0 
             ccs.cs2subindel()
             rpos = ccs.tstart
             qpos = ccs.qstart
@@ -257,6 +258,7 @@ def get_callable_tricounts(
                             continue
                         if himut.bamlib.is_trimmed(qpos + j, trimmed_qstart, trimmed_qend): # 
                             continue
+                        counter += 1
                         rpos2basecounts[rpos+j][himut.util.base2idx[alt_base]] += 1
                         tri = get_tri_context(seq, rpos+j)               
                         rpos2tri2count[rpos+j][tri] += 1
@@ -273,20 +275,22 @@ def get_callable_tricounts(
                         pass
                     if himut.bamlib.is_trimmed(qpos, trimmed_qstart, trimmed_qend):
                         pass
+                    counter += 1
                     rpos2basecounts[rpos][himut.util.base2idx[alt]] += 1
                     tri = get_tri_context(seq, rpos)               
                     rpos2tri2count[rpos][tri] += 1
                 rpos += ref_len
                 qpos += alt_len 
-
+            
         if phase: ## TODO 
             if not himut.caller.is_chunk_phased(hap2count, min_hap_count): 
                continue 
            
         for rpos in range(chunk_start, chunk_end):  
-            # rpos = tpos - 1 ## TODO 
             ref = seq[rpos]
             if ref == "N":
+                continue
+            if rpos == 1:
                 continue
             base_sum = sum(rpos2basecounts[rpos])
             allele2bq_lst = rpos2allele2bq_lst[rpos]
@@ -373,15 +377,12 @@ def get_callable_tricounts(
         m.num_hetalt_bases,
         m.num_homalt_bases,
         m.num_homref_bases,
-        ## m.num_aligned_bases,
-        ## m.num_trimmed_bases,
         m.num_uncallable_bases,
         m.num_low_gq_bases,
         m.num_md_filtered_bases,
         m.num_ab_filtered_bases,
         m.num_pon_filtered_bases,  
         m.num_pop_filtered_bases,  
-        ## m.num_mismatch_conflict_bases,
         m.num_callable_bases,
     ]
     alignments.close()
@@ -422,7 +423,7 @@ def get_normcounts(
     
     cpu_start = time.time() / 60
     _, tname2tsize = himut.bamlib.get_tname2tsize(bam_file)
-    chrom_lst, _ = himut.util.load_loci(region, region_list, tname2tsize)
+    chrom_lst, chrom2chunkloci_lst = himut.util.load_loci(region, region_list, tname2tsize)
     himut.util.check_normcounts_input_exists(
         bam_file,
         ref_file,
@@ -451,7 +452,6 @@ def get_normcounts(
         chrom2ps2hbit_lst = defaultdict(dict)
         chrom2ps2hpos_lst = defaultdict(dict)
         chrom2ps2hetsnp_lst = defaultdict(dict)
-        chrom2chunkloci_lst = himut.reflib.load_seq_loci(ref_file, chrom_lst)
     qlen_lower_limit, qlen_upper_limit, md_threshold = himut.vcflib.get_thresholds(sbs_file)       
     if non_human_sample:
         germline_snv_prior, germline_indel_prior = himut.vcflib.get_germline_priors(
