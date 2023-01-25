@@ -229,7 +229,6 @@ def get_somatic_substitutions(
 
     ccs_seen = set()
     som_seen = set()
-    germ_seen = set()
     pon_sbs_set = set()
     common_snp_set = set()
     himut.gtlib.init(germline_snv_prior)
