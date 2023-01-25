@@ -298,15 +298,15 @@ def get_callable_tricounts(
             m.num_bases += base_sum
             if germ_gt_state == "het":
                 m.num_het_bases += base_sum
-                print(chrom, rpos, "het", allele2bq_lst)
+                # print(chrom, rpos, "het", allele2bq_lst)
                 continue
             elif germ_gt_state == "hetalt":
                 m.num_hetalt_bases += base_sum
-                print(chrom, rpos, "hetalt", allele2bq_lst)
+                # print(chrom, rpos, "hetalt", allele2bq_lst)
                 continue
             elif germ_gt_state == "homalt":
                 m.num_homalt_bases += base_sum
-                print(chrom, rpos, "homalt", allele2bq_lst)
+                # print(chrom, rpos, "homalt", allele2bq_lst)
                 continue
 
             m.num_homref_bases += base_sum
@@ -328,7 +328,7 @@ def get_callable_tricounts(
             ref_allelecount = allelecounts[ridx]
             if read_depth == ref_allelecount: # implict 
                 if ref_allelecount < min_ref_count:
-                    print(chrom, rpos, "allele imbalance", ref_allelecount)
+                    # print(chrom, rpos, "allele imbalance", ref_allelecount)
                     m.num_ab_filtered_bases += base_sum
                     continue
                 m.num_callable_bases += base_sum
@@ -362,9 +362,9 @@ def get_callable_tricounts(
                 alt_allelecount = allelecounts[himut.util.base2idx[alt]]
                 if not (ref_allelecount >= min_ref_count and alt_allelecount >= min_alt_count):
                     m.num_ab_filtered_bases += 1
-                    print(chrom, rpos, "allele imbalance", ref_allelecount, alt_allelecount) ## TODO
+                    # print(chrom, rpos, "allele imbalance", ref_allelecount, alt_allelecount) ## TODO
                     continue
-                print(chrom, rpos, ref, alt, "PASS") ## TODO
+                # print(chrom, rpos, ref, alt, "PASS") ## TODO
                 update_tricounts(tri2count, ccs_tri2count)
                 
     chrom2ccs_tri2count[chrom] = dict(ccs_tri2count) # return
