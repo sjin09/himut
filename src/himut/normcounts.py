@@ -42,14 +42,18 @@ class METRICS:
 def init_allelecounts():
     rpos2basecounts = defaultdict(lambda: np.zeros(4))
     rpos2allelecounts = defaultdict(lambda: np.zeros(6))
-    rpos2allele2bq_lst = defaultdict(lambda: {0: [], 1: [], 2: [], 3: [], 4: [], 5: []})
-    return rpos2basecounts, rpos2allelecounts, rpos2allele2bq_lst, 
+    rpos2allele2bq_lst = defaultdict(lambda: {0: [], 1: [], 2: [], 3: []})
+    rpos2allele2ccs_lst = defaultdict(
+        lambda: {0: [], 1: [], 2: [], 3: [], 4: [], 5: []}
+    )
+    return rpos2basecounts, rpos2allelecounts, rpos2allele2bq_lst, rpos2allele2ccs_lst 
 
 
 def update_allelecounts(
     ccs,
     rpos2allelecounts: Dict[int, np.ndarray],
     rpos2allele2bq_lst: Dict[int, Dict[int, List[int]]],
+    rpos2allele2ccs_lst: Dict[int, Dict[int, List[str]]], ## TODO
 ):
 
     tpos = ccs.tstart
@@ -60,10 +64,12 @@ def update_allelecounts(
                 epos = tpos + i
                 bidx = himut.util.base2idx[alt_base]
                 rpos2allelecounts[epos][bidx] += 1
+                rpos2allele2ccs_lst[epos][bidx].append(ccs.qname)
                 rpos2allele2bq_lst[epos][bidx].append(ccs.bq_int_lst[qpos + i])
         elif state == 2:  # sub
             bidx = himut.util.base2idx[alt]
             rpos2allelecounts[tpos][bidx] += 1
+            rpos2allele2ccs_lst[tpos][bidx].append(ccs.qname)
             rpos2allele2bq_lst[tpos][bidx].append(ccs.bq_int_lst[qpos])
         elif state == 3:  # insertion
             rpos2allelecounts[tpos][4] += 1
@@ -176,8 +182,7 @@ def get_callable_tricounts(
             pon_sbs_set = himut.vcflib.load_pon(chrom, panel_of_normals)
 
     m = METRICS()
-    for (_chrom, chunk_start, chunk_end) in chunkloci_lst: # traverse reads 
-        print(chrom, chunk_start, chunk_end)
+    for (_chrom, chunk_start, chunk_end) in chunkloci_lst[0:2]: # traverse reads 
         if not non_human_sample: # load
             if common_snps.endswith(".bgz"):
                 common_snp_set = himut.vcflib.load_bgz_common_snp(
@@ -205,16 +210,16 @@ def get_callable_tricounts(
 
         hap2count = defaultdict(lambda: 0) ## TODO
         rpos2tri2count = defaultdict(lambda: defaultdict(lambda: 0)) 
-        rpos2basecounts, rpos2allelecounts, rpos2allele2bq_lst = init_allelecounts() 
+        rpos2basecounts, rpos2allelecounts, rpos2allele2bq_lst, rpos2allele2ccs_lst = init_allelecounts() 
         for i in alignments.fetch(chrom, chunk_start, chunk_end): # traverse reads 
             ccs = himut.bamlib.BAM(i)
             if not ccs.is_primary:
                 continue
-            # if phase: ## TODO
-            #     ccs_hap = himut.haplib.get_ccs_hap(ccs, hbit_lst, hpos_lst, hetsnp_lst)  
-            #     hap2count[ccs_hap] += 1 ## TODO
+            if phase: ## TODO
+                ccs_hap = himut.haplib.get_ccs_hap(ccs, hbit_lst, hpos_lst, hetsnp_lst)  
+                hap2count[ccs_hap] += 1 ## TODO
 
-            update_allelecounts(ccs, rpos2allelecounts, rpos2allele2bq_lst)
+            update_allelecounts(ccs, rpos2allelecounts, rpos2allele2bq_lst, rpos2allele2ccs_lst)
             if himut.caller.is_low_mapq(ccs.mapq, min_mapq):
                 continue
             if not (qlen_lower_limit < ccs.qlen and ccs.qlen < qlen_upper_limit):
@@ -232,7 +237,7 @@ def get_callable_tricounts(
             if ccs.qname not in seen:
                 m.num_ccs += 1
                 seen.add(ccs.qname)
-               
+
           
             counter = 0 
             ccs.cs2subindel()
@@ -279,9 +284,9 @@ def get_callable_tricounts(
                 rpos += ref_len
                 qpos += alt_len 
             
-        # if phase: ## TODO 
-        #     if not himut.caller.is_chunk_phased(hap2count, min_hap_count): 
-        #        continue 
+        if phase: ## TODO 
+            if not himut.caller.is_chunk_phased(hap2count, min_hap_count): 
+               continue 
            
         for rpos in range(chunk_start, chunk_end):  
             ref = seq[rpos]
@@ -289,59 +294,60 @@ def get_callable_tricounts(
                 continue
             if rpos == 1:
                 continue
+
+            ridx = himut.util.base2idx[ref]
+            tri2count = rpos2tri2count[rpos]
             base_sum = sum(rpos2basecounts[rpos])
+            allelecounts = rpos2allelecounts[rpos]
             allele2bq_lst = rpos2allele2bq_lst[rpos]
-            _, germ_gq, germ_gt_state, gt2gt_state = himut.gtlib.get_germ_gt(
-                ref, allele2bq_lst
-            )
-            
+            read_depth = get_read_depth(allelecounts)
+            indel_count = get_indel_count(allelecounts)
+            _, germ_gq, germ_gt_state, gt2gt_state = himut.gtlib.get_germ_gt(ref, allele2bq_lst)
+
             m.num_bases += base_sum
             if germ_gt_state == "het":
                 m.num_het_bases += base_sum
-                # print(chrom, rpos, "het", allele2bq_lst)
                 continue
             elif germ_gt_state == "hetalt":
                 m.num_hetalt_bases += base_sum
-                # print(chrom, rpos, "hetalt", allele2bq_lst)
                 continue
             elif germ_gt_state == "homalt":
                 m.num_homalt_bases += base_sum
-                # print(chrom, rpos, "homalt", allele2bq_lst)
                 continue
 
+
             m.num_homref_bases += base_sum
-            allelecounts = rpos2allelecounts[rpos]
-            read_depth = get_read_depth(allelecounts)
-            indel_count = get_indel_count(allelecounts)
             if indel_count != 0:
                 m.num_uncallable_bases += base_sum 
+                print("Uncallable", "GQ:{}".format(germ_gq), rpos, ref, read_depth, allelecounts, allele2bq_lst) 
                 continue
             if himut.caller.is_low_gq(germ_gq, min_gq):
                 m.num_low_gq_bases += base_sum
+                print("LowGQ", "GQ:{}".format(germ_gq), rpos, ref, read_depth, allelecounts, allele2bq_lst) 
                 continue
             if read_depth > md_threshold:
+                print("HighDepth", "GQ:{}".format(germ_gq), rpos, ref, read_depth, allelecounts, allele2bq_lst) 
                 m.num_md_filtered_bases += base_sum 
                 continue
   
-            ridx = himut.util.base2idx[ref]
-            tri2count = rpos2tri2count[rpos]
             ref_allelecount = allelecounts[ridx]
             if read_depth == ref_allelecount: # implict 
                 if ref_allelecount < min_ref_count:
-                    # print(chrom, rpos, "allele imbalance", ref_allelecount)
                     m.num_ab_filtered_bases += base_sum
                     continue
                 m.num_callable_bases += base_sum
                 update_tricounts(tri2count, ccs_tri2count)
             else:
                 alt_state = 0
-                alt_basecount_lst = []
-                basecounts = rpos2basecounts[rpos]
+                alt_allelecount_lst = []
                 alt_lst = list(himut.util.base_set.difference(ref))
                 aidx_lst = [himut.util.base2idx[alt] for alt in alt_lst]
                 for alt, aidx in zip(alt_lst, aidx_lst):
                     tsbs = (rpos + 1, ref, alt)
-                    alt_basecount_lst.append(basecounts[aidx])
+                    alt_allelecount = allelecounts[aidx]
+                    alt_allelecount_lst.append(alt_allelecount)
+                    if alt_allelecount == 0:
+                        continue
                     if tsbs in pon_sbs_set and not non_human_sample:
                         alt_state = 1
                         m.num_pon_filtered_bases += base_sum
@@ -350,22 +356,26 @@ def get_callable_tricounts(
                         alt_state = 1
                         m.num_pop_filtered_bases += base_sum
                         break
-                if alt_state:
+                if alt_state == 1:
                     continue
-               
-                alt = alt_lst[alt_basecount_lst.index(max(alt_basecount_lst))]
+                alt = alt_lst[alt_allelecount_lst.index(max(alt_allelecount_lst))]
                 germ_gq = himut.gtlib.get_germ_gq(alt, gt2gt_state, allele2bq_lst)
                 if himut.caller.is_low_gq(germ_gq, min_gq):
                     m.num_low_gq_bases += base_sum
+                    print("LowGQ", "GQ:{}".format(germ_gq), rpos, ref, alt, read_depth, allelecounts, allele2bq_lst) 
                     continue
 
                 alt_allelecount = allelecounts[himut.util.base2idx[alt]]
                 if not (ref_allelecount >= min_ref_count and alt_allelecount >= min_alt_count):
-                    m.num_ab_filtered_bases += 1
+                    m.num_ab_filtered_bases += base_sum
+                    print("LowDepth", "GQ:{}".format(germ_gq), rpos, ref, alt, read_depth, allelecounts, allele2bq_lst) 
                     # print(chrom, rpos, "allele imbalance", ref_allelecount, alt_allelecount) ## TODO
                     continue
+                
+                print("PASS", "GQ:{}".format(germ_gq), rpos, ref, alt, read_depth, allelecounts, allele2bq_lst) 
                 # print(chrom, rpos, ref, alt, "PASS") ## TODO
                 update_tricounts(tri2count, ccs_tri2count)
+
                 
     chrom2ccs_tri2count[chrom] = dict(ccs_tri2count) # return
     chrom2norm_log[chrom] = [

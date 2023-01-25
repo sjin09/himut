@@ -45,20 +45,21 @@ class BAM:
         return hq_base_proportion
 
     def get_blast_sequence_identity(self):
-
+ 
+        match_count = 0
         mismatch_count = 0
-        taln_len = self.tstart - self.tend
         for cstuple in self.cstuple_lst:
             mstate, _, _, ref_len, alt_len = cstuple
             if mstate == 1:  # match
-                continue
+                match_count += ref_len
             elif mstate == 2:  # mismatch: snp
                 mismatch_count += alt_len
             elif mstate == 3:  # mismatch: insertion
                 mismatch_count += alt_len
             elif mstate == 4:  # mismatch: deletion
                 mismatch_count += ref_len
-        blast_sequence_identity = (taln_len - mismatch_count)/float(taln_len)
+        alignment_len = match_count + mismatch_count
+        blast_sequence_identity = (match_count)/float(alignment_len)
         return blast_sequence_identity
 
     def get_query_alignment_proportion(self):
