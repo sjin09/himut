@@ -344,13 +344,13 @@ def get_somatic_substitutions(
             if is_germ_gt(som_gt, germ_gt, germ_gt_state, allelecounts):
                 if germ_gt_state == "het":
                     m.num_het_sbs += 1
-                    print("{}:{}_{}/{}".format(chrom, tpos, ref, alt), "het")
+                    # print("{}:{}_{}/{}".format(chrom, tpos, ref, alt), "het")
                 elif germ_gt_state == "hetalt":
                     m.num_hetalt_sbs += 1
-                    print("{}:{}_{}/{}".format(chrom, tpos, ref, alt), "hetalt")
+                    # print("{}:{}_{}/{}".format(chrom, tpos, ref, alt), "hetalt")
                 elif germ_gt_state == "homalt":
                     m.num_homalt_sbs += 1
-                    print("{}:{}_{}/{}".format(chrom, tpos, ref, alt), "homalt")
+                    # print("{}:{}_{}/{}".format(chrom, tpos, ref, alt), "homalt")
                 continue
 
             som_seen.add(tpos)
