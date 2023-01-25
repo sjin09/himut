@@ -182,7 +182,7 @@ def get_callable_tricounts(
             pon_sbs_set = himut.vcflib.load_pon(chrom, panel_of_normals)
 
     m = METRICS()
-    for (_chrom, chunk_start, chunk_end) in chunkloci_lst[0:2]: # traverse reads 
+    for (_chrom, chunk_start, chunk_end) in chunkloci_lst: # traverse reads 
         if not non_human_sample: # load
             if common_snps.endswith(".bgz"):
                 common_snp_set = himut.vcflib.load_bgz_common_snp(
