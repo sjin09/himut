@@ -66,6 +66,26 @@ class BAM:
         qaln_proportion = (self.qend - self.qstart)/float(self.qlen)
         return qaln_proportion
 
+    def get_tsbs_candidates(self, som_seen, min_trim, mismatch_window, max_mismatch_count):
+
+        self.cs2subindel()
+        ccs_somatic_tsbs_candidate_lst = []
+        trimmed_qstart, trimmed_qend = himut.bamlib.get_trimmed_range(self.qlen, min_trim)
+        for tsbs, qsbs in zip(self.tsbs_lst, self.qsbs_lst):
+            tpos = tsbs[0]
+            qpos = qsbs[0]
+            if tpos in som_seen:
+                continue
+            if himut.bamlib.is_trimmed(qpos, trimmed_qstart, trimmed_qend):
+                continue
+            if himut.bamlib.is_mismatch_conflict(
+                self, tpos, qpos, mismatch_window, max_mismatch_count
+            ):
+                continue 
+            ccs_somatic_tsbs_candidate_lst.append(tsbs)
+        return ccs_somatic_tsbs_candidate_lst
+        
+
 
 def get_sample(bam_file: str) -> str:
 
@@ -159,22 +179,45 @@ def get_thresholds(
     return qlen_lower_limit, qlen_upper_limit, md_threshold
 
 
-def get_sbs_allelecounts(
+def get_ref_counts(
     ref: str,
-    alt: str,
+    read_depth: int,
     allelecounts: Dict[int, Dict[int, int]],
     allele2bq_lst: Dict[int, Dict[str, List[int]]],
 ):
 
+    ref_count = allelecounts[himut.util.base2idx[ref]]
+    ref_vaf = ref_count/float(read_depth)
+    if ref_count != 0:
+        ref_bq = sum(allele2bq_lst[himut.util.base2idx[ref]])/float(ref_count)
+    else:
+        ref_bq = 0.0
+    return ref_bq, ref_vaf, ref_count
+
+
+def get_alt_counts(
+    alt: str,
+    read_depth: int,
+    allelecounts: Dict[int, Dict[int, int]],
+    allele2bq_lst: Dict[int, Dict[str, List[int]]],
+):
+
+    alt_count = allelecounts[himut.util.base2idx[alt]]
+    alt_vaf = alt_count/float(read_depth)
+    if alt_count != 0:
+        alt_bq = sum(allele2bq_lst[himut.util.base2idx[alt]])/float(alt_count)
+    else:
+        alt_bq = 0.0
+    return alt_bq, alt_vaf, alt_count
+
+
+def get_read_depth(
+    allelecounts: Dict[int, Dict[int, int]],
+):
     ins_count = allelecounts[4]
     del_count = allelecounts[5]
-    indel_count = ins_count + del_count
     read_depth = sum(allelecounts) - ins_count
-    ref_count = allelecounts[himut.util.base2idx[ref]]
-    alt_count = allelecounts[himut.util.base2idx[alt]]
-    alt_bq = sum(allele2bq_lst[himut.util.base2idx[alt]]) / float(alt_count)
-    alt_vaf = alt_count / float(read_depth)
-    return ref_count, alt_bq, alt_vaf, alt_count, indel_count, read_depth
+    return del_count, ins_count, read_depth
 
 
 def get_trimmed_range(

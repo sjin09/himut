@@ -82,7 +82,6 @@ def get_ccs_hap(
             ccs_hap = "."
         return ccs_hap
 
-
 def get_tpos_hap(
     alignments,
     loci: Tuple[str, int, int],

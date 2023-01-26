@@ -284,6 +284,10 @@ def get_somatic_substitutions(
             update_allelecounts(
                 ccs, rpos2allelecounts, rpos2allele2bq_lst, rpos2allele2ccs_lst
             )
+            if phase:
+                ccs_hap = himut.haplib.get_ccs_hap(ccs, hbit_lst, hpos_lst, hetsnp_lst)  
+                if not is_ccs_phased(ccs_hap):
+                    continue 
             if is_low_mapq(ccs.mapq, min_mapq):
                 continue
             if not (qlen_lower_limit < ccs.qlen and ccs.qlen < qlen_upper_limit):
@@ -294,33 +298,12 @@ def get_somatic_substitutions(
                 continue
             if ccs.get_query_alignment_proportion() < min_alignment_proportion:
                 continue
-            if phase:
-                ccs_hap = himut.haplib.get_ccs_hap(ccs, hbit_lst, hpos_lst, hetsnp_lst)  
-                if not is_ccs_phased(ccs_hap):
-                    continue
             if ccs.qname not in ccs_seen:
-                m.num_ccs += 1
+                m.num_ccs += 1 
                 ccs_seen.add(ccs.qname)
-
-            ccs.cs2subindel()
-            ccs_somatic_tsbs_candidate_lst = []
-            trimmed_qstart, trimmed_qend = himut.bamlib.get_trimmed_range(ccs.qlen, min_trim)
-            for tsbs, qsbs in zip(ccs.tsbs_lst, ccs.qsbs_lst):
-                tpos = tsbs[0]
-                qpos = qsbs[0]
-                if tpos in som_seen:
-                    continue
-                if himut.bamlib.is_trimmed(qpos, trimmed_qstart, trimmed_qend):
-                    continue
-                if himut.bamlib.is_mismatch_conflict(
-                    ccs, tpos, qpos, mismatch_window, max_mismatch_count
-                ):
-                    continue 
-                ccs_somatic_tsbs_candidate_lst.append(tsbs)
-            if len(ccs_somatic_tsbs_candidate_lst) == 0:
-                continue
+            ccs_somatic_tsbs_candidate_lst = ccs.get_tsbs_candidates(som_seen, min_trim, mismatch_window, max_mismatch_count)
             somatic_tsbs_candidate_lst.extend(ccs_somatic_tsbs_candidate_lst)
-           
+
         for (tpos, ref, alt) in set(somatic_tsbs_candidate_lst): # traverse sbs
             if not is_chunk(tpos, chunk_start, chunk_end):
                 continue
@@ -331,14 +314,9 @@ def get_somatic_substitutions(
             som_gt = "{}{}".format(ref, alt)
             allelecounts = rpos2allelecounts[rpos]
             allele2bq_lst = rpos2allele2bq_lst[rpos]
-            (
-                ref_count,
-                alt_bq,
-                alt_vaf,
-                alt_count,
-                indel_count,
-                read_depth,
-            ) = himut.bamlib.get_sbs_allelecounts(ref, alt, allelecounts, allele2bq_lst)
+            del_count, ins_count, read_depth = himut.bamlib.get_read_depth(allelecounts)
+            _, _, ref_count = himut.bamlib.get_ref_counts(ref, read_depth, allelecounts, allele2bq_lst)
+            alt_bq, alt_vaf, alt_count = himut.bamlib.get_alt_counts(alt, read_depth, allelecounts, allele2bq_lst)
             germ_gt, _, germ_gt_state, gt2gt_state = himut.gtlib.get_germ_gt(ref, allele2bq_lst)
             if is_germ_gt(som_gt, germ_gt, germ_gt_state, allelecounts):
                 if germ_gt_state == "het":
@@ -414,7 +392,7 @@ def get_somatic_substitutions(
                 )
                 continue
 
-            if indel_count != 0:
+            if (del_count != 0 or ins_count != 0):
                 m.num_uncallable_sbs += 1
                 filtered_somatic_tsbs_lst.append(
                     (

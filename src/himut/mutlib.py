@@ -421,19 +421,17 @@ def dump_norm_log(
     row_names = [
         "num_ccs",
         "num_bases",
+        "num_unphased_bases",
         "num_het_bases",
         "num_hetalt_bases",
         "num_homalt_bases",
         "num_homref_bases",
-        ## "num_aligned_bases",
-        ## "num_trimmed_bases",
         "num_uncallable_bases",
-        "num_low_gq_bases",
         "num_md_filtered_bases",
         "num_ab_filtered_bases",
+        "num_low_gq_bases",
         "num_pon_filtered_bases",  
         "num_pop_filtered_bases",  
-        ## "num_mismatch_conflict_bases",
         "num_callable_bases",
     ]
     ncol = len(chrom_lst)
