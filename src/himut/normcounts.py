@@ -245,14 +245,16 @@ def get_callable_tricounts(
     phase: bool,
     non_human_sample: bool,
     chrom2ccs_tri2count: Dict[str, Dict[str, int]],
+    chrom2ref_tri2count: Dict[str, Dict[str, int]],
     chrom2norm_log: Dict[str, List[int]],
 ) -> Dict[str, int]:
 
-    seen = set()
-    pon_sbs_set = set() # init
+    seen = set() # init
+    pon_sbs_set = set() 
     common_snp_set = set()
     himut.gtlib.init(germline_snv_prior)
     ccs_tri2count = defaultdict(lambda: 0)
+    ref_tri2count = defaultdict(lambda: 0)
     for tri in tri_lst:
         ccs_tri2count[tri] = 0
     alignments = pysam.AlignmentFile(bam_file, "rb")
@@ -361,6 +363,7 @@ def get_callable_tricounts(
                 continue
  
             ref_count = allelecounts[ridx]
+            tri = get_tri_context(seq, rpos)     
             if read_depth == ref_count: # implict 
                 if himut.caller.is_low_gq(germ_gq, min_gq):
                     m.num_low_gq_bases += tri_sum
@@ -369,6 +372,7 @@ def get_callable_tricounts(
                 if ref_count < min_ref_count:
                     m.num_ab_filtered_bases += tri_sum
                     continue
+                ref_tri2count[tri] += 1
                 m.num_callable_bases += tri_sum
                 cumsum_tri2count(tri2count, ccs_tri2count)
             else:
@@ -405,13 +409,14 @@ def get_callable_tricounts(
                     # print("LowDepth", "GQ:{}".format(germ_gq), rpos, ref, alt, read_depth, allelecounts, allele2bq_lst) 
                     # print(chrom, rpos, "allele imbalance", ref_allelecount, alt_allelecount) ## TODO
                     continue
-                
+                ref_tri2count[tri] += 1
                 # print("PASS", "GQ:{}".format(germ_gq), rpos, ref, alt, read_depth, allelecounts, allele2bq_lst) 
                 # print(chrom, rpos, ref, alt, "PASS") ## TODO
                 cumsum_tri2count(tri2count, ccs_tri2count)
 
                 
     chrom2ccs_tri2count[chrom] = dict(ccs_tri2count) # return
+    chrom2ref_tri2count[chrom] = dict(ref_tri2count) # return
     chrom2norm_log[chrom] = [
         m.num_ccs,
         m.num_bases,
@@ -506,6 +511,7 @@ def get_normcounts(
     refseq = pyfastx.Fasta(ref_file)
     chrom2norm_log = manager.dict()
     chrom2ccs_tri2count = manager.dict()
+    chrom2ref_tri2count = manager.dict()
     tricount_arg_lst = [
         (
             chrom,
@@ -538,6 +544,7 @@ def get_normcounts(
             phase,
             non_human_sample,
             chrom2ccs_tri2count,
+            chrom2ref_tri2count,
             chrom2norm_log
         )
         for chrom in chrom_lst
@@ -576,7 +583,7 @@ def get_normcounts(
         out_file, 
     )
     sbs2count = himut.mutlib.load_sbs96_counts(sbs_file, ref_file, chrom_lst)
-    chrom2ref_tri2count = himut.reflib.get_ref_tricounts(refseq, chrom2chunkloci_lst, threads)
+    # chrom2ref_tri2count = himut.reflib.get_ref_tricounts(refseq, chrom2chunkloci_lst, threads)
     himut.mutlib.dump_normcounts(
         cmdline, 
         sbs2count,
