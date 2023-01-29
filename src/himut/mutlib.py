@@ -6,7 +6,7 @@ import himut.util
 import himut.vcflib
 import numpy as np 
 import pandas as pd
-# from plotnine import *
+from plotnine import *
 from collections import defaultdict
 from typing import Dict, List, Tuple
 
@@ -233,7 +233,6 @@ def get_ref_trifreq_ratio(
     return ref_tri2ratio
 
      
-
 def get_burden_per_cell(
     sbs2counts: Dict[Tuple[str, str, str], int],
     ref_sum: int,
