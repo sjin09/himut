@@ -8,7 +8,6 @@ import himut.caller
 import himut.vcflib
 import himut.mutlib
 import himut.phaselib
-import himut.mutburden
 import himut.normcounts
 from himut.parse_args import parse_args
 
