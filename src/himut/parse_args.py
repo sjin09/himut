@@ -234,7 +234,7 @@ def parse_args(program_version, arguments=sys.argv[1:]):
     )
     parser_call.add_argument(
         "-o",
-        "--out",
+        "--output",
         type=str,
         required=True,
         help="VCF file to write the somatic substitutions",
@@ -366,10 +366,19 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         help="minimum proportion of phase consistent edges",
     )
     parser_phase.add_argument(
-        "-t", "--threads", type=int, default=1, required=False, help="number of threads"
+        "-t", 
+        "--threads", 
+        type=int, 
+        default=1, 
+        required=False, 
+        help="number of threads"
     )
     parser_phase.add_argument(
-        "-o", "--out", type=str, required=True, help="VCF file to write phased hetsnps"
+        "-o", 
+        "--output", 
+        type=str, 
+        required=True, 
+        help="VCF file to write phased hetsnps"
     )
     # subcommands: normcounts
     parser_normcounts = subparsers.add_parser(
@@ -564,11 +573,69 @@ def parse_args(program_version, arguments=sys.argv[1:]):
     )
     parser_normcounts.add_argument(
         "-o",
-        "--out",
+        "--output",
         type=str,
         required=True,
         help="file to return normalised SBS96 counts",
     )
+    # # subcommands: mutburden
+    # parser_mutburden = subparsers.add_parser(
+    #     "mutburden",
+    #     formatter_class=make_wide(argparse.ArgumentDefaultsHelpFormatter, w=180, h=60),
+    #     help="normalises SBS96 mutation counts based on genome and read trinucletide context counts",
+    # )
+    # parser_mutburden.add_argument(
+    #     "-i",
+    #     "--input",
+    #     type=str,
+    #     required=True,
+    #     help="normalised SBS96 counts",
+    # )
+    # parser_mutburden.add_argument(
+    #     "--ref",
+    #     type=str,
+    #     required=True,
+    #     help="reference FASTA file",
+    # )
+    # parser_mutburden.add_argument(
+    #     "--phased_vcf",
+    #     type=str,
+    #     required=False,
+    #     help="phased deepvariant VCF file",
+    # )
+    # parser_mutburden.add_argument(
+    #     "--region",
+    #     type=str,
+    #     required=False,
+    #     help="target chromosome",
+    # )
+    # parser_mutburden.add_argument(
+    #     "--region_list",
+    #     type=str,
+    #     required=False,
+    #     help="list of target chromosomes separated by new line",
+    # )
+    # parser_mutburden.add_argument(
+    #     "-t",
+    #     "--threads",
+    #     type=int,
+    #     default=1,
+    #     required=False,
+    #     help="number of threads to use",
+    # )
+    # parser_mutburden.add_argument(
+    #     "--phase",
+    #     required=False,
+    #     action="store_true",
+    #     help="return phased somatic substitutions",
+    # )
+    # parser_mutburden.add_argument(
+    #     "-o",
+    #     "--output",
+    #     type=str,
+    #     required=True,
+    #     help="file to return normalised mutation burden",
+    # )
     if len(arguments) == 0:
         parser.print_help()
         parser.exit()

@@ -64,12 +64,11 @@ def get_tri_context(
          
 def update_tri2count(
     ccs,
-    seq: str,
     min_bq: int,
     min_trim: float, 
     mismatch_window: int, 
     max_mismatch_count: int, 
-    rpos2tri2count: Dict[int, Dict[str, int]]
+    rpos2count: Dict[int, Dict[str, int]]
 ):
                 
     ccs.cs2subindel()
@@ -92,8 +91,7 @@ def update_tri2count(
                     continue
                 if himut.bamlib.is_trimmed(qpos + j, trimmed_qstart, trimmed_qend): # 
                     continue
-                tri = get_tri_context(seq, rpos+j)               
-                rpos2tri2count[rpos+j][tri] += 1
+                rpos2count[rpos+j] += 1
         elif state == 2:  
             mismatch_tstart, mismatch_tend = himut.bamlib.get_mismatch_range(rpos, qpos, ccs.qlen, mismatch_window)
             mismatch_count = (
@@ -107,8 +105,7 @@ def update_tri2count(
                 pass
             if himut.bamlib.is_trimmed(qpos, trimmed_qstart, trimmed_qend):
                 pass
-            tri = get_tri_context(seq, rpos)               
-            rpos2tri2count[rpos][tri] += 1
+            rpos2count[rpos] += 1
         rpos += ref_len
         qpos += alt_len 
             
@@ -206,14 +203,6 @@ def is_rpos_phased(
         return False
 
 
-def cumsum_tri2count(
-    tri2count: Dict[str, int],
-    ccs_tri2count: Dict[str, int],
-):
-    for tri, count in tri2count.items():
-        ccs_tri2count[tri] += count
-
-
 def get_callable_tricounts(
     chrom: str,
     seq: str,
@@ -291,9 +280,9 @@ def get_callable_tricounts(
             hpos_lst = phase_set2hpos_lst[phase_set] 
             hetsnp_lst = phase_set2hetsnp_lst[phase_set] 
 
+        rpos2count = defaultdict(lambda: 0) 
         rpos2allelecounts, rpos2allele2bq_lst= init_allelecounts() 
         rpos2hap2count = defaultdict(lambda: defaultdict(lambda: 0))
-        rpos2tri2count = defaultdict(lambda: defaultdict(lambda: 0)) 
         for i in alignments.fetch(chrom, chunk_start, chunk_end): # traverse reads 
             ccs = himut.bamlib.BAM(i)
             if not ccs.is_primary:
@@ -318,13 +307,12 @@ def get_callable_tricounts(
             if ccs.qname not in seen:
                 m.num_ccs += 1
                 seen.add(ccs.qname)
-            update_tri2count(ccs, seq, min_bq, min_trim, mismatch_window, max_mismatch_count, rpos2tri2count)
+            update_tri2count(ccs, min_bq, min_trim, mismatch_window, max_mismatch_count, rpos2count)
                 
          
         for rpos in range(chunk_start, chunk_end): # traverse each position
             ref = seq[rpos]
-            tri2count = rpos2tri2count[rpos]
-            tri_sum = sum(tri2count.values())
+            tri_sum = rpos2count[rpos]
             if ref == "N":
                 continue
             if tri_sum == 0:
@@ -373,8 +361,9 @@ def get_callable_tricounts(
                     m.num_ab_filtered_bases += tri_sum
                     continue
                 ref_tri2count[tri] += 1
+                ccs_tri2count[tri] += tri_sum
                 m.num_callable_bases += tri_sum
-                cumsum_tri2count(tri2count, ccs_tri2count)
+                # cumsum_tri2count(tri2count, ccs_tri2count)
             else:
                 alt_state = 0
                 alt_count_lst = []
@@ -410,9 +399,11 @@ def get_callable_tricounts(
                     # print(chrom, rpos, "allele imbalance", ref_allelecount, alt_allelecount) ## TODO
                     continue
                 ref_tri2count[tri] += 1
+                ccs_tri2count[tri] += tri_sum
+                m.num_callable_bases += tri_sum
                 # print("PASS", "GQ:{}".format(germ_gq), rpos, ref, alt, read_depth, allelecounts, allele2bq_lst) 
                 # print(chrom, rpos, ref, alt, "PASS") ## TODO
-                cumsum_tri2count(tri2count, ccs_tri2count)
+                # cumsum_tri2count(tri2count, ccs_tri2count)
 
                 
     chrom2ccs_tri2count[chrom] = dict(ccs_tri2count) # return
@@ -510,8 +501,8 @@ def get_normcounts(
     manager = mp.Manager()
     refseq = pyfastx.Fasta(ref_file)
     chrom2norm_log = manager.dict()
-    chrom2ccs_tri2count = manager.dict()
-    chrom2ref_tri2count = manager.dict()
+    chrom2ccs_callable_tri2count = manager.dict()
+    chrom2ref_callable_tri2count = manager.dict()
     tricount_arg_lst = [
         (
             chrom,
@@ -543,8 +534,8 @@ def get_normcounts(
             germline_indel_prior,
             phase,
             non_human_sample,
-            chrom2ccs_tri2count,
-            chrom2ref_tri2count,
+            chrom2ccs_callable_tri2count,
+            chrom2ref_callable_tri2count,
             chrom2norm_log
         )
         for chrom in chrom_lst
@@ -583,15 +574,14 @@ def get_normcounts(
         out_file, 
     )
     sbs2count = himut.mutlib.load_sbs96_counts(sbs_file, ref_file, chrom_lst)
-    # chrom2ref_tri2count = himut.reflib.get_ref_tricounts(refseq, chrom2chunkloci_lst, threads)
+    ref_sum, ref_tri2count = himut.reflib.get_genome_tricounts(refseq, chrom_lst, threads)
     himut.mutlib.dump_normcounts(
-        cmdline, 
         sbs2count,
-        chrom2ref_tri2count, 
-        chrom2ccs_tri2count, 
-        phase,
-        tname2tsize,
-        chrom2chunkloci_lst,
+        ref_sum, 
+        ref_tri2count,
+        chrom2ref_callable_tri2count, 
+        chrom2ccs_callable_tri2count, 
+        cmdline, 
         out_file
     )
     himut.mutlib.dump_norm_log(

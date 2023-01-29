@@ -8,14 +8,15 @@ import himut.caller
 import himut.vcflib
 import himut.mutlib
 import himut.phaselib
+import himut.mutburden
 import himut.normcounts
 from himut.parse_args import parse_args
 
 
 def main():
     parser, options = parse_args(program_version=__version__)
+    himut.util.check_num_threads(options.threads)
     if options.sub == "call":  # call somatic substitutions
-        himut.util.check_num_threads(options.threads)
         himut.caller.call_somatic_substitutions(
             options.bam,  # BAM file
             options.ref,  # reference FASTA file
@@ -46,7 +47,7 @@ def main():
             options.reference_sample,  # bool
             options.create_panel_of_normal,  # bool
             __version__,  # str
-            options.out,  # output # himut vcf file
+            options.output,  # output # himut vcf file
         )
     elif options.sub == "phase":  # returns phased hetsnps
         himut.phaselib.get_chrom_hblock(
@@ -60,7 +61,7 @@ def main():
             options.min_phase_proportion,
             options.threads,
             __version__,
-            options.out,
+            options.output,
         )
     # elif options.sub == "dbs78": # returns dbs78 counts
     #     sample = himut.vcflib.get_sample(options.input)
@@ -86,7 +87,6 @@ def main():
             options.output, sample, "{}.pdf".format(options.output)
         )
     elif options.sub == "normcounts":  # returns normalised sbs96 counts
-        himut.util.check_num_threads(options.threads)
         himut.normcounts.get_normcounts(
             options.bam,
             options.ref,
@@ -116,7 +116,7 @@ def main():
             options.phase,
             options.non_human_sample,
             options.reference_sample,
-            options.out,
+            options.output,
         )
     else:
         print("The subcommand does not exist!\n")

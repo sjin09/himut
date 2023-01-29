@@ -6,7 +6,7 @@ import himut.util
 import himut.vcflib
 import numpy as np 
 import pandas as pd
-from plotnine import *
+# from plotnine import *
 from collections import defaultdict
 from typing import Dict, List, Tuple
 
@@ -76,9 +76,9 @@ def load_sbs96_counts(
                     tname2sbs2counts[tname] = defaultdict(lambda: 0)
                 continue
             v = himut.vcflib.VCF(line)
-            if v.is_snp and v.is_pass:
+            if v.is_snp and v.is_pass and v.is_biallelic:
                 sbs96 = get_sbs96(v.chrom, int(v.pos) - 1, v.ref, v.alt, refseq)
-                tname2sbs2counts[v.chrom][sbs96] += 1
+                tname2sbs2counts[v.chrom][sbs96] += int(v.alt_count_arr[0])
     elif vcf_file.endswith(".vcf.bgz"):
         for line in cyvcf2.VCF(vcf_file).raw_header.split("\n"):
             if line.startswith("##"):
@@ -91,9 +91,9 @@ def load_sbs96_counts(
                     tname2sbs2counts[tname] = defaultdict(lambda: 0)
         for i in cyvcf2.VCF(vcf_file):
             v = himut.vcflib.VCF(str(i))
-            if v.is_snp and v.is_pass:
+            if v.is_snp and v.is_pass and v.is_biallelic:
                 sbs96 = get_sbs96(v.chrom, int(v.pos) - 1, v.ref, v.alt, refseq)
-                tname2sbs2counts[v.chrom][sbs96] += 1
+                tname2sbs2counts[v.chrom][sbs96] += int(v.alt_count_arr[0])
 
     sbs2count = defaultdict(lambda: 0)
     for chrom in chrom_lst:
@@ -194,7 +194,7 @@ def get_trifreq(tri2count: Dict[str, int]) -> Dict[str, float]:
     return tri2freq
 
 
-def get_trifreq_ratio(
+def get_callable_trifreq_ratio(
     ref_tri2count: Dict[str, int],
     ccs_tri2count: Dict[str, int],
 ) -> Dict[str, float]:
@@ -219,48 +219,45 @@ def get_cumsum_tricounts(chrom2tri2count: Dict[str, Dict[str, int]]) -> Tuple[in
     return tri_sum, tri2count
 
 
-def get_norm_sbs96_counts(
+def get_ref_trifreq_ratio(
+    ref_tri2count: Dict[str, int], 
+    ref_callable_tri2count: Dict[str, int]
+):
+  
+    ref_tri2ratio = defaultdict()
+    for tri in tri_lst:
+        ref_tri_count = ref_tri2count[tri]        
+        ref_callable_tri_count = ref_callable_tri2count[tri]        
+        ref_tri_ratio = ref_callable_tri_count/float(ref_tri_count)
+        ref_tri2ratio[tri] = ref_tri_ratio
+    return ref_tri2ratio
+
+     
+
+def get_burden_per_cell(
     sbs2counts: Dict[Tuple[str, str, str], int],
-    tri2freq_ratio: Dict[Tuple[str, str, str], float],
-) -> Dict[Tuple[str, str, str], float]:
+    ref_sum: int,
+    ref_tri2ratio: Dict[str, int],
+    ref_callable_tri_sum: int,
+    ccs_callable_tri_sum: int,
+    callable_tri2freq_ratio: Dict[Tuple[str, str, str], float],
+) -> float:
 
     norm_sum = 0
     sbs2normcounts = defaultdict(lambda: 0)
     for sbs, count in sbs2counts.items():
-        norm_count = count * tri2freq_ratio[sbs2tri[sbs]]
-        sbs2normcounts[sbs] = norm_count
+        tri = sbs2tri[sbs]
+        ref_tri_ratio = ref_tri2ratio[tri]
+        callable_tri_freq_ratio = callable_tri2freq_ratio[sbs2tri[sbs]]
+        norm_count = count * callable_tri_freq_ratio
+        norm_count /= ref_tri_ratio
         norm_sum += norm_count
-    return norm_sum, sbs2normcounts
+        sbs2normcounts[sbs] = norm_count
 
-
-def get_phased_proportion(
-    tname2tsize: Dict[str, int],
-    chrom2chunkloci_lst: Dict[chr, List[Tuple[str, int, int]]],
-):
-    tsize_sum = 0  
-    phased_sum = 0
-    for chrom, chunkloci_lst in chrom2chunkloci_lst.items():
-        tsize_sum += tname2tsize[chrom]
-        for (_chrom, chunk_start, chunk_end) in chunkloci_lst:
-            phased_sum += (chunk_end - chunk_start)
-    phased_proportion = phased_sum/float(tsize_sum)
-    return phased_proportion
-
-
-def get_burden_per_cell(
-    norm_sum: float,
-    ccs_tri_sum: int,
-    ref_tri_sum: int,
-    phase: bool,
-    phased_proportion: float,
-) -> float:
-
-    dip_cov = ccs_tri_sum / (2 * ref_tri_sum)
-    if phase:
-        burden = (norm_sum / (dip_cov)) / phased_proportion
-    else:
-        burden = norm_sum / (dip_cov)
-    return burden
+    dip_cov = ccs_callable_tri_sum /float(2 * ref_callable_tri_sum)
+    ref_ratio = ref_callable_tri_sum/float(ref_sum)
+    burden = (norm_sum/dip_cov)/ref_ratio
+    return burden, dip_cov, ref_ratio, sbs2normcounts
 
 
 def get_normcounts_cmdline(
@@ -353,29 +350,32 @@ def get_normcounts_cmdline(
 
 
 def dump_normcounts(
-    cmdline: str,
     sbs2count: Dict[str, int],
-    chrom2ref_tri2count: Dict[str, int],
-    chrom2ccs_tri2count: Dict[str, int],
-    phase: bool,
-    tname2tsize: Dict[str, int],
-    chrom2chunkloci_lst: Dict[str, List[Tuple[str, int, int]]],
+    ref_sum: int,
+    ref_tri2count: Dict[str, int],
+    chrom2ref_callable_tri2count: Dict[str, int],
+    chrom2ccs_callable_tri2count: Dict[str, int],
+    cmdline: str,
     out_file: str,
 ) -> None:
 
-    phased_proportion = ""
-    ref_tri_sum, ref_tri2count = get_cumsum_tricounts(chrom2ref_tri2count)
-    ccs_tri_sum, ccs_tri2count = get_cumsum_tricounts(chrom2ccs_tri2count)
-    tri2freq_ratio = get_trifreq_ratio(ref_tri2count, ccs_tri2count)
-    norm_sum, sbs2normcounts = get_norm_sbs96_counts(sbs2count, tri2freq_ratio)
-    if phase:
-        phased_proportion = get_phased_proportion(tname2tsize, chrom2chunkloci_lst) 
-    burden = get_burden_per_cell(
-        norm_sum, ccs_tri_sum, ref_tri_sum, phase, phased_proportion
+    ref_callable_tri_sum, ref_callable_tri2count = get_cumsum_tricounts(chrom2ref_callable_tri2count)
+    ccs_callable_tri_sum, ccs_callable_tri2count = get_cumsum_tricounts(chrom2ccs_callable_tri2count)
+    ref_tri2ratio = get_ref_trifreq_ratio(ref_tri2count, ref_callable_tri2count)
+    callable_tri2freq_ratio = get_callable_trifreq_ratio(ref_callable_tri2count, ccs_callable_tri2count)
+    burden, dip_cov, ref_ratio, sbs2normcounts = get_burden_per_cell(
+        sbs2count,
+        ref_sum,
+        ref_tri2ratio,
+        ref_callable_tri_sum,
+        ccs_callable_tri_sum,
+        callable_tri2freq_ratio,
     )
 
     o = open(out_file, "w")
     o.write("##mutation burden: {:.2f}\n".format(burden))
+    o.write("##callable_coverage: {:.2f}\n".format(dip_cov))
+    o.write("##callable_genome_proportion: {:.2f}\n".format(ref_ratio))
     o.write("{}\n".format(cmdline))
     o.write(
         "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(
@@ -386,7 +386,8 @@ def dump_normcounts(
             "tri_ratio",
             "normcounts",
             "ref_tri_count",
-            "ccs_tri_count",
+            "ref_callable_tri_count",
+            "ccs_callable_tri_count",
         )
     )
 
@@ -394,19 +395,23 @@ def dump_normcounts(
         tri = sbs2tri[sbs]
         count = sbs2count[sbs]
         normcount = sbs2normcounts[sbs]
-        ref_tricount = ref_tri2count[tri]
-        ccs_tricount = ccs_tri2count[tri]
-        trifreq_ratio = tri2freq_ratio[tri]
+        ref_tri_count = ref_tri2count[tri]
+        ref_tri_ratio = ref_tri2ratio[tri]
+        ref_callable_tricount = ref_callable_tri2count[tri]
+        ccs_callable_tricount = ccs_callable_tri2count[tri]
+        callable_trifreq_ratio = callable_tri2freq_ratio[tri]
         o.write(
             "{}\t{}\t{}\t{}\t{}\t{}\t{:.0f}\t{:.0f}\n".format(
                 sbs2sub[sbs],
                 tri,
                 sbs,
                 count,
-                trifreq_ratio,
                 normcount,
-                ref_tricount,
-                ccs_tricount,
+                ref_tri_count,
+                ref_callable_tricount,
+                ref_tri_ratio, 
+                ccs_callable_tricount,
+                callable_trifreq_ratio,
             )
         )
     print("finished returning normalised counts")
