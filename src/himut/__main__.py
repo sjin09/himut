@@ -85,6 +85,23 @@ def main():
         himut.mutlib.dump_sbs96_plt(
             options.output, sample, "{}.pdf".format(options.output)
         )
+    elif options.sub == "burden":  # returns normalised sbs96 counts
+        himut.mutlib.get_burden_per_cell(
+            options.input,
+            options.ref,
+            options.tri,
+            options.region_list,  
+            options.threads,
+            options.output,
+        )
+    elif options.sub == "tricount":  # returns normalised sbs96 counts
+        himut.reflib.get_ref_tricount(
+            options.ref,
+            options.region,  
+            options.region_list,  
+            options.threads,
+            options.output,
+        )
     elif options.sub == "normcounts":  # returns normalised sbs96 counts
         himut.normcounts.get_normcounts(
             options.bam,

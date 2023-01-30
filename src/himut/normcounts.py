@@ -574,10 +574,9 @@ def get_normcounts(
         out_file, 
     )
     sbs2count = himut.mutlib.load_sbs96_counts(sbs_file, ref_file, chrom_lst)
-    ref_sum, ref_tri2count = himut.reflib.get_genome_tricounts(refseq, chrom_lst, threads)
+    ref_tri2count = himut.reflib.get_genome_tricounts(refseq, chrom_lst, threads)
     himut.mutlib.dump_normcounts(
         sbs2count,
-        ref_sum, 
         ref_tri2count,
         chrom2ref_callable_tri2count, 
         chrom2ccs_callable_tri2count, 

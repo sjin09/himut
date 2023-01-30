@@ -380,6 +380,92 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         required=True, 
         help="VCF file to write phased hetsnps"
     )
+    # subcommands: burden
+    parser_burden = subparsers.add_parser(
+        "burden",
+        formatter_class=make_wide(argparse.ArgumentDefaultsHelpFormatter, w=180, h=60),
+        help="calculates mutation burden per cell",
+    )
+    parser_burden.add_argument(
+        "-i",
+        "--input",
+        type=str,
+        required=True,
+        help="normalised SBS96 counts",
+    )
+    parser_burden.add_argument(
+        "--ref",
+        type=str,
+        required=True,
+        help="reference FASTA file",
+    )
+    parser_burden.add_argument(
+        "--tri",
+        type=str,
+        required=True,
+        help="reference trinucleotide sequence context",
+    )
+    parser_burden.add_argument(
+        "--region_list",
+        type=str,
+        required=False,
+        help="list of autosomes and sex chromosomes separated by new line",
+    )
+    parser_burden.add_argument(
+        "-t",
+        "--threads",
+        type=int,
+        default=1,
+        required=False,
+        help="number of threads to use",
+    )
+    parser_burden.add_argument(
+        "-o",
+        "--output",
+        type=str,
+        required=True,
+        help="file to return normalised ation burden",
+    )
+    # subcommands: tricount
+    parser_tricount = subparsers.add_parser(
+        "tricount",
+        formatter_class=make_wide(argparse.ArgumentDefaultsHelpFormatter, w=180, h=60),
+        help="calculates and returns reference trinucletide context counts",
+    )
+    parser_tricount.add_argument(
+        "-i",
+        "--ref",
+        type=str,
+        required=True,
+        help="reference FASTA file",
+    )
+    parser_tricount.add_argument(
+        "--region",
+        type=str,
+        required=False,
+        help="target chromosome",
+    )
+    parser_tricount.add_argument(
+        "--region_list",
+        type=str,
+        required=False,
+        help="list of target chromosomes separated by new line",
+    )
+    parser_tricount.add_argument(
+        "-t",
+        "--threads",
+        type=int,
+        default=1,
+        required=False,
+        help="number of threads to use",
+    )
+    parser_tricount.add_argument(
+        "-o",
+        "--output",
+        type=str,
+        required=True,
+        help="file to return normalised mutation burden",
+    )
     # subcommands: normcounts
     parser_normcounts = subparsers.add_parser(
         "normcounts",
@@ -578,64 +664,6 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         required=True,
         help="file to return normalised SBS96 counts",
     )
-    # # subcommands: mutburden
-    # parser_mutburden = subparsers.add_parser(
-    #     "mutburden",
-    #     formatter_class=make_wide(argparse.ArgumentDefaultsHelpFormatter, w=180, h=60),
-    #     help="normalises SBS96 mutation counts based on genome and read trinucletide context counts",
-    # )
-    # parser_mutburden.add_argument(
-    #     "-i",
-    #     "--input",
-    #     type=str,
-    #     required=True,
-    #     help="normalised SBS96 counts",
-    # )
-    # parser_mutburden.add_argument(
-    #     "--ref",
-    #     type=str,
-    #     required=True,
-    #     help="reference FASTA file",
-    # )
-    # parser_mutburden.add_argument(
-    #     "--phased_vcf",
-    #     type=str,
-    #     required=False,
-    #     help="phased deepvariant VCF file",
-    # )
-    # parser_mutburden.add_argument(
-    #     "--region",
-    #     type=str,
-    #     required=False,
-    #     help="target chromosome",
-    # )
-    # parser_mutburden.add_argument(
-    #     "--region_list",
-    #     type=str,
-    #     required=False,
-    #     help="list of target chromosomes separated by new line",
-    # )
-    # parser_mutburden.add_argument(
-    #     "-t",
-    #     "--threads",
-    #     type=int,
-    #     default=1,
-    #     required=False,
-    #     help="number of threads to use",
-    # )
-    # parser_mutburden.add_argument(
-    #     "--phase",
-    #     required=False,
-    #     action="store_true",
-    #     help="return phased somatic substitutions",
-    # )
-    # parser_mutburden.add_argument(
-    #     "-o",
-    #     "--output",
-    #     type=str,
-    #     required=True,
-    #     help="file to return normalised mutation burden",
-    # )
     if len(arguments) == 0:
         parser.print_help()
         parser.exit()

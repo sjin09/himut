@@ -1,4 +1,6 @@
 import pyfastx
+import natsort
+import himut.util
 import himut.mutlib
 import multiprocessing as mp
 from collections import defaultdict
@@ -49,12 +51,40 @@ def get_genome_tricounts(
     p.close()
     p.join()
     
-    genome_sum = 0
     tri2count = defaultdict(lambda: 0)
     for chrom in chrom_lst:
-        genome_sum += len(refseq[chrom])
         for tri in tri_lst:
             tri2count[tri] += chrom2tri2count[chrom][tri]        
-    return genome_sum, dict(tri2count)
+    return dict(tri2count)
 
 
+def get_ref_tricount(
+    ref_file: str, 
+    region: str,
+    region_list: str,
+    threads: int,
+    out_file: str
+) -> Dict[str, Dict[str, int]]:
+
+    chrom_lst = []
+    refseq = pyfastx.Fasta(ref_file)
+    if region is None and region_list is not None:
+        for line in open(region_list).readlines():
+            chrom = line.strip()
+            chrom_lst.append(chrom)
+    elif region is not None and region_list is None:
+        chrom_lst.append(region)
+    elif region is not None and region_list is not None:
+        for line in open(region_list).readlines():
+            chrom = line.strip()
+            chrom_lst.append(chrom)
+    else:
+        print("Please provide --region or --region_list")
+        himut.util.exit()
+   
+    o = open(out_file, "w")  
+    tri2count = get_genome_tricounts(refseq, chrom_lst, threads) 
+    tri_lst = natsort.natsorted(list(tri2count.keys()))
+    for tri in tri_lst:
+        o.write("{}\t{}\n".format(tri, tri2count[tri]))
+    o.close()

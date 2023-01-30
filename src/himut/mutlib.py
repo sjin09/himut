@@ -209,54 +209,12 @@ def get_callable_trifreq_ratio(
 
 def get_cumsum_tricounts(chrom2tri2count: Dict[str, Dict[str, int]]) -> Tuple[int, Dict[str, int]]:
 
-    tri_sum = 0
     tri2count = defaultdict(lambda: 0)
     for chrom in chrom2tri2count:
         for tri in tri_lst:
             tri_count = chrom2tri2count[chrom][tri]
             tri2count[tri] += tri_count
-            tri_sum += tri_count
-    return tri_sum, tri2count
-
-
-def get_ref_trifreq_ratio(
-    ref_tri2count: Dict[str, int], 
-    ref_callable_tri2count: Dict[str, int]
-):
-  
-    ref_tri2ratio = defaultdict()
-    for tri in tri_lst:
-        ref_tri_count = ref_tri2count[tri]        
-        ref_callable_tri_count = ref_callable_tri2count[tri]        
-        ref_tri_ratio = ref_callable_tri_count/float(ref_tri_count)
-        ref_tri2ratio[tri] = ref_tri_ratio
-    return ref_tri2ratio
-
-     
-def get_burden_per_cell(
-    sbs2counts: Dict[Tuple[str, str, str], int],
-    ref_sum: int,
-    ref_tri2ratio: Dict[str, int],
-    ref_callable_tri_sum: int,
-    ccs_callable_tri_sum: int,
-    callable_tri2freq_ratio: Dict[Tuple[str, str, str], float],
-) -> float:
-
-    norm_sum = 0
-    sbs2normcounts = defaultdict(lambda: 0)
-    for sbs, count in sbs2counts.items():
-        tri = sbs2tri[sbs]
-        ref_tri_ratio = ref_tri2ratio[tri]
-        callable_tri_freq_ratio = callable_tri2freq_ratio[sbs2tri[sbs]]
-        norm_count = count * callable_tri_freq_ratio
-        norm_count /= ref_tri_ratio
-        norm_sum += norm_count
-        sbs2normcounts[sbs] = norm_count
-
-    dip_cov = ccs_callable_tri_sum /float(2 * ref_callable_tri_sum)
-    ref_ratio = ref_callable_tri_sum/float(ref_sum)
-    burden = (norm_sum/dip_cov)/ref_ratio
-    return burden, dip_cov, ref_ratio, sbs2normcounts
+    return tri2count
 
 
 def get_normcounts_cmdline(
@@ -350,7 +308,6 @@ def get_normcounts_cmdline(
 
 def dump_normcounts(
     sbs2count: Dict[str, int],
-    ref_sum: int,
     ref_tri2count: Dict[str, int],
     chrom2ref_callable_tri2count: Dict[str, int],
     chrom2ccs_callable_tri2count: Dict[str, int],
@@ -358,32 +315,22 @@ def dump_normcounts(
     out_file: str,
 ) -> None:
 
-    ref_callable_tri_sum, ref_callable_tri2count = get_cumsum_tricounts(chrom2ref_callable_tri2count)
-    ccs_callable_tri_sum, ccs_callable_tri2count = get_cumsum_tricounts(chrom2ccs_callable_tri2count)
-    ref_tri2ratio = get_ref_trifreq_ratio(ref_tri2count, ref_callable_tri2count)
+    ref_callable_tri2count = get_cumsum_tricounts(chrom2ref_callable_tri2count)
+    ccs_callable_tri2count = get_cumsum_tricounts(chrom2ccs_callable_tri2count)
+    ref_tri2freq_ratio = get_callable_trifreq_ratio(ref_callable_tri2count, ref_tri2count)
     callable_tri2freq_ratio = get_callable_trifreq_ratio(ref_callable_tri2count, ccs_callable_tri2count)
-    burden, dip_cov, ref_ratio, sbs2normcounts = get_burden_per_cell(
-        sbs2count,
-        ref_sum,
-        ref_tri2ratio,
-        ref_callable_tri_sum,
-        ccs_callable_tri_sum,
-        callable_tri2freq_ratio,
-    )
 
     o = open(out_file, "w")
-    o.write("##mutation burden: {:.2f}\n".format(burden))
-    o.write("##callable_coverage: {:.2f}\n".format(dip_cov))
-    o.write("##callable_genome_proportion: {:.2f}\n".format(ref_ratio))
     o.write("{}\n".format(cmdline))
     o.write(
-        "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(
+        "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(
             "sub",
             "tri",
             "sbs96",
             "counts",
-            "tri_ratio",
             "normcounts",
+            "ref_tri_ratio",
+            "ref_ccs_tri_ratio",
             "ref_tri_count",
             "ref_callable_tri_count",
             "ccs_callable_tri_count",
@@ -391,30 +338,81 @@ def dump_normcounts(
     )
 
     for sbs in sbs_lst:
+        sub = sbs2sub[sbs]
         tri = sbs2tri[sbs]
         count = sbs2count[sbs]
-        normcount = sbs2normcounts[sbs]
         ref_tri_count = ref_tri2count[tri]
-        ref_tri_ratio = ref_tri2ratio[tri]
+        ref_trifreq_ratio = ref_tri2freq_ratio[tri] 
         ref_callable_tricount = ref_callable_tri2count[tri]
         ccs_callable_tricount = ccs_callable_tri2count[tri]
-        callable_trifreq_ratio = callable_tri2freq_ratio[tri]
+        ref_ccs_trifreq_ratio = callable_tri2freq_ratio[tri]
+        normcount = count * ref_trifreq_ratio * ref_ccs_trifreq_ratio
         o.write(
-            "{}\t{}\t{}\t{}\t{}\t{}\t{:.0f}\t{:.0f}\n".format(
-                sbs2sub[sbs],
+            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(
+                sub,
                 tri,
                 sbs,
                 count,
                 normcount,
+                ref_trifreq_ratio,
+                ref_ccs_trifreq_ratio, 
                 ref_tri_count,
                 ref_callable_tricount,
-                ref_tri_ratio, 
                 ccs_callable_tricount,
-                callable_trifreq_ratio,
             )
         )
-    print("finished returning normalised counts")
+    o.close()
 
+
+def load_ref_tricount(
+    ref_file: str,
+    tri_file: str,
+    region_list: str,
+    threads: int,
+):
+ 
+    tri2count = 0
+    chrom_lst = [line.strip() for line in open(region_list).readlines()]
+    if ref_file is None and tri_file is not None:
+        tri2count = dict(line.strip().split() for line in open(tri_file).readlines())
+    elif ref_file is not None and tri_file is None:
+        refseq = pyfastx.Fasta(ref_file)
+        tri2count = himut.reflib.get_genome_tricounts(refseq, chrom_lst, threads)
+    elif ref_file is not None and tri_file is not None:
+        tri2count = dict(line.strip().split() for line in open(tri_file).readlines())
+    else:
+        print("Please provide either --ref or --tri file")
+        himut.util.exit()
+
+    for tri, count in tri2count.items(): tri2count[tri] = int(count)
+    return tri2count
+
+
+def get_burden_per_cell(
+    infile,
+    ref_file,
+    tri_file,
+    region_list, 
+    threads,
+    outfile,
+):
+
+    tri2mut_rate = defaultdict(lambda: 0)  
+    ref_tri2count = load_ref_tricount(ref_file, tri_file, region_list, threads) 
+    for line in open(infile).readlines():
+        if line.startswith("#"):
+            continue
+        elif line.startswith("sub"):
+            continue
+        _sub, tri, _sbs, _count, normcounts, _ref_tri_ratio, _ref_ccs_tri_ratio, _ref_tri_count, _ref_callable_tri_count, ccs_callable_tri_count = line.strip().split()
+        tri2mut_rate[tri] += float(normcounts)/int(ccs_callable_tri_count)
+        
+    ref_tri2count = load_ref_tricount(ref_file, tri_file, region_list, threads) 
+    total_mut_count = sum([tri2mut_rate[tri] * ref_tri2count[tri] for tri in tri_lst])
+    burden_per_cell = total_mut_count * 2
+    o = open(outfile, "w")
+    o.write("{}\n".format(burden_per_cell))
+    o.close()
 
 
 def dump_norm_log(
