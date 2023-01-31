@@ -540,6 +540,8 @@ def get_somatic_substitutions(
                 alt_ccs_set = set(rpos2allele2ccs_lst[rpos][himut.util.base2idx[alt]])
                 for j in alignments.fetch(chrom, tpos, tpos + 1):
                     ccs = himut.bamlib.BAM(j)
+                    if not ccs.is_primary:
+                        continue
                     if ccs.qname in wt_ccs_set:
                         ccs_hap = himut.haplib.get_ccs_hap(ccs, hbit_lst, hpos_lst, hetsnp_lst)  
                         hap2count[ccs_hap] += 1
