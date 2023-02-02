@@ -313,7 +313,7 @@ def get_callable_tricounts(
         for rpos in range(chunk_start, chunk_end): # traverse each position
             ref = seq[rpos]
             tri_sum = rpos2count[rpos]
-            if ref == "N":
+            if not ref in himut.util.base_set():
                 continue
             if tri_sum == 0:
                 continue

@@ -123,8 +123,11 @@ def chunkloci(loci: Tuple[str, int, int]) -> List[Tuple[str, int, int]]:
     chunk_start_lst = list(range(200000, end, 200000))
     for i, chunk_start in enumerate(chunk_start_lst[:-1]):
         chunk_loci_lst.append((chrom, chunk_start, chunk_start_lst[i+1]))
-    if (chrom, chunk_start_lst[-1], end) not in chunk_loci_lst:
-        chunk_loci_lst.append((chrom, chunk_start_lst[-1], end-2))
+    try:
+        if (chrom, chunk_start_lst[-1], end) not in chunk_loci_lst:
+            chunk_loci_lst.append((chrom, chunk_start_lst[-1], end-2))
+    except IndexError:
+        print(chrom, chunk_start_lst, end) 
     return chunk_loci_lst
 
 
