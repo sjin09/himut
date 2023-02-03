@@ -18,7 +18,6 @@ base2idx = {base: idx for idx, base in enumerate(base_lst)}
 idx2base = {idx: base for idx, base in enumerate(base_lst)}
 allele2idx = {allele: idx for idx, allele in enumerate(allele_lst)}
 idx2allele = {idx: allele for idx, allele in enumerate(allele_lst)}
-gt_lst = ["AA", "TA", "CA", "GA", "TT", "CT", "GT", "CC", "GC", "GG"]
 
 
 class NestedDefaultDict(defaultdict):

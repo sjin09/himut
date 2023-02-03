@@ -296,8 +296,6 @@ def get_somatic_substitutions(
                 continue
             if ccs.get_blast_sequence_identity() < min_sequence_identity:
                 continue
-            if ccs.get_query_alignment_proportion() < min_alignment_proportion:
-                continue
             if ccs.qname not in ccs_seen:
                 m.num_ccs += 1 
                 ccs_seen.add(ccs.qname)

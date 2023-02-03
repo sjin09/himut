@@ -233,8 +233,8 @@ def get_callable_tricounts(
     germline_indel_prior: float,
     phase: bool,
     non_human_sample: bool,
-    chrom2ccs_tri2count: Dict[str, Dict[str, int]],
-    chrom2ref_tri2count: Dict[str, Dict[str, int]],
+    chrom2ccs_callable_tri2count: Dict[str, Dict[str, int]],
+    chrom2ref_callable_tri2count: Dict[str, Dict[str, int]],
     chrom2norm_log: Dict[str, List[int]],
 ) -> Dict[str, int]:
 
@@ -246,6 +246,7 @@ def get_callable_tricounts(
     ref_tri2count = defaultdict(lambda: 0)
     for tri in tri_lst:
         ccs_tri2count[tri] = 0
+        ref_tri2count[tri] = 0
     alignments = pysam.AlignmentFile(bam_file, "rb")
     if not non_human_sample:
         if common_snps.endswith(".vcf"):
@@ -302,8 +303,6 @@ def get_callable_tricounts(
                 continue
             if ccs.get_blast_sequence_identity() < min_sequence_identity:
                 continue
-            if ccs.get_query_alignment_proportion() < min_alignment_proportion:
-                continue
             if ccs.qname not in seen:
                 m.num_ccs += 1
                 seen.add(ccs.qname)
@@ -313,7 +312,7 @@ def get_callable_tricounts(
         for rpos in range(chunk_start, chunk_end): # traverse each position
             ref = seq[rpos]
             tri_sum = rpos2count[rpos]
-            if not ref in himut.util.base_set():
+            if not ref in himut.util.base_set:
                 continue
             if tri_sum == 0:
                 continue
@@ -406,8 +405,8 @@ def get_callable_tricounts(
                 # cumsum_tri2count(tri2count, ccs_tri2count)
 
                 
-    chrom2ccs_tri2count[chrom] = dict(ccs_tri2count) # return
-    chrom2ref_tri2count[chrom] = dict(ref_tri2count) # return
+    chrom2ccs_callable_tri2count[chrom] = dict(ccs_tri2count) # return
+    chrom2ref_callable_tri2count[chrom] = dict(ref_tri2count) # return
     chrom2norm_log[chrom] = [
         m.num_ccs,
         m.num_bases,
@@ -463,21 +462,21 @@ def get_normcounts(
     cpu_start = time.time() / 60
     _, tname2tsize = himut.bamlib.get_tname2tsize(bam_file)
     chrom_lst, chrom2chunkloci_lst = himut.util.load_loci(region, region_list, tname2tsize)
-    himut.util.check_normcounts_input_exists(
-        bam_file,
-        ref_file,
-        sbs_file,
-        vcf_file,
-        phased_vcf_file,
-        common_snps,
-        panel_of_normals,
-        chrom_lst,
-        tname2tsize,
-        phase,
-        reference_sample,
-        non_human_sample,
-        out_file,
-    )
+    # himut.util.check_normcounts_input_exists(
+    #     bam_file,
+    #     ref_file,
+    #     sbs_file,
+    #     vcf_file,
+    #     phased_vcf_file,
+    #     common_snps,
+    #     panel_of_normals,
+    #     chrom_lst,
+    #     tname2tsize,
+    #     phase,
+    #     reference_sample,
+    #     non_human_sample,
+    #     out_file,
+    # )
     
     print("starting himut SBS96 count normalisation with {} threads".format(threads))
     if phase:

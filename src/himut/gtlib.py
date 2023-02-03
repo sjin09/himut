@@ -6,6 +6,7 @@ import himut.haplib
 import himut.bamlib
 import himut.vcflib
 from typing import Dict, List, Tuple
+gt_lst = ["AA", "TA", "CA", "GA", "TT", "CT", "GT", "CC", "GC", "GG"]
 
 
 def init(germline_snv_prior: float):
@@ -102,7 +103,7 @@ def get_germ_gt_pD(
 
     gt_pl_lst = []
     gt2gt_state = {}
-    for gt in himut.util.gt_lst:
+    for gt in gt_lst:
         gt_pl, gt_state = get_log10_gt_pD(gt, ref, allele2bq_lst)
         gt_pl_lst.append(gt_pl)
         gt2gt_state[gt] = gt_state
@@ -111,8 +112,8 @@ def get_germ_gt_pD(
 
 def get_argmin_gt(gt_pl_lst):
     ilst = np.argsort(gt_pl_lst)
+    gt = [gt_lst[i] for i in ilst][0]
     gt_pl_lst = [gt_pl_lst[i] for i in ilst]
-    gt = [himut.util.gt_lst[i] for i in ilst][0]
     gq = (np.array(gt_pl_lst) - min(gt_pl_lst))[1]
     gq = int(gq) if gq < 99 else 99
     return gt, gq
@@ -141,7 +142,7 @@ def get_germ_gq(
 ):
     germ_gt_lst = []
     germ_gt_pl_lst = []
-    for gt in himut.util.gt_lst:
+    for gt in gt_lst:
         gt_pl = 0
         b1, b2 = list(gt)
         gt_state = gt2gt_state[gt] 
@@ -166,65 +167,9 @@ def get_germ_gq(
         germ_gt_pl_lst.append(gt_pl)
 
     ilst = np.argsort(germ_gt_pl_lst)
+    germ_gt_lst = [germ_gt_lst[i] for i in ilst]
     germ_gt_pl_lst = [germ_gt_pl_lst[i] for i in ilst]
-    germ_gt_lst = [himut.util.gt_lst[i] for i in ilst]
     gq = (np.array(germ_gt_pl_lst) - min(germ_gt_pl_lst))[1]
     gq = int(gq) if gq < 99 else 99
     return gq 
 
-
-# def get_normcount_germ_gq(
-#     ref: str,
-#     alt: str,
-#     gt2gt_state: Dict[str, int],
-#     allele2bq_lst: Dict[int, List[int]], 
-# ):
-
-#     gq = 0
-#     gt_state = gt2gt_state["{}{}".format(ref, ref)]
-#     gt_prior = get_log10_germ_gt_prior(gt_state)
-#        for gt in himut.util.gt_lst:
-#         gt_pl = 0
-#         b1, b2 = list(gt)
-#         gt_state = gt2gt_state[gt] 
-#         gt_prior = get_log10_germ_gt_prior(gt_state)
-#         for base in himut.util.base_lst:
-#             if alt == base:
-#                 continue
-#             base_bq_lst = allele2bq_lst[himut.util.base2idx[base]]
-#             if (b1 == b2) and (base == b1 or base == b2):  ## hom
-#                 gt_pl += sum(
-#                     [get_log10_one_minus_epsilon(base_bq) for base_bq in base_bq_lst]
-#                 )
-#             elif (b1 != b2) and (base == b1 or base == b2):  # het
-#                 gt_pl += sum(
-#                     [get_log10_one_half_minus_epsilon(base_bq) for base_bq in base_bq_lst]
-#                 )
-#             else:  ## error
-#                 gt_pl += sum([get_log10_epsilon(base_bq / 3) for base_bq in base_bq_lst])
-#         gt_pl += gt_prior
-#         gt_pl *= -10 
-#         gt_lst.append(gt)
-#         gt_pl_lst.append(gt_pl)
-
-#     ilst = np.argsort(gt_pl_lst)
-#     gt_pl_lst = [gt_pl_lst[i] for i in ilst]
-#     gt_lst = [himut.util.gt_lst[i] for i in ilst]
-#     gq = (np.array(gt_pl_lst) - min(gt_pl_lst))[1]
-#     gq = int(gq) if gq < 99 else 99
-     
-#     for gt in himut.util.gt_lst:
-#     for base in himut.util.base_lst:
-#         if alt == base:
-#             continue
-#         base_bq_lst = allele2bq_lst[himut.util.base2idx[base]]
-#         if ref == base:
-#             gq += sum(
-#                 [get_log10_one_minus_epsilon(base_bq) for base_bq in base_bq_lst]
-#             )
-#         else:  ## error
-#             gq += sum([get_log10_epsilon(base_bq / 3) for base_bq in base_bq_lst])
-#     gq += gt_prior
-#     gq *= -10 
-#     gq = int(gq) if gq < 99 else 99
-#     return gq    
