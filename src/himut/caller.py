@@ -82,6 +82,18 @@ def is_ccs_phased(hap) -> bool:
         return False
 
 
+def is_low_qv(
+    ccs,
+    min_qv: int,
+) -> bool:
+
+    ccs.get_qv()
+    if ccs.qv < min_qv:
+        return True
+    else:
+        return False
+
+
 def is_low_mapq(ccs_mapq: int, min_mapq: int):
     if ccs_mapq < min_mapq:
         return True
@@ -200,12 +212,11 @@ def get_somatic_substitutions(
     phase_set2hbit_lst: Dict[str, List[str]],
     phase_set2hpos_lst: Dict[int, List[int]],
     phase_set2hetsnp_lst: Dict[int, List[Tuple[int, str, str]]], 
+    min_qv: int,
     min_mapq: int,
     qlen_lower_limit: int,
     qlen_upper_limit: int,
     min_sequence_identity: float,
-    min_hq_base_proportion: float,
-    min_alignment_proportion: float,
     min_gq: int,
     min_bq: int,
     min_trim: float,
@@ -277,7 +288,7 @@ def get_somatic_substitutions(
            
         somatic_tsbs_candidate_lst = []
         rpos2allelecounts, rpos2allele2bq_lst, rpos2allele2ccs_lst = init_allelecounts()
-        for i in alignments.fetch(chrom, chunk_start, chunk_end): # traverse genome
+        for i in alignments.fetch(chrom, chunk_start, chunk_end): # iterate through reads
             ccs = himut.bamlib.BAM(i)
             if not ccs.is_primary:
                 continue
@@ -288,13 +299,13 @@ def get_somatic_substitutions(
                 ccs_hap = himut.haplib.get_ccs_hap(ccs, hbit_lst, hpos_lst, hetsnp_lst)  
                 if not is_ccs_phased(ccs_hap):
                     continue 
+            if is_low_qv(ccs, min_qv):
+                continue
             if is_low_mapq(ccs.mapq, min_mapq):
                 continue
-            if not (qlen_lower_limit < ccs.qlen and ccs.qlen < qlen_upper_limit):
-                continue
-            if ccs.get_hq_base_proportion() < min_hq_base_proportion:
-                continue
             if ccs.get_blast_sequence_identity() < min_sequence_identity:
+                continue
+            if not (qlen_lower_limit < ccs.qlen and ccs.qlen < qlen_upper_limit):
                 continue
             if ccs.qname not in ccs_seen:
                 m.num_ccs += 1 
@@ -302,7 +313,7 @@ def get_somatic_substitutions(
             ccs_somatic_tsbs_candidate_lst = ccs.get_tsbs_candidates(som_seen, min_trim, mismatch_window, max_mismatch_count)
             somatic_tsbs_candidate_lst.extend(ccs_somatic_tsbs_candidate_lst)
 
-        for (tpos, ref, alt) in set(somatic_tsbs_candidate_lst): # traverse sbs
+        for (tpos, ref, alt) in set(somatic_tsbs_candidate_lst): # iterate through substitutions
             if not is_chunk(tpos, chunk_start, chunk_end):
                 continue
 
@@ -633,10 +644,9 @@ def call_somatic_substitutions(
     panel_of_normals: str,
     region: str,
     region_list: str,
+    min_qv: int,
     min_mapq: int,
     min_sequence_identity: float,
-    min_hq_base_proportion: float,
-    min_alignment_proportion: float,
     min_gq: int,
     min_bq: int,
     min_trim: float,
@@ -690,13 +700,12 @@ def call_somatic_substitutions(
     if create_panel_of_normals:
         print("himut is calling substitutions for panel of normal preparation")
         (
+            min_bq,
+            min_qv,
             min_mapq,
             min_trim,
-            min_sequence_identity,
-            min_hq_base_proportion,
-            min_alignment_proportion,
-            min_bq,
             min_hap_count,
+            min_sequence_identity,
             phase,
         ) = himut.util.load_pon_params()
 
@@ -714,12 +723,11 @@ def call_somatic_substitutions(
         tname2tsize,
         common_snps,
         panel_of_normals,
+        min_qv,
         min_mapq,
         qlen_lower_limit, 
         qlen_upper_limit, 
         min_sequence_identity,
-        min_hq_base_proportion,
-        min_alignment_proportion,
         min_gq,
         min_bq,
         min_trim,
@@ -761,12 +769,11 @@ def call_somatic_substitutions(
             chrom2ps2hbit_lst[chrom],
             chrom2ps2hpos_lst[chrom],
             chrom2ps2hetsnp_lst[chrom], 
+            min_qv,
             min_mapq,
             qlen_lower_limit,
             qlen_upper_limit,
             min_sequence_identity,
-            min_hq_base_proportion,
-            min_alignment_proportion,
             min_gq,
             min_bq,
             min_trim,

@@ -213,13 +213,12 @@ def get_callable_tricounts(
     phase_set2hbit_lst: Dict[str, List[str]],
     phase_set2hpos_lst: Dict[int, List[int]],
     phase_set2hetsnp_lst: Dict[int, List[Tuple[int, str, str]]], 
+    min_qv: int,
     min_mapq: int,
     min_trim: float,
     qlen_lower_limit: int,
     qlen_upper_limit: int,
     min_sequence_identity: float,
-    min_hq_base_proportion: float,
-    min_alignment_proportion: float,
     min_gq: int,
     min_bq: int,
     mismatch_window: int,
@@ -255,7 +254,7 @@ def get_callable_tricounts(
             pon_sbs_set = himut.vcflib.load_pon(chrom, panel_of_normals)
 
     m = METRICS()
-    for (_chrom, chunk_start, chunk_end) in chunkloci_lst: # traverse reads  ## TODO
+    for (_chrom, chunk_start, chunk_end) in chunkloci_lst: # traverse reads 
         if not non_human_sample: # load
             if common_snps.endswith(".bgz"):
                 common_snp_set = himut.vcflib.load_bgz_common_snp(
@@ -275,6 +274,7 @@ def get_callable_tricounts(
                     ),
                     panel_of_normals,
                 )
+
         if phase:
             phase_set = str(chunk_start)
             hbit_lst = phase_set2hbit_lst[phase_set] 
@@ -284,7 +284,7 @@ def get_callable_tricounts(
         rpos2count = defaultdict(lambda: 0) 
         rpos2allelecounts, rpos2allele2bq_lst= init_allelecounts() 
         rpos2hap2count = defaultdict(lambda: defaultdict(lambda: 0))
-        for i in alignments.fetch(chrom, chunk_start, chunk_end): # traverse reads 
+        for i in alignments.fetch(chrom, chunk_start, chunk_end): # iterate through reads 
             ccs = himut.bamlib.BAM(i)
             if not ccs.is_primary:
                 continue
@@ -295,21 +295,21 @@ def get_callable_tricounts(
                     continue
             else:
                 update_allelecounts(ccs, rpos2allelecounts, rpos2allele2bq_lst)
+                
+            if himut.caller.is_low_qv(ccs, min_qv):
+                continue
             if himut.caller.is_low_mapq(ccs.mapq, min_mapq):
                 continue
-            if not (qlen_lower_limit < ccs.qlen and ccs.qlen < qlen_upper_limit):
-                continue
-            if ccs.get_hq_base_proportion() < min_hq_base_proportion:
-                continue
             if ccs.get_blast_sequence_identity() < min_sequence_identity:
+                continue
+            if not (qlen_lower_limit < ccs.qlen and ccs.qlen < qlen_upper_limit):
                 continue
             if ccs.qname not in seen:
                 m.num_ccs += 1
                 seen.add(ccs.qname)
             update_tri2count(ccs, min_bq, min_trim, mismatch_window, max_mismatch_count, rpos2count)
                 
-         
-        for rpos in range(chunk_start, chunk_end): # traverse each position
+        for rpos in range(chunk_start, chunk_end): # iterate through reference positions
             ref = seq[rpos]
             tri_sum = rpos2count[rpos]
             if not ref in himut.util.base_set:
@@ -342,10 +342,8 @@ def get_callable_tricounts(
             m.num_homref_bases += tri_sum
             if (del_count != 0 or ins_count != 0):
                 m.num_uncallable_bases += tri_sum 
-                # print("Uncallable", "GQ:{}".format(germ_gq), rpos, ref, read_depth, allelecounts, allele2bq_lst) 
                 continue
             if read_depth > md_threshold:
-                # print("HighDepth", "GQ:{}".format(germ_gq), rpos, ref, read_depth, allelecounts, allele2bq_lst) 
                 m.num_md_filtered_bases += tri_sum 
                 continue
  
@@ -354,7 +352,6 @@ def get_callable_tricounts(
             if read_depth == ref_count: # implict 
                 if himut.caller.is_low_gq(germ_gq, min_gq):
                     m.num_low_gq_bases += tri_sum
-                    # print("LowGQ", "GQ:{}".format(germ_gq), rpos, ref, read_depth, allelecounts, allele2bq_lst) 
                     continue
                 if ref_count < min_ref_count:
                     m.num_ab_filtered_bases += tri_sum
@@ -362,7 +359,6 @@ def get_callable_tricounts(
                 ref_tri2count[tri] += 1
                 ccs_tri2count[tri] += tri_sum
                 m.num_callable_bases += tri_sum
-                # cumsum_tri2count(tri2count, ccs_tri2count)
             else:
                 alt_state = 0
                 alt_count_lst = []
@@ -388,22 +384,15 @@ def get_callable_tricounts(
                 germ_gq = himut.gtlib.get_germ_gq(alt, gt2gt_state, allele2bq_lst)
                 if himut.caller.is_low_gq(germ_gq, min_gq):
                     m.num_low_gq_bases += tri_sum
-                    # print("LowGQ", "GQ:{}".format(germ_gq), rpos, ref, alt, read_depth, allelecounts, allele2bq_lst) 
                     continue
 
                 alt_count = allelecounts[himut.util.base2idx[alt]]
                 if not (ref_count >= min_ref_count and alt_count >= min_alt_count):
                     m.num_ab_filtered_bases += tri_sum
-                    # print("LowDepth", "GQ:{}".format(germ_gq), rpos, ref, alt, read_depth, allelecounts, allele2bq_lst) 
-                    # print(chrom, rpos, "allele imbalance", ref_allelecount, alt_allelecount) ## TODO
                     continue
                 ref_tri2count[tri] += 1
                 ccs_tri2count[tri] += tri_sum
                 m.num_callable_bases += tri_sum
-                # print("PASS", "GQ:{}".format(germ_gq), rpos, ref, alt, read_depth, allelecounts, allele2bq_lst) 
-                # print(chrom, rpos, ref, alt, "PASS") ## TODO
-                # cumsum_tri2count(tri2count, ccs_tri2count)
-
                 
     chrom2ccs_callable_tri2count[chrom] = dict(ccs_tri2count) # return
     chrom2ref_callable_tri2count[chrom] = dict(ref_tri2count) # return
@@ -436,10 +425,9 @@ def get_normcounts(
     panel_of_normals: str,
     region: str,
     region_list: str,
+    min_qv: int,
     min_mapq: int,
     min_sequence_identity: float,
-    min_hq_base_proportion: float,
-    min_alignment_proportion: float,
     min_gq: int,
     min_bq: int,
     min_trim: float,
@@ -462,21 +450,21 @@ def get_normcounts(
     cpu_start = time.time() / 60
     _, tname2tsize = himut.bamlib.get_tname2tsize(bam_file)
     chrom_lst, chrom2chunkloci_lst = himut.util.load_loci(region, region_list, tname2tsize)
-    # himut.util.check_normcounts_input_exists(
-    #     bam_file,
-    #     ref_file,
-    #     sbs_file,
-    #     vcf_file,
-    #     phased_vcf_file,
-    #     common_snps,
-    #     panel_of_normals,
-    #     chrom_lst,
-    #     tname2tsize,
-    #     phase,
-    #     reference_sample,
-    #     non_human_sample,
-    #     out_file,
-    # )
+    himut.util.check_normcounts_input_exists(
+        bam_file,
+        ref_file,
+        sbs_file,
+        vcf_file,
+        phased_vcf_file,
+        common_snps,
+        panel_of_normals,
+        chrom_lst,
+        tname2tsize,
+        phase,
+        reference_sample,
+        non_human_sample,
+        out_file,
+    )
     
     print("starting himut SBS96 count normalisation with {} threads".format(threads))
     if phase:
@@ -490,11 +478,14 @@ def get_normcounts(
         chrom2ps2hbit_lst = defaultdict(dict)
         chrom2ps2hpos_lst = defaultdict(dict)
         chrom2ps2hetsnp_lst = defaultdict(dict)
-    qlen_lower_limit, qlen_upper_limit, md_threshold = himut.vcflib.get_thresholds(sbs_file)       
+
     if non_human_sample:
         germline_snv_prior, germline_indel_prior = himut.vcflib.get_germline_priors(
             chrom_lst, ref_file, vcf_file, reference_sample
         )
+
+
+    qlen_lower_limit, qlen_upper_limit, md_threshold = himut.vcflib.get_thresholds(sbs_file)       
 
     p = mp.Pool(threads)
     manager = mp.Manager()
@@ -513,13 +504,12 @@ def get_normcounts(
             chrom2ps2hbit_lst[chrom],
             chrom2ps2hpos_lst[chrom],
             chrom2ps2hetsnp_lst[chrom],
+            min_qv,
             min_mapq,
             min_trim,
             qlen_lower_limit,
             qlen_upper_limit,
             min_sequence_identity,
-            min_hq_base_proportion,
-            min_alignment_proportion,
             min_gq,
             min_bq,
             mismatch_window,
@@ -543,16 +533,16 @@ def get_normcounts(
     p.close()
     p.join()
     print("finished himut SBS96 count normalisation with {} threads".format(threads))
-    cmdline = himut.mutlib.get_normcounts_cmdline(
+
+    cmdline = himut.mutlib.get_normcounts_cmdline( # return
         bam_file,
         ref_file,
         sbs_file,
         vcf_file,
         phased_vcf_file,
+        min_qv,
         min_mapq,
         min_sequence_identity,
-        min_hq_base_proportion,
-        min_alignment_proportion,
         min_gq,
         min_bq,
         min_trim,

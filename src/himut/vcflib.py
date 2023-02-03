@@ -137,12 +137,11 @@ def get_himut_vcf_header(
     tname2tsize: Dict[str, int],
     common_snps: str,
     panel_of_normals: str,
+    min_qv: int,
     min_mapq: int,
     qlen_lower_limit: float, 
     qlen_upper_limit: float,
     min_sequence_identity: float,
-    min_hq_base_proportion: float,
-    min_alignment_proportion: float,
     min_gq: int,
     min_bq: int,
     min_trim: float,
@@ -211,14 +210,13 @@ def get_himut_vcf_header(
         region_param = "--region_list {}".format(region_list)
 
     if phase:
-            param = "{} --min_mapq {} --qlen_lower_limit {} --qlen_upper_limit {} --min_sequence_identity {} --min_hq_base_proportion {} --min_alignment_proportion {} --min_gq {} --min_bq {} --min_trim {} --mismatch_window {} --max_mismatch_count {} --min_ref_count {} --min_alt_count {} --min_hap_count {} --somatic_snv_prior {} --germline_snv_prior {} --germline_indel_prior {} --threads {} -o {}".format(
+            param = "{} --min_qv {} --min_mapq {} --qlen_lower_limit {} --qlen_upper_limit {} --min_gq {} --min_bq {} --min_trim {} --mismatch_window {} --max_mismatch_count {} --min_ref_count {} --min_alt_count {} --min_hap_count {} --somatic_snv_prior {} --germline_snv_prior {} --germline_indel_prior {} --threads {} -o {}".format(
             region_param,
+            min_qv,
             min_mapq,
             qlen_lower_limit,
             qlen_upper_limit,
             min_sequence_identity,
-            min_hq_base_proportion,
-            min_alignment_proportion,
             min_gq,
             min_bq,
             min_trim,
@@ -234,14 +232,13 @@ def get_himut_vcf_header(
             out_file,
     )
     else:
-        param = "{} --min_mapq {} --qlen_lower_limit {} --qlen_upper_limit {} --min_sequence_identity {} --min_hq_base_proportion {} --min_alignment_proportion {} --min_gq {} --min_bq {} --min_trim {} --mismatch_window {} --max_mismatch_count {} --min_ref_count {} --min_alt_count {} --somatic_snv_prior {} --germline_snv_prior {} --germline_indel_prior {} --threads {} -o {}".format(
+        param = "{} --min_qv {} --min_mapq {} --qlen_lower_limit {} --qlen_upper_limit {} --min_sequence_identity {} --min_gq {} --min_bq {} --min_trim {} --mismatch_window {} --max_mismatch_count {} --min_ref_count {} --min_alt_count {} --somatic_snv_prior {} --germline_snv_prior {} --germline_indel_prior {} --threads {} -o {}".format(
             region_param,
+            min_qv,
             min_mapq,
             qlen_lower_limit,
             qlen_upper_limit,
             min_sequence_identity,
-            min_hq_base_proportion,
-            min_alignment_proportion,
             min_gq,
             min_bq,
             min_trim,

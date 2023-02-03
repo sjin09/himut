@@ -25,10 +25,9 @@ def main():
             options.panel_of_normals,  # panel of normals
             options.region,  # target contigs/scaffolds/chromosomes
             options.region_list,  # target contigs/scaffolds/chromosomes fofn
+            options.min_qv, # int minimum average read accuracy
             options.min_mapq,  # int: 0-60
             options.min_sequence_identity,  # float: blast sequence identity
-            options.min_hq_base_proportion,  # float: proportion of BQ=93 bases
-            options.min_alignment_proportion,  # float: query alignment length / query read length
             options.min_gq,  # minimum germline genotype quality score: int
             options.min_bq,  # minimum base quality score: int
             options.min_trim,  # float: 0.01 - 0.1
@@ -62,10 +61,6 @@ def main():
             __version__,
             options.output,
         )
-    # elif options.sub == "dbs78": # returns dbs78 counts
-    #     sample = himut.vcflib.get_sample(options.input)
-    #     himut.mutlib.dump_dbs78_counts(options.input, options.region, options.region_list, options.output)
-    #     himut.mutlib.dump_dbs78_plt(options.output, sample, options.output.replace(".tsv", ".pdf"))
     elif options.sub == "sbs96":  # returns sbs96 counts
         sample = himut.vcflib.get_sample(options.input)
         himut.util.check_mutpatterns_input_exists(
@@ -113,10 +108,9 @@ def main():
             options.panel_of_normals,
             options.region,  
             options.region_list,  
+            options.min_qv, 
             options.min_mapq,
             options.min_sequence_identity,
-            options.min_hq_base_proportion,
-            options.min_alignment_proportion,
             options.min_gq,
             options.min_bq,
             options.min_trim,

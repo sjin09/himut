@@ -31,6 +31,10 @@ class BAM:
             self.bq_int_lst = line.query_qualities
             himut.cslib.cs2tuple(self, line.get_tag("cs"))
 
+    def get_qv(self):
+        self.qv = np.mean(self.bq_int_lst)
+        return self.qv
+
     def cs2mut(self):
         himut.cslib.cs2mut(self)
 
@@ -85,7 +89,6 @@ class BAM:
             ccs_somatic_tsbs_candidate_lst.append(tsbs)
         return ccs_somatic_tsbs_candidate_lst
         
-
 
 def get_sample(bam_file: str) -> str:
 

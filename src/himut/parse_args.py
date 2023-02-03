@@ -89,6 +89,13 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         help="list of target chromosomes separated by new line",
     )
     parser_call.add_argument(
+        "--min_qv",
+        type=int,
+        default=30,
+        required=False,
+        help="minimum average read accuracy",
+    )
+    parser_call.add_argument(
         "--min_mapq",
         type=int,
         default=60,
@@ -101,20 +108,6 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         default=0.99,
         required=False,
         help="minimum sequence identity threshold",
-    )
-    parser_call.add_argument(
-        "--min_hq_base_proportion",
-        type=float,
-        default=0.5,
-        required=False,
-        help="minimum proportion of high quality base (BQ=93)",
-    )
-    parser_call.add_argument(
-        "--min_alignment_proportion",
-        type=float,
-        default=0.90,
-        required=False,
-        help="minimum proportion of aligned CCS bases",
     )
     parser_call.add_argument(
         "--min_gq",
@@ -172,13 +165,6 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         required=False,
         help="maximum number of mismatches within the mismatch window",
     )
-    # parser_call.add_argument(
-    #     "--contamination_prior",
-    #     type=float,
-    #     default=1/(10**2),
-    #     required=False,
-    #     help="expected contamination rate per library"
-    # )
     parser_call.add_argument(
         "--somatic_snv_prior",
         type=float,
@@ -239,38 +225,6 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         required=True,
         help="VCF file to write the somatic substitutions",
     )
-    # subcommands: dbs78
-    # parser_dbs78 = subparsers.add_parser(
-    #     "dbs78",
-    #     formatter_class=make_wide(argparse.ArgumentDefaultsHelpFormatter, w=180, h=60),
-    #     help="returns DBS78 counts and barplot",
-    # )
-    # parser_dbs78.add_argument(
-    #     "-i",
-    #     "--input",
-    #     type=str,
-    #     required=True,
-    #     help="himut VCF file to read somatic double base substitutions"
-    # )
-    # parser_dbs78.add_argument(
-    #     "--region",
-    #     type=str,
-    #     required=False,
-    #     help="target chromosome",
-    # )
-    # parser_dbs78.add_argument(
-    #     "--region_list",
-    #     type=str,
-    #     required=False,
-    #     help="list of target chromosomes separated by new line"
-    # )
-    # parser_dbs78.add_argument(
-    #     "-o",
-    #     "--output",
-    #     type=str,
-    #     required=True,
-    #     help="file to return DBS78 counts (.tsv suffix)",
-    # )
     # subcommands: sbs96
     parser_sbs96 = subparsers.add_parser(
         "sbs96",
@@ -527,6 +481,13 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         help="list of target chromosomes separated by new line",
     )
     parser_normcounts.add_argument(
+        "--min_qv",
+        type=int,
+        default=30,
+        required=False,
+        help="minimum average read accuracy",
+    )
+    parser_normcounts.add_argument(
         "--min_mapq",
         type=int,
         default=60,
@@ -539,20 +500,6 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         default=0.99,
         required=False,
         help="minimum sequence identity threshold",
-    )
-    parser_normcounts.add_argument(
-        "--min_hq_base_proportion",
-        type=float,
-        default=0.50,
-        required=False,
-        help="minimum proportion of high quality base (BQ=93)",
-    )
-    parser_normcounts.add_argument(
-        "--min_alignment_proportion",
-        type=float,
-        default=0.90,
-        required=False,
-        help="minimum proportion of aligned CCS bases",
     )
     parser_normcounts.add_argument(
         "--min_gq",

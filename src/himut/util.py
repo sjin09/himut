@@ -42,22 +42,21 @@ def check_num_threads(thread_count: int):
 
 
 def load_pon_params():
-    min_mapq = 30
-    min_trim = 0
-    min_sequence_identity = 0.8
-    min_hq_base_proportion = 0.3
-    min_alignment_proportion = 0.5
     min_bq = 20
+    min_qv = 20
+    min_trim = 0
+    min_mapq = 30
     min_hap_count = 0
+    min_sequence_identity = 0.8
     phase = False
+
     return (
+        min_bq,
+        min_qv,
         min_mapq,
         min_trim,
-        min_sequence_identity,
-        min_hq_base_proportion,
-        min_alignment_proportion,
-        min_bq,
         min_hap_count,
+        min_sequence_identity,
         phase,
     )
 
