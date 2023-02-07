@@ -419,9 +419,6 @@ def check_caller_input_exists(
         counter += check_ref_file(ref_file, chrom_lst)
         counter += check_vcf_file("--vcf", vcf_file, chrom_lst, tname2tsize)
 
-    if not non_human_sample and create_panel_of_normals:
-        counter += check_vcf_file("--common_snps", common_snps, chrom_lst, tname2tsize)
-
     elif not non_human_sample and not create_panel_of_normals:
         counter += check_vcf_file("--common_snps", common_snps, chrom_lst, tname2tsize)
         counter += check_vcf_file(
