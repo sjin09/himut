@@ -497,9 +497,14 @@ def dump_norm_sbs96_plt(infile: str, sample: str, outfile: str) -> None:
 
 
 def get_trifreq(tri2count: Dict[str, int]) -> Dict[str, float]:
-
+ 
+    tri2freq = {}
     tri_sum = sum(tri2count.values())
-    tri2freq = {tri: count / float(tri_sum) for tri, count in tri2count.items()}
+    for tri, count in tri2count.items():
+        if tri_sum == 0:
+            tri2freq[tri] = 0
+        else:
+            tri2freq[tri] = count/float(tri_sum)
     return tri2freq
 
 
@@ -508,11 +513,16 @@ def get_trifreq_ratio(
     ccs_tri2count: Dict[str, int],
 ) -> Dict[str, float]:
 
+    trifreq_ratio = {}
     ref_tri2freq = get_trifreq(ref_tri2count)
     ccs_tri2freq = get_trifreq(ccs_tri2count)
-    trifreq_ratio = {
-        tri: ref_tri2freq[tri] / float(ccs_tri2freq[tri]) for tri in ref_tri2freq
-    }
+    for tri in tri_lst:
+        ref_tri_freq = ref_tri2freq[tri] 
+        ccs_tri_freq = ccs_tri2freq[tri]
+        if ccs_tri_freq == 0:
+            trifreq_ratio[tri] = 0
+        else: 
+            trifreq_ratio[tri] = ref_tri_freq/float(ccs_tri_freq)
     return trifreq_ratio
 
 
