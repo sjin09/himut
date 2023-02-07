@@ -243,12 +243,16 @@ def get_somatic_substitutions(
     pon_sbs_set = set()
     common_snp_set = set()
     himut.gtlib.init(germline_snv_prior)
-    if not non_human_sample and common_snps.endswith(".vcf"):
+    if (
+        not non_human_sample 
+        and not create_panel_of_normals 
+        and common_snps.endswith(".vcf")
+    ):
         common_snp_set = himut.vcflib.load_common_snp(chrom, common_snps)
 
     if (
-        not create_panel_of_normals
-        and not non_human_sample
+        not non_human_sample
+        and not create_panel_of_normals
         and panel_of_normals.endswith(".vcf")
     ):
         pon_sbs_set = himut.vcflib.load_pon(chrom, panel_of_normals)
