@@ -262,28 +262,26 @@ def get_somatic_substitutions(
     filtered_somatic_tsbs_lst = []
     alignments = pysam.AlignmentFile(bam_file, "rb")
     for (chrom, chunk_start, chunk_end) in chunkloci_lst: ## TODO
-        if not non_human_sample and common_snps.endswith(".bgz"):
-            common_snp_set = himut.vcflib.load_bgz_common_snp(
-                (
-                    chrom,
-                    (chunk_start - qlen_upper_limit),
-                    (chunk_end + qlen_upper_limit),
-                ),
-                common_snps,
-            )
-        if (
-            not non_human_sample
-            and not create_panel_of_normals
-            and panel_of_normals.endswith(".bgz")
-        ):
-            pon_sbs_set = himut.vcflib.load_bgz_pon(
-                (
-                    chrom,
-                    (chunk_start - qlen_upper_limit),
-                    (chunk_end + qlen_upper_limit),
-                ),
-                panel_of_normals,
-            )
+        if not non_human_sample and not create_panel_of_normals: 
+            if common_snps.endswith(".bgz"):
+                common_snp_set = himut.vcflib.load_bgz_common_snp(
+                    (
+                        chrom,
+                        (chunk_start - qlen_upper_limit),
+                        (chunk_end + qlen_upper_limit),
+                    ),
+                    common_snps,
+                )
+            if panel_of_normals.endswith(".bgz"):
+                pon_sbs_set = himut.vcflib.load_bgz_pon(
+                    (
+                        chrom,
+                        (chunk_start - qlen_upper_limit),
+                        (chunk_end + qlen_upper_limit),
+                    ),
+                    panel_of_normals,
+                )
+                
         if phase:
             phase_set = str(chunk_start)
             hbit_lst = phase_set2hbit_lst[phase_set] 
