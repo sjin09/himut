@@ -43,6 +43,7 @@ def check_num_threads(thread_count: int):
 
 def load_pon_params():
     min_bq = 20
+    min_gq = 10
     min_qv = 20
     min_trim = 0
     min_mapq = 30
@@ -52,6 +53,7 @@ def load_pon_params():
 
     return (
         min_bq,
+        min_gq,
         min_qv,
         min_mapq,
         min_trim,

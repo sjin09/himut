@@ -703,6 +703,7 @@ def call_somatic_substitutions(
         print("himut is calling substitutions for panel of normal preparation")
         (
             min_bq,
+            min_gq,
             min_qv,
             min_mapq,
             min_trim,
