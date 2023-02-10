@@ -463,7 +463,6 @@ def check_mutpatterns_input_exists(
     ref_file: str,
     region: str,
     region_list: str,
-    tname2tsize: Dict[str, int],
     out_file: str,
 ):
 
