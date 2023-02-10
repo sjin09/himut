@@ -470,19 +470,19 @@ def check_mutpatterns_input_exists(
     counter = 0
     if region is None and region_list is not None:
         print(
-            "himut will return SBS96/DBS78 counts from chromosomes and contings in {} file".format(
+            "himut will return SBS96 counts from chromosomes and contigs in {} file".format(
                 region_list
             )
         )
     elif region is not None and region_list is None:
-        print("himut will return SBS96/DBS78 counts from {}".format(region))
+        print("himut will return SBS96 counts from {}".format(region))
     elif region is not None and region_list is not None:
         print(
             "Please provide input for --region or --region_list parameter and not for both parameters"
         )
         counter = 1
     elif region is None and region_list is None:
-        print("himut will return SBS96/DBS78 counts from all chromosomes and contigs")
+        print("himut will return SBS96 counts from all chromosomes and contigs")
 
     chrom_lst, _ = load_loci(region, region_list, tname2tsize)
     counter += check_vcf_file("--input", vcf_file, chrom_lst, tname2tsize)
