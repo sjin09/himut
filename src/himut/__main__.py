@@ -14,8 +14,8 @@ from himut.parse_args import parse_args
 
 def main():
     parser, options = parse_args(program_version=__version__)
-    himut.util.check_num_threads(options.threads)
     if options.sub == "call":  # call somatic substitutions
+        himut.util.check_num_threads(options.threads)
         himut.caller.call_somatic_substitutions(
             options.bam,  # BAM file
             options.ref,  # reference FASTA file
@@ -48,6 +48,7 @@ def main():
             options.output,  # output # himut vcf file
         )
     elif options.sub == "phase":  # returns phased hetsnps
+        himut.util.check_num_threads(options.threads)
         himut.phaselib.get_chrom_hblock(
             options.bam,
             options.vcf,
@@ -98,6 +99,7 @@ def main():
             options.output,
         )
     elif options.sub == "normcounts":  # returns normalised sbs96 counts
+        himut.util.check_num_threads(options.threads)
         himut.normcounts.get_normcounts(
             options.bam,
             options.ref,
