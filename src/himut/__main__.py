@@ -80,9 +80,11 @@ def main():
             tname2tsize, 
             options.output,
         )
-        himut.mutlib.dump_sbs96_plt(
-            options.output, sample, "{}.pdf".format(options.output)
-        )
+        if options.output.endswith(".tsv"):
+            pdf_file = options.output.replace(".tsv", ".pdf")
+        else:
+            pdf_file = "{}.pdf".format(options.output) 
+        himut.mutlib.dump_sbs96_plt(options.output, sample, pdf_file)
     elif options.sub == "burden":  # returns normalised sbs96 counts
         himut.mutlib.get_burden_per_cell(
             options.input,
