@@ -52,16 +52,33 @@ class VCF:
             self.is_biallelic = False
 
 
-def get_sample(vcf_file: str) -> str:
+def get_sample(vcf_file: str):
+
+    tname2tsize = {}
     if vcf_file.endswith(".vcf"):
         for line in open(vcf_file).readlines():
-            if line.startswith("#CHROM"):
+            if line.startswith("##"):
+                if line.startswith("##contig"):
+                    arr = line.strip().replace("##contig=<ID=", "").split(",")
+                    tname = arr[0]
+                    tsize = int(arr[1].replace("length=", "").replace(">", ""))
+                    tname2tsize[tname] = tsize
+            elif line.startswith("#CHROM"):
                 sample = line.strip().split()[-1]
-                return sample
+                break
     elif vcf_file.endswith(".bgz"):
         v = cyvcf2.VCF(vcf_file)
         sample = v.samples[0]
-        return sample
+        for line in cyvcf2.VCF(vcf_file).raw_header.split("\n"):
+            if line.startswith("##"):
+                if line.startswith("##contig"):
+                    arr = line.strip().replace("##contig=<ID=", "").split(",")
+                    tname = arr[0]
+                    tsize = int(arr[1].replace("length=", "").replace(">", ""))
+                    tname2tsize[tname] = tsize
+            elif line.startswith("#CHROM"):
+                break
+    return sample, tname2tsize
 
 
 def get_phased_vcf_header(

@@ -63,12 +63,13 @@ def main():
             options.output,
         )
     elif options.sub == "sbs96":  # returns sbs96 counts
-        sample = himut.vcflib.get_sample(options.input)
+        sample, tname2tsize = himut.vcflib.get_sample(options.input)
         himut.util.check_mutpatterns_input_exists(
             options.input,
             options.ref,
             options.region,
             options.region_list,
+            tname2tsize,
             options.output,
         )
         himut.mutlib.dump_sbs96_counts(
@@ -76,6 +77,7 @@ def main():
             options.ref,
             options.region,
             options.region_list,
+            tname2tsize, 
             options.output,
         )
         himut.mutlib.dump_sbs96_plt(

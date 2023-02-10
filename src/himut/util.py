@@ -463,6 +463,7 @@ def check_mutpatterns_input_exists(
     ref_file: str,
     region: str,
     region_list: str,
+    tname2tsize: Dict[str, int],
     out_file: str,
 ):
 
@@ -484,7 +485,7 @@ def check_mutpatterns_input_exists(
         print("himut will return SBS96/DBS78 counts from all chromosomes and contigs")
 
     chrom_lst, _ = load_loci(region, region_list, tname2tsize)
-    counter += check_vcf_file("--input", vcf_file, chrom_lst)
+    counter += check_vcf_file("--input", vcf_file, chrom_lst, tname2tsize)
     counter += check_ref_file(ref_file, chrom_lst)
     if out_file is None:
         counter += 1

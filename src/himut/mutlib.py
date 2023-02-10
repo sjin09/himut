@@ -412,21 +412,16 @@ def load_sbs96_counts(
 
 
 def dump_sbs96_counts(
-    vcf_file: str, ref_file: str, chrom: str, chrom_fofn: str, out_file: str
+    vcf_file: str, 
+    ref_file: str, 
+    region: str, 
+    region_list: str, 
+    tname2tsize: Dict[str, int],
+    out_file: str
 ) -> None:
 
-    chrom2sbs2counts = load_sbs96_counts(vcf_file, ref_file)
-    chrom_lst = himut.util.load_chrom(chrom, chrom_fofn)
-    sbs2counts = defaultdict(lambda: 0)
-    if len(chrom_lst) == 0:
-        for chrom in chrom2sbs2counts:
-            for sbs, counts in chrom2sbs2counts[chrom].items():
-                sbs2counts[sbs] += counts
-    else:
-        for chrom in chrom_lst:
-            for sbs, counts in chrom2sbs2counts[chrom].items():
-                sbs2counts[sbs] += counts
-
+    chrom_lst, _ = himut.util.load_loci(region, region_list, tname2tsize)
+    sbs2counts = load_sbs96_counts(vcf_file, ref_file, chrom_lst)
     o = open(out_file, "w")
     o.write("{}\t{}\t{}\t{}\n".format("sub", "tri", "sbs96", "counts"))
     for sbs in sbs_lst:
