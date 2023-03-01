@@ -81,6 +81,7 @@ tri_lst = [
 purine = set(["A", "G"])
 purine2pyrimidine = {"A": "T", "T": "A", "G": "C", "C": "G", "N": "N"}
 
+
 def get_chrom_tricount(
     chrom: str,
     seq: str,
@@ -127,10 +128,12 @@ def ref2tri(seqfile, tgtfile, threads, outfile):
     for chrom in chrom_lst:
         for tri in tri_lst:
             tri2count[tri] += chrom2tri2count[chrom][tri]        
+    trisum = sum(tri2count.values())
 
     o = open(outfile, "w")
     for tri in tri_lst:
-        o.write("{}\t{}\n".format(tri, tri2count[tri]))
+        tricount = tri2count[tri]
+        o.write("{}\t{}\t{:.2f}\n".format(tri, tricount, (tricount/float(trisum))*100))
     o.close()
 
     
