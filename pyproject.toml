@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "himut"
-version = "1.0.2"
+version = "1.0.0"
 description = "himut: single molecule somatic single-base substitution detection using PacBio CCS reads"
 authors = ["Sangjin Lee <sl17@sanger.ac.uk>"]
 license = "MIT"
