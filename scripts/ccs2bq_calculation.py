@@ -11,16 +11,9 @@ import himut.util
 import himut.gtlib
 import himut.bamlib
 import himut.caller
-import himut.normcounts
 import multiprocessing as mp
 from collections import defaultdict
 from typing import Dict, List, Tuple, Set
-
-
-def init_allelecounts():
-    rpos2allelecounts = defaultdict(lambda: np.zeros(6))
-    rpos2allele2bq_lst = defaultdict(lambda: {0: [], 1: [], 2: [], 3: []})
-    return rpos2allelecounts, rpos2allele2bq_lst
 
 
 def parse_args(args):
@@ -85,7 +78,41 @@ def parse_args(args):
     return parser.parse_args(args)
 
 
-def get_match_mismatch_count_per_bq(
+def init_allelecounts():
+    rpos2allelecounts = defaultdict(lambda: np.zeros(6))
+    rpos2allele2bq_lst = defaultdict(lambda: {0: [], 1: [], 2: [], 3: []})
+    return rpos2allelecounts, rpos2allele2bq_lst
+
+
+def update_allelecounts(
+    ccs,
+    rpos2allelecounts: Dict[int, np.ndarray],
+    rpos2allele2bq_lst: Dict[int, Dict[int, List[int]]],
+):
+
+    tpos = ccs.tstart
+    qpos = ccs.qstart
+    for (state, ref, alt, ref_len, alt_len) in ccs.cstuple_lst:
+        if state == 1:  # match
+            for i, alt_base in enumerate(alt):
+                epos = tpos + i
+                bidx = himut.util.base2idx[alt_base]
+                rpos2allelecounts[epos][bidx] += 1
+                rpos2allele2bq_lst[epos][bidx].append(ccs.bq_int_lst[qpos + i])
+        elif state == 2:  # sub
+            bidx = himut.util.base2idx[alt]
+            rpos2allelecounts[tpos][bidx] += 1
+            rpos2allele2bq_lst[tpos][bidx].append(ccs.bq_int_lst[qpos])
+        elif state == 3:  # insertion
+            rpos2allelecounts[tpos][4] += 1
+        elif state == 4:  # deletion
+            for j in range(len(ref[1:])):
+                rpos2allelecounts[tpos + j][5] += 1
+        tpos += ref_len
+        qpos += alt_len
+
+
+def get_bq2match_mismatch_count(
     chrom: str,
     chunkloci_list: List[Tuple[str, int, int]],
     bam_file: str,
@@ -106,7 +133,7 @@ def get_match_mismatch_count_per_bq(
             ccs = himut.bamlib.BAM(i)
             if not ccs.is_primary:
                 continue
-            himut.normcounts.update_allelecounts(ccs, rpos2allelecounts, rpos2allele2bq_lst)
+            update_allelecounts(ccs, rpos2allelecounts, rpos2allele2bq_lst)
 
         for rpos in range(chunk_start, chunk_end): # iterate through reference positions
             ref = chrom_seq[rpos]
@@ -143,7 +170,7 @@ def get_match_mismatch_count_per_bq(
     chrom2bq2mismatch_count[chrom] = bq2mismatch_count
 
 
-def dump_match_mismatch_count_per_bq(
+def dump_empirical_bq_score(
     bam_file: str,
     ref_file: str,
     region: str,
@@ -175,7 +202,7 @@ def dump_match_mismatch_count_per_bq(
         for chrom in chrom_lst
     ]
     p.starmap(
-        get_match_mismatch_count_per_bq, match_mismatch_count_arg_lst,
+        get_bq2match_mismatch_count, match_mismatch_count_arg_lst,
     )
     p.close()
     p.join()
@@ -202,7 +229,7 @@ def dump_match_mismatch_count_per_bq(
 
 def main():
     options = parse_args(sys.argv)
-    dump_match_mismatch_count_per_bq(
+    dump_empirical_bq_score(
         options.bam,
         options.ref,
         options.region,
