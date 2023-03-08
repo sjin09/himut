@@ -118,6 +118,7 @@ def get_bq2match_mismatch_count(
     bam_file: str,
     chrom_seq: str,
     min_gq: int,
+    md_threshold,
     germline_snv_prior: float,
     chrom2bq2match_count: Dict[str, Dict[int, int]],
     chrom2bq2mismatch_count: Dict[str, Dict[int, int]], 
@@ -143,12 +144,14 @@ def get_bq2match_mismatch_count(
             allelecounts = rpos2allelecounts[rpos]
             allele2bq_lst = rpos2allele2bq_lst[rpos]
             del_count, ins_count, read_depth = himut.bamlib.get_read_depth(allelecounts)
+            if read_depth >= md_threshold:
+                continue
             if (del_count != 0 or ins_count != 0):
                 continue
-            
             germ_gt, germ_gq, germ_gt_state, _ = himut.gtlib.get_germ_gt(ref, allele2bq_lst)
             if himut.caller.is_low_gq(germ_gq, min_gq):
                 continue
+            
             if germ_gt_state == "het" or germ_gt_state == "hetalt":
                 base_sum = sum([allelecounts[himut.util.base2idx[base]] for base in list(germ_gt)])
                 if base_sum == read_depth:
@@ -188,6 +191,7 @@ def dump_empirical_bq_score(
     chrom2bq2mismatch_count = manager.dict()
     _, tname2tsize = himut.bamlib.get_tname2tsize(bam_file)
     chrom_lst, chrom2chunkloci_lst = himut.util.load_loci(region, region_list, tname2tsize)
+    _, _, md_threshold = himut.bamlib.get_thresholds(bam_file, chrom_lst, tname2tsize)
     match_mismatch_count_arg_lst = [
         (
             chrom,
@@ -195,6 +199,7 @@ def dump_empirical_bq_score(
             bam_file,
             str(ref_seq[chrom]),
             min_gq,
+            md_threshold,
             germline_snv_prior,
             chrom2bq2match_count,
             chrom2bq2mismatch_count,
