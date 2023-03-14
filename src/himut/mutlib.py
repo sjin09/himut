@@ -4,7 +4,7 @@ import himut.util
 import himut.vcflib
 import numpy as np
 import pandas as pd
-from plotnine import *
+from plotnine import * 
 from collections import defaultdict
 from typing import Dict, List, Tuple
 
@@ -13,7 +13,63 @@ purine = set(["A", "G"])
 pyrimidine = set(["T", "C"])
 sub_lst = ["C>A", "C>G", "C>T", "T>A", "T>C", "T>G"]
 purine2pyrimidine = {"A": "T", "T": "A", "G": "C", "C": "G", "N": "N"}
-sbs_lst = [
+
+sbs48_lst = [
+    "A[C>A]A",
+    "A[C>A]C",
+    "A[C>A]G",
+    "A[C>A]T",
+    "C[C>A]A",
+    "C[C>A]C",
+    "C[C>A]G",
+    "C[C>A]T",
+    "G[C>A]A",
+    "G[C>A]C",
+    "G[C>A]G",
+    "G[C>A]T",
+    "T[C>A]A",
+    "T[C>A]C",
+    "T[C>A]G",
+    "T[C>A]T",
+    "A[C>G]A",
+    "A[C>G]C",
+    "A[C>G]G",
+    "A[C>G]T",
+    "C[C>G]A",
+    "C[C>G]C",
+    "C[C>G]G",
+    "C[C>G]T",
+    "G[C>G]A",
+    "G[C>G]C",
+    "G[C>G]G",
+    "G[C>G]T",
+    "T[C>G]A",
+    "T[C>G]C",
+    "T[C>G]G",
+    "T[C>G]T",
+    "A[C>T]A",
+    "A[C>T]C",
+    "A[C>T]G",
+    "A[C>T]T",
+    "C[C>T]A",
+    "C[C>T]C",
+    "C[C>T]G",
+    "C[C>T]T",
+    "G[C>T]A",
+    "G[C>T]C",
+    "G[C>T]G",
+    "G[C>T]T",
+    "T[C>G]A",
+    "T[C>G]C",
+    "T[C>G]G",
+    "T[C>G]T",
+    "T[C>T]A",
+    "T[C>T]C",
+    "T[C>T]G",
+    "T[C>T]T",
+]
+
+sbs96_lst = [
     "A[C>A]A",
     "A[C>A]C",
     "A[C>A]G",
@@ -111,6 +167,7 @@ sbs_lst = [
     "T[T>G]G",
     "T[T>G]T",
 ]
+
 tri_lst = [
     "ACA",
     "ACC",
@@ -143,9 +200,109 @@ tri_lst = [
     "TTA",
     "TTC",
     "TTG",
-    "TTT",
+    "TTT"
 ]
-sbs2sub = {
+
+sbs96_to_sbs48 = {
+    "A[C>A]A": "A[C>A]A",
+    "A[C>A]C": "A[C>A]C",
+    "A[C>A]G": "A[C>A]G",
+    "A[C>A]T": "A[C>A]T",
+    "C[C>A]A": "C[C>A]A",
+    "C[C>A]C": "C[C>A]C",
+    "C[C>A]G": "C[C>A]G",
+    "C[C>A]T": "C[C>A]T",
+    "G[C>A]A": "G[C>A]A",
+    "G[C>A]C": "G[C>A]C",
+    "G[C>A]G": "G[C>A]G",
+    "G[C>A]T": "G[C>A]T",
+    "T[C>A]A": "T[C>A]A",
+    "T[C>A]C": "T[C>A]C",
+    "T[C>A]G": "T[C>A]G",
+    "T[C>A]T": "T[C>A]T",
+    "A[C>G]A": "A[C>G]A",
+    "A[C>G]C": "A[C>G]C",
+    "A[C>G]G": "A[C>G]G",
+    "A[C>G]T": "A[C>G]T",
+    "C[C>G]A": "C[C>G]A",
+    "C[C>G]C": "C[C>G]C",
+    "C[C>G]G": "C[C>G]G",
+    "C[C>G]T": "C[C>G]T",
+    "G[C>G]A": "G[C>G]A",
+    "G[C>G]C": "G[C>G]C",
+    "G[C>G]G": "G[C>G]G",
+    "G[C>G]T": "G[C>G]T",
+    "T[C>G]A": "T[C>G]A",
+    "T[C>G]C": "T[C>G]C",
+    "T[C>G]G": "T[C>G]G",
+    "T[C>G]T": "T[C>G]T",
+    "A[C>T]A": "A[C>T]A",
+    "A[C>T]C": "A[C>T]C",
+    "A[C>T]G": "A[C>T]G",
+    "A[C>T]T": "A[C>T]T",
+    "C[C>T]A": "C[C>T]A",
+    "C[C>T]C": "C[C>T]C",
+    "C[C>T]G": "C[C>T]G",
+    "C[C>T]T": "C[C>T]T",
+    "G[C>T]A": "G[C>T]A",
+    "G[C>T]C": "G[C>T]C",
+    "G[C>T]G": "G[C>T]G",
+    "G[C>T]T": "G[C>T]T",
+    "T[C>T]A": "T[C>T]A",
+    "T[C>T]C": "T[C>T]C",
+    "T[C>T]G": "T[C>T]G",
+    "T[C>T]T": "T[C>T]T",
+    "A[T>A]A": "A[C>G]A",
+    "A[T>A]C": "A[C>G]C",
+    "A[T>A]G": "A[C>G]G",
+    "A[T>A]T": "A[C>G]T",
+    "C[T>A]A": "C[C>G]A",
+    "C[T>A]C": "C[C>G]C",
+    "C[T>A]G": "C[C>G]G",
+    "C[T>A]T": "C[C>G]T",
+    "G[T>A]A": "G[C>G]A",
+    "G[T>A]C": "G[C>G]C",
+    "G[T>A]G": "G[C>G]G",
+    "G[T>A]T": "G[C>G]T",
+    "T[T>A]A": "T[C>G]A",
+    "T[T>A]C": "T[C>G]C",
+    "T[T>A]G": "T[C>G]G",
+    "T[T>A]T": "T[C>G]T",
+    "A[T>C]A": "A[C>T]A",
+    "A[T>C]C": "A[C>T]C",
+    "A[T>C]G": "A[C>T]G",
+    "A[T>C]T": "A[C>T]T",
+    "C[T>C]A": "C[C>T]A",
+    "C[T>C]C": "C[C>T]C",
+    "C[T>C]G": "C[C>T]G",
+    "C[T>C]T": "C[C>T]T",
+    "G[T>C]A": "G[C>T]A",
+    "G[T>C]C": "G[C>T]C",
+    "G[T>C]G": "G[C>T]G",
+    "G[T>C]T": "G[C>T]T",
+    "T[T>C]A": "T[C>T]A",
+    "T[T>C]C": "T[C>T]C",
+    "T[T>C]G": "T[C>T]G",
+    "T[T>C]T": "T[C>T]T",
+    "A[T>G]A": "A[C>A]A",
+    "A[T>G]C": "A[C>A]C",
+    "A[T>G]G": "A[C>A]G",
+    "A[T>G]T": "A[C>A]T",
+    "C[T>G]A": "C[C>A]A",
+    "C[T>G]C": "C[C>A]C",
+    "C[T>G]G": "C[C>A]G",
+    "C[T>G]T": "C[C>A]T",
+    "G[T>G]A": "G[C>A]A",
+    "G[T>G]C": "G[C>A]C",
+    "G[T>G]G": "G[C>A]G",
+    "G[T>G]T": "G[C>A]T",
+    "T[T>G]A": "T[C>A]A",
+    "T[T>G]C": "T[C>A]C",
+    "T[T>G]G": "T[C>A]G",
+    "T[T>G]T": "T[C>A]T"
+}
+
+sbs96_to_sub = {
     "A[C>A]A": "C>A",
     "A[C>A]T": "C>A",
     "A[C>A]G": "C>A",
@@ -243,7 +400,8 @@ sbs2sub = {
     "C[T>G]G": "T>G",
     "C[T>G]C": "T>G",
 }
-sbs2tri = {
+
+sbs96_to_tri = {
     "A[C>A]A": "ACA",
     "A[C>A]T": "ACT",
     "A[C>A]G": "ACG",
@@ -342,7 +500,6 @@ sbs2tri = {
     "C[T>G]C": "CTC",
 }
 
-
 def get_sbs96(
     chrom: str,
     pos: str,
@@ -421,12 +578,12 @@ def dump_sbs96_counts(
 ) -> None:
 
     chrom_lst, _ = himut.util.load_loci(region, region_list, tname2tsize)
-    sbs2counts = load_sbs96_counts(vcf_file, ref_file, chrom_lst)
+    sbs96_counts = load_sbs96_counts(vcf_file, ref_file, chrom_lst)
     o = open(out_file, "w")
     o.write("{}\t{}\t{}\t{}\n".format("sub", "tri", "sbs96", "counts"))
-    for sbs in sbs_lst:
+    for sbs96 in sbs96_lst:
         o.write(
-            "{}\t{}\t{}\t{}\n".format(sbs2sub[sbs], sbs2tri[sbs], sbs, sbs2counts[sbs])
+            "{}\t{}\t{}\t{}\n".format(sbs96_to_sub[sbs96], sbs96_to_tri[sbs96], sbs96, sbs96_counts[sbs96])
         )
     o.close()
 
@@ -620,7 +777,7 @@ def get_normcounts_cmdline(
 
 
 def dump_normcounts(
-    sbs2count: Dict[str, int],
+    sbs96_counts: Dict[str, int],
     ref_tri2count: Dict[str, int],
     chrom2ref_callable_tri2count: Dict[str, int],
     chrom2ccs_callable_tri2count: Dict[str, int],
@@ -652,10 +809,10 @@ def dump_normcounts(
         )
     )
 
-    for sbs in sbs_lst:
-        sub = sbs2sub[sbs]
-        tri = sbs2tri[sbs]
-        count = sbs2count[sbs]
+    for sbs96 in sbs96_lst:
+        sub = sbs96_to_sub[sbs96]
+        tri = sbs96_to_tri[sbs96]
+        count = sbs96_counts[sbs96]
         ref_tri_count = ref_tri2count[tri]
         ref_trifreq_ratio = ref_tri2freq_ratio[tri]
         ref_callable_tricount = ref_callable_tri2count[tri]
@@ -666,7 +823,7 @@ def dump_normcounts(
             "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(
                 sub,
                 tri,
-                sbs,
+                sbs96,
                 count,
                 normcount,
                 ref_trifreq_ratio,

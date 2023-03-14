@@ -393,9 +393,9 @@ def get_callable_tricounts(
                 ref_tri2count[tri] += 1
                 ccs_tri2count[tri] += tri_sum
                 m.num_callable_bases += tri_sum
-                
-    chrom2ccs_callable_tri2count[chrom] = dict(ccs_tri2count) # return
-    chrom2ref_callable_tri2count[chrom] = dict(ref_tri2count) # return
+
+    chrom2ccs_callable_tri2count[chrom] = dict(ccs_tri2count) 
+    chrom2ref_callable_tri2count[chrom] = dict(ref_tri2count) 
     chrom2norm_log[chrom] = [
         m.num_ccs,
         m.num_bases,
