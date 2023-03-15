@@ -1,9 +1,7 @@
 
 import sys
-import natsort
 import argparse
 from collections import defaultdict
-from himut.mutlib import purine, purine2pyrimidine, sbs48_lst, sbs96_lst, sbs96_to_tri, sbs96_to_sub, sbs96_to_sbs48 
 
 
 def parse_args(args):
@@ -31,6 +29,7 @@ def parse_args(args):
     )
     args = args[1:]
     return parser.parse_args(args)
+
 
 def load_tri_counts(som_file):
 
@@ -75,6 +74,7 @@ def dump_sbs48_tri_equal_weights(
         tri_weight_normcounts = float(normcounts)/tri_weight_normaliser
         o.write("{}\t{}\t{}\t.\t{}\t.\t.\t{}\t.\t.\n".format(sub, tri, sbs48, tri_weight_normcounts, ref_tri_count))
     o.close()
+
 
 def main():
     options = parse_args(sys.argv)
