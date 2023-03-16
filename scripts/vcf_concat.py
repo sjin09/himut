@@ -63,7 +63,7 @@ def vcf_concat(fofn: str, out_file: str) -> None:
     for mut in mut_lst:
         chrom, pos, ref, alt = mut
         sample_mut_lst = [sample2mut2format[sample].get(mut, ".:.:.:.:.:.") for sample in sample_lst]
-        o.write("{}\t{}\t.\t{}\t{}\t.\tPASS\t.\tGT:BQ:DP:AD:VAF:PS\t{}\n".format(chrom, pos, ref, alt, "\t".join(sample_mut_lst)))
+        o.write("{}\t{}\t.\t{}\t{}\t.\tPASS\t.\tGT:GQ:BQ:DP:AD:VAF\t{}\n".format(chrom, pos, ref, alt, "\t".join(sample_mut_lst)))
     o.close()
 
 
