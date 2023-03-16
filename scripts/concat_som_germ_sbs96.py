@@ -72,7 +72,7 @@ def load_germline_sbs96_counts(tsv_file: str):
     return sbs96_counts
 
 
-def dump_sbs48_counts(som_file, som_error_file, som_error_tri_file, germ_file, outfile):
+def dump_sbs96_counts(som_file, som_error_file, som_error_tri_file, germ_file, outfile):
 
     o = open(outfile, "w")
     o.write("sub\ttri\tsbs48\tcounts\tsource\n")
@@ -102,7 +102,7 @@ def dump_sbs48_counts(som_file, som_error_file, som_error_tri_file, germ_file, o
         
 def main():
     options = parse_args(sys.argv)
-    dump_sbs48_counts(options.somatic, options.somatic_error_normalised, options.somatic_error_normalised_tri_equal_weight,  options.germline, options.output)
+    dump_sbs96_counts(options.somatic, options.somatic_error_normalised, options.somatic_error_normalised_tri_equal_weight,  options.germline, options.output)
     sys.exit(0)
 
 if __name__ == "__main__":
