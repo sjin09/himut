@@ -75,27 +75,30 @@ def load_germline_sbs96_counts(tsv_file: str):
 def dump_sbs96_counts(som_file, som_error_file, som_error_tri_file, germ_file, outfile):
 
     o = open(outfile, "w")
-    o.write("sub\ttri\tsbs48\tcounts\tsource\n")
+    o.write("sub\ttri\tsbs96\tcounts\tsource\n")
     som_sbs96_counts = load_sbs96_counts(som_file)
     som_error_sbs96_counts = load_sbs96_counts(som_error_file)
     som_error_tri_sbs96_counts = load_sbs96_counts(som_error_tri_file)
+    som_error_tri_sbs96_sum = sum(som_error_tri_sbs96_counts.values())
     germ_sbs96_counts = load_germline_sbs96_counts(germ_file)
     for sbs96 in sbs96_lst:
         tri = sbs96_to_tri[sbs96]
         sub = sbs96_to_sub[sbs96]
-        o.write("{}\t{}\t{}\t{:.0f}\tGermline\n".format(sub, tri, sbs96, germ_sbs96_counts[sbs96], "Germline")) 
+        o.write("{}\t{}\t{}\t{:.0f}\tGermline\n".format(sub, tri, sbs96, germ_sbs96_counts[sbs96])) 
     for sbs96 in sbs96_lst:
         tri = sbs96_to_tri[sbs96]
         sub = sbs96_to_sub[sbs96]
-        o.write("{}\t{}\t{}\t{}\tSomatic:0\n".format(sub, tri, sbs96, som_sbs96_counts[sbs96], "Somatic:0")) 
+        o.write("{}\t{}\t{}\t{}\tSomatic:0\n".format(sub, tri, sbs96, som_sbs96_counts[sbs96])) 
     for sbs96 in sbs96_lst:
         tri = sbs96_to_tri[sbs96]
         sub = sbs96_to_sub[sbs96]
-        o.write("{}\t{}\t{}\t{}\tSomatic:1\n".format(sub, tri, sbs96, som_error_sbs96_counts[sbs96], "Somatic:1")) 
+        o.write("{}\t{}\t{}\t{}\tSomatic:1\n".format(sub, tri, sbs96, som_error_sbs96_counts[sbs96])) 
     for sbs96 in sbs96_lst:
         tri = sbs96_to_tri[sbs96]
         sub = sbs96_to_sub[sbs96]
-        o.write("{}\t{}\t{}\t{}\tSomatic:2\n".format(sub, tri, sbs96, som_error_tri_sbs96_counts[sbs96], "Somatic:2")) 
+        sbs96_count = som_error_tri_sbs96_counts[sbs96] 
+        sbs96_proportion = (sbs96_count/float(som_error_tri_sbs96_sum)) * 100
+        o.write("{}\t{}\t{}\t{:.2f}\tSomatic:2\n".format(sub, tri, sbs96, sbs96_proportion)) 
 
     o.close()
 

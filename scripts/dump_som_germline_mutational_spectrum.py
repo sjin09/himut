@@ -42,7 +42,7 @@ def dump_sbs48_plt(infile: str, sample: str, outfile: str) -> None:
       theme_bw() +
       facet_grid("source ~ sub", scales = "free") +
       scale_fill_manual(values = ("#98D7EC","#212121","#FF003A","#A6A6A6","#83A603","#F5ABCC")) +
-      labs(x = "\nTrinucleotide sequence context\n", y = "\nCounts\n") +
+      labs(x = "\nTrinucleotide sequence context\n", y = "\nCounts / Proportion (%)\n") +
       ggtitle("\n{}\n".format(sample)) +
       theme(
           text = element_text(size=10),
