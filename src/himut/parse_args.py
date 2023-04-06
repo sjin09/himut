@@ -225,6 +225,44 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         required=True,
         help="VCF file to write the somatic substitutions",
     )
+    # subcommands: sbs52
+    parser_sbs52 = subparsers.add_parser(
+        "sbs52",
+        formatter_class=make_wide(argparse.ArgumentDefaultsHelpFormatter, w=180, h=60),
+        help="returns SBS52 counts and barplot",
+    )
+    parser_sbs52.add_argument(
+        "-i",
+        "--input",
+        type=str,
+        required=True,
+        help="himut VCF file to read somatic single base substitutions",
+    )
+    parser_sbs52.add_argument(
+        "--ref", 
+        type=str, 
+        required=True, 
+        help="reference FASTA file"
+    )
+    parser_sbs52.add_argument(
+        "--region",
+        type=str,
+        required=False,
+        help="target chromosome",
+    )
+    parser_sbs52.add_argument(
+        "--region_list",
+        type=str,
+        required=False,
+        help="list of target chromosomes separated by new line",
+    )
+    parser_sbs52.add_argument(
+        "-o",
+        "--output",
+        type=str,
+        required=True,
+        help="file to return sbs52 counts (.tsv suffix)",
+    )
     # subcommands: sbs96
     parser_sbs96 = subparsers.add_parser(
         "sbs96",
@@ -239,7 +277,10 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         help="himut VCF file to read somatic single base substitutions",
     )
     parser_sbs96.add_argument(
-        "--ref", type=str, required=True, help="reference FASTA file"
+        "--ref", 
+        type=str, 
+        required=True, 
+        help="reference FASTA file"
     )
     parser_sbs96.add_argument(
         "--region",
@@ -259,6 +300,44 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         type=str,
         required=True,
         help="file to return SBS96 counts (.tsv suffix)",
+    )
+    # subcommands: sbs1536
+    parser_sbs1536 = subparsers.add_parser(
+        "sbs1536",
+        formatter_class=make_wide(argparse.ArgumentDefaultsHelpFormatter, w=180, h=60),
+        help="returns SBS1536 counts and barplot",
+    )
+    parser_sbs1536.add_argument(
+        "-i",
+        "--input",
+        type=str,
+        required=True,
+        help="himut VCF file to read somatic single base substitutions",
+    )
+    parser_sbs1536.add_argument(
+        "--ref", 
+        type=str, 
+        required=True, 
+        help="reference FASTA file"
+    )
+    parser_sbs1536.add_argument(
+        "--region",
+        type=str,
+        required=False,
+        help="target chromosome",
+    )
+    parser_sbs1536.add_argument(
+        "--region_list",
+        type=str,
+        required=False,
+        help="list of target chromosomes separated by new line",
+    )
+    parser_sbs1536.add_argument(
+        "-o",
+        "--output",
+        type=str,
+        required=True,
+        help="file to return SBS1536 counts (.tsv suffix)",
     )
     # subcommands: phase
     parser_phase = subparsers.add_parser(

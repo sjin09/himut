@@ -62,6 +62,29 @@ def main():
             __version__,
             options.output,
         )
+    elif options.sub == "sbs52":  # returns sbs52 counts
+        sample, tname2tsize = himut.vcflib.get_sample(options.input)
+        himut.util.check_mutpatterns_input_exists(
+            options.input,
+            options.ref,
+            options.region,
+            options.region_list,
+            tname2tsize,
+            options.output,
+        )
+        himut.mutlib.dump_sbs52_counts(
+            options.input,
+            options.ref,
+            options.region,
+            options.region_list,
+            tname2tsize, 
+            options.output,
+        )
+        if options.output.endswith(".tsv"):
+            pdf_file = options.output.replace(".tsv", ".pdf")
+        else:
+            pdf_file = "{}.pdf".format(options.output) 
+        himut.mutlib.dump_sbs96_plt(options.output, sample, pdf_file)
     elif options.sub == "sbs96":  # returns sbs96 counts
         sample, tname2tsize = himut.vcflib.get_sample(options.input)
         himut.util.check_mutpatterns_input_exists(
@@ -85,6 +108,29 @@ def main():
         else:
             pdf_file = "{}.pdf".format(options.output) 
         himut.mutlib.dump_sbs96_plt(options.output, sample, pdf_file)
+    # elif options.sub == "sbs1536":  # returns sbs96 counts
+    #     sample, tname2tsize = himut.vcflib.get_sample(options.input)
+    #     himut.util.check_mutpatterns_input_exists(
+    #         options.input,
+    #         options.ref,
+    #         options.region,
+    #         options.region_list,
+    #         tname2tsize,
+    #         options.output,
+    #     )
+    #     himut.mutlib.dump_sbs96_counts(
+    #         options.input,
+    #         options.ref,
+    #         options.region,
+    #         options.region_list,
+    #         tname2tsize, 
+    #         options.output,
+    #     )
+    #     if options.output.endswith(".tsv"):
+    #         pdf_file = options.output.replace(".tsv", ".pdf")
+    #     else:
+    #         pdf_file = "{}.pdf".format(options.output) 
+    #     himut.mutlib.dump_sbs1536_plt(options.output, sample, pdf_file)
     elif options.sub == "burden":  # returns normalised sbs96 counts
         himut.mutlib.get_burden_per_cell(
             options.input,

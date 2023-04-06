@@ -484,7 +484,6 @@ def get_normcounts(
             chrom_lst, ref_file, vcf_file, reference_sample
         )
 
-
     qlen_lower_limit, qlen_upper_limit, md_threshold = himut.vcflib.get_thresholds(sbs_file)       
 
     p = mp.Pool(threads)
