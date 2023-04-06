@@ -36,6 +36,8 @@ def load_tri_counts(trifile):
 
     tri2counts = defaultdict(lambda: 0)
     for line in open(trifile).readlines():
+        if line.startswith("tri"):
+            continue
         tri, count = line.split()
         tri2counts[tri] = int(count)
     tri_sum = sum(tri2counts.values())

@@ -64,7 +64,6 @@ def dump_sbs52_counts(infile, trifile, outfile):
     o.close()
 
     p = open(trifile, "w")
-    p.write("{}\t{}\n".format("tri", "count")) 
     sbs52_tri_lst = natsort.natsorted(list(sbs52_tri_counts.keys()))
     for tri in sbs52_tri_lst:
         p.write("{}\t{}\n".format(tri, sbs52_tri_counts[tri]))
