@@ -38,7 +38,7 @@ def cat_fastq(
     fq_lst = natsort.natsorted([line.strip() for line in open(fofn_file)])
     for fq in fq_lst:
         for seq in pyfastx.Fastq(fq):
-            o.wrseqte("@{}\n{}\n+\n{}\n".format(seq.name, seq.seq, seq.qual))
+            o.write("@{}\n{}\n+\n{}\n".format(seq.name, seq.seq, seq.qual))
     o.close()
 
 
