@@ -182,6 +182,7 @@ def bam2seq(
                             os.mkdir("zmw/{}".format(j_counter))
                 elif j_state == 3: ## return and init
                     ## return 
+                    fofn.write("{}\n".format(zmw))
                     ccs = ccs_seq[tname2ccs_idx[current_tname]]
                     o = gzip.open("zmw/{}/{}.fasta.gz".format(j_counter, current_zmw), "wb")
                     o.write(">{}\n{}\n".format(ccs.name, ccs.seq).encode('utf-8')) ## return CCS read
@@ -195,7 +196,6 @@ def bam2seq(
                                 ## qsubreads_to_ccs_rc = "".join([complement[qbase] for qbase in qseq[::-1]])
                                 o.write(">{}/{}\n{}\n".format(j_aln.qname, j_aln.flag, qseq_rc).encode('utf-8'))
                     o.close()
-                    fofn.write("{}\n".format(zmw))
                     
                     ## init
                     i_counter += 1
