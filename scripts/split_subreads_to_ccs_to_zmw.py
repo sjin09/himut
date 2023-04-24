@@ -180,12 +180,13 @@ def bam2seq(
                         if not os.path.exists("zmw/{}".format(j_counter)):
                             os.mkdir("zmw/{}".format(j_counter))
                 elif j_state == 3: ## return and init
-                    ## return
-                    i_counter += 1
+                    i_counter += 1 ## init
                     full_length_subread_count = 0
-                    fofn.write("{}\n".format(zmw))
                     ccs = ccs_seq[tname2ccs_idx[current_tname]]
-                    o = gzip.open("zmw/{}/{}.fasta.gz".format(j_counter, current_zmw), "wb")
+                    fafile = "zmw/{}/{}.fasta.gz".format(j_counter, current_zmw)
+                    fqfile = "zmw/{}/{}.fastq".format(j_counter, current_zmw)
+                    fofn.write("{}\t{}\t{}\n".format(current_zmw, fafile, fqfile))
+                    o = gzip.open(fafile, "wb") ## return
                     o.write(">{}\n{}\n".format(ccs.name, ccs.seq).encode('utf-8')) ## return CCS read
                     for line in aln_lst[1:-1]: ## second to penultimate subreads ## return subreads
                         j_aln = BAM(line)
