@@ -130,7 +130,6 @@ def bam2seq(
             if not i_aln.is_primary:
                 continue
             i_state = 1
-            i_counter += 1
             zmw = i_aln.zmw
             aln_lst = [line]
             current_zmw = zmw
@@ -181,7 +180,9 @@ def bam2seq(
                         if not os.path.exists("zmw/{}".format(j_counter)):
                             os.mkdir("zmw/{}".format(j_counter))
                 elif j_state == 3: ## return and init
-                    ## return 
+                    ## return
+                    i_counter += 1
+                    full_length_subread_count = 0
                     fofn.write("{}\n".format(zmw))
                     ccs = ccs_seq[tname2ccs_idx[current_tname]]
                     o = gzip.open("zmw/{}/{}.fasta.gz".format(j_counter, current_zmw), "wb")
@@ -193,12 +194,13 @@ def bam2seq(
                                 o.write(">{}/{}\n{}\n".format(j_aln.qname, j_aln.flag, j_aln.qseq).encode('utf-8'))
                             elif j_aln.flag == 16:
                                 qseq_rc = get_reverse_complement(j_aln.qseq)
-                                ## qsubreads_to_ccs_rc = "".join([complement[qbase] for qbase in qseq[::-1]])
                                 o.write(">{}/{}\n{}\n".format(j_aln.qname, j_aln.flag, qseq_rc).encode('utf-8'))
+                            full_length_subread_count += 1
+                            if full_length_subread_count == min_subread_count:
+                                break
                     o.close()
                     
                     ## init
-                    i_counter += 1
                     aln_lst = [line]
                     current_zmw = i_aln.zmw
                     current_tname = i_aln.tname
