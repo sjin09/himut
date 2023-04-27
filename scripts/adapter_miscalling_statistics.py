@@ -36,20 +36,16 @@ def parse_args(args):
     return parser.parse_args(args)
 
 
-def is_misadapter_detection(qlen_lst):
-
-    full_length_qlen_lst = qlen_lst[1:-1]
-    subread_median_len = np.median(full_length_qlen_lst)
-    upper_len_limit = 2 * subread_median_len
-    lower_len_limit = 0.5 * subread_median_len
+def is_misadapter_detection(subread_len_lst, subread_median_len):
 
     counter = 0
-    for qlen in qlen_lst[1:-1]:
-        if qlen < lower_len_limit:
+    upper_len_limit = 2 * subread_median_len
+    lower_len_limit = 0.5 * subread_median_len
+    for subread_len in subread_len_lst[1:-1]:
+        if subread_len < lower_len_limit:
             counter += 1 
-        elif qlen > upper_len_limit:
+        elif subread_len > upper_len_limit:
             counter += 1 
-
     if counter > 0:
         return True
     else:
@@ -64,8 +60,8 @@ def dump_adapter_miscalling_statistics(
     # init
     state = 0 
     counter = 0
-    zmw_counter = 0 
-    miscall_counter = 0 
+    o = open(out_file, "w")    
+    o.write("zmw\tmedian_length\tsubread_lengths\tmiscall\n")
     alignments = pysam.AlignmentFile(bam_file, "r", check_sq=False)
     for i in alignments:
         j = BAM(i)
@@ -73,15 +69,17 @@ def dump_adapter_miscalling_statistics(
             state = 1
             zmw_counter += 1
             current_zmw = j.zmw
-            subread_lst = [j.qlen]
+            subread_len_lst = [j.qlen]
         else:
             if j.zmw != current_zmw: # return
-                if is_misadapter_detection(subread_lst):
-                    miscall_counter += 1
-                
+                full_length_len_lst = subread_len_lst[1:-1]
+                subread_median_len = np.median(full_length_len_lst)
+                if is_misadapter_detection(subread_len_lst, subread_median_len):
+                    o.write("{}\t{}\t{}\t{}\n".format(current_zmw, subread_median_len, ",".join(full_length_len_lst), "TRUE"))
+                else: 
+                    o.write("{}\t{}\t{}\t{}\n".format(current_zmw, subread_median_len, ",".join(full_length_len_lst), "FALSE"))
                 # init
                 state = 1
-                zmw_counter += 1
                 current_zmw = j.zmw
                 subread_lst = [j.qlen]
                 counter += 1
@@ -89,12 +87,8 @@ def dump_adapter_miscalling_statistics(
                     break
             else: # init
                 subread_lst.append(j.qlen)
-
-    o = open(out_file, "w")    
-    o.write("input\tzmw_count\tadapater_miscall_count\n")
-    o.write("{}\t{}\t{}\n".format(bam_file, zmw_counter, miscall_counter))
     o.close()
-
+    
 def main():
     options = parse_args(sys.argv)
     dump_adapter_miscalling_statistics(
