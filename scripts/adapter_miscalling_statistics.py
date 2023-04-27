@@ -59,7 +59,6 @@ def dump_adapter_miscalling_statistics(
   
     # init
     state = 0 
-    counter = 0
     o = open(out_file, "w")    
     o.write("zmw\tmedian_length\tsubread_lengths\tmiscall\n")
     alignments = pysam.AlignmentFile(bam_file, "r", check_sq=False)
@@ -87,9 +86,6 @@ def dump_adapter_miscalling_statistics(
                 state = 1
                 current_zmw = j.zmw
                 subread_len_lst = [j.qlen]
-                counter += 1
-                if counter > 99:
-                    break
             else: # init
                 subread_len_lst.append(j.qlen)
     o.close()
