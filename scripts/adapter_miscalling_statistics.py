@@ -9,7 +9,7 @@ import statistics
 class BAM:
     def __init__(self, line):
         # query
-        self.qname = line.query_name.split
+        self.qname = line.query_name
         self.zmw = self.qname.split("/")[1]
         self.qseq = line.query_sequence
         self.qlen = len(self.qseq)
@@ -90,6 +90,10 @@ def dump_adapter_miscalling_statistics(
             else: # init
                 subread_lst.append(j.qlen)
 
+    o = open(out_file, "w")    
+    o.write("input\tzmw_count\tadapater_miscall_count\n")
+    o.write("{}\t{}\t{}\n".format(bam_file, zmw_counter, miscall_counter))
+    o.close()
 
 def main():
     options = parse_args(sys.argv)
