@@ -85,7 +85,7 @@ def dump_adapter_miscalling_statistics(
                 if counter > 99:
                     break
             else: # init
-                subread_lst.append(j.qlen)
+                subread_len_lst.append(j.qlen)
     o.close()
     
 def main():
