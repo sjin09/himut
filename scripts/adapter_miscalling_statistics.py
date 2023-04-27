@@ -72,7 +72,7 @@ def dump_adapter_miscalling_statistics(
         else:
             if j.zmw != current_zmw: # return
                 subread_count = len(subread_len_lst)
-                if subread_count > 3:
+                if subread_count >= 3:
                     full_length_len_lst = subread_len_lst[1:-1]
                     subread_median_len = np.median(full_length_len_lst)
                     full_length_len_lst = [str(l) for l in full_length_len_lst]
