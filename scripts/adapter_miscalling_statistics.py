@@ -71,13 +71,17 @@ def dump_adapter_miscalling_statistics(
             subread_len_lst = [j.qlen]
         else:
             if j.zmw != current_zmw: # return
-                full_length_len_lst = subread_len_lst[1:-1]
-                subread_median_len = np.median(full_length_len_lst)
-                full_length_len_lst = [str(l) for l in full_length_len_lst]
-                if is_misadapter_detection(subread_len_lst, subread_median_len):
-                    o.write("{}\t{}\t{}\t{}\n".format(current_zmw, str(subread_median_len), ",".join(full_length_len_lst), "TRUE"))
+                subread_count = len(subread_len_lst)
+                if subread_count > 3:
+                    full_length_len_lst = subread_len_lst[1:-1]
+                    subread_median_len = np.median(full_length_len_lst)
+                    full_length_len_lst = [str(l) for l in full_length_len_lst]
+                    if is_misadapter_detection(subread_len_lst, subread_median_len):
+                        o.write("{}\t{}\t{}\t{}\n".format(current_zmw, str(subread_median_len), ",".join(full_length_len_lst), "TRUE"))
+                    else: 
+                        o.write("{}\t{}\t{}\t{}\n".format(current_zmw, str(subread_median_len), ",".join(full_length_len_lst), "FALSE"))
                 else: 
-                    o.write("{}\t{}\t{}\t{}\n".format(current_zmw, str(subread_median_len), ",".join(full_length_len_lst), "FALSE"))
+                        o.write("{}\t{}\t{}\t{}\n".format(current_zmw, ".", ",".join(full_length_len_lst), "."))
                 # init
                 state = 1
                 current_zmw = j.zmw
