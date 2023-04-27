@@ -73,10 +73,11 @@ def dump_adapter_miscalling_statistics(
             if j.zmw != current_zmw: # return
                 full_length_len_lst = subread_len_lst[1:-1]
                 subread_median_len = np.median(full_length_len_lst)
+                full_length_len_lst = [str(l) for l in full_length_len_lst]
                 if is_misadapter_detection(subread_len_lst, subread_median_len):
-                    o.write("{}\t{}\t{}\t{}\n".format(current_zmw, subread_median_len, ",".join(full_length_len_lst), "TRUE"))
+                    o.write("{}\t{}\t{}\t{}\n".format(current_zmw, str(subread_median_len), ",".join(full_length_len_lst), "TRUE"))
                 else: 
-                    o.write("{}\t{}\t{}\t{}\n".format(current_zmw, subread_median_len, ",".join(full_length_len_lst), "FALSE"))
+                    o.write("{}\t{}\t{}\t{}\n".format(current_zmw, str(subread_median_len), ",".join(full_length_len_lst), "FALSE"))
                 # init
                 state = 1
                 current_zmw = j.zmw
