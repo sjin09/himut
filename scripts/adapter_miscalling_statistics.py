@@ -81,7 +81,7 @@ def dump_adapter_miscalling_statistics(
                     else: 
                         o.write("{}\t{}\t{}\t{}\n".format(current_zmw, str(subread_median_len), ",".join(full_length_len_lst), "FALSE"))
                 else: 
-                        o.write("{}\t{}\t{}\t{}\n".format(current_zmw, ".", ",".join(full_length_len_lst), "."))
+                        o.write("{}\t{}\t{}\t{}\n".format(current_zmw, ".", ",".join(subread_len_lst), "."))
                 # init
                 state = 1
                 current_zmw = j.zmw
