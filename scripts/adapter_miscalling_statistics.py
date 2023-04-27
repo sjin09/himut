@@ -81,7 +81,7 @@ def dump_adapter_miscalling_statistics(
                 # init
                 state = 1
                 current_zmw = j.zmw
-                subread_lst = [j.qlen]
+                subread_len_lst = [j.qlen]
                 counter += 1
                 if counter > 99:
                     break
