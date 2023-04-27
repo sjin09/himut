@@ -37,7 +37,9 @@ def dump_bq_distribution(
 ): 
 
     fqfile = pyfastx.Fastq(seq_file)
-    bq2count = {bq: 0 for bq in range(94)}
+    bq2count = defaultdict(lambda: 0)
+    for bq in range(94):
+        bq2count[bq] = 0
     for ccs in fqfile:
         for ascii_bq in ccs.qual:
             bq = ord(ascii_bq)-33
