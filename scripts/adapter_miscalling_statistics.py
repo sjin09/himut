@@ -3,8 +3,7 @@
 import sys
 import pysam
 import argparse
-import statistics
-
+import numpy as np
 
 class BAM:
     def __init__(self, line):
@@ -39,12 +38,13 @@ def parse_args(args):
 
 def is_misadapter_detection(qlen_lst):
 
-    median_len = statistics.median(qlen_lst)
-    upper_len_limit = 2 * median_len
-    lower_len_limit = 0.5 * median_len
+    full_length_qlen_lst = qlen_lst[1:-1]
+    subread_median_len = np.median(full_length_qlen_lst)
+    upper_len_limit = 2 * subread_median_len
+    lower_len_limit = 0.5 * subread_median_len
 
     counter = 0
-    for qlen in qlen_lst:
+    for qlen in qlen_lst[1:-1]:
         if qlen < lower_len_limit:
             counter += 1 
         elif qlen > upper_len_limit:
