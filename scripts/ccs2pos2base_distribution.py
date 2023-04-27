@@ -25,7 +25,7 @@ def parse_args(args):
         "--seq",
         type=str,
         required=True,
-        help="FASTQ file to read",
+        help="FASTA file to read",
     )
     parser.add_argument(
         "-o",
@@ -43,9 +43,10 @@ def dump_pos_base_distribution(
     out_file: str
 ): 
 
-    fq = pyfastx.Fastq(seq_file)
+    base_lst = list("ATGC")
+    fafile = pyfastx.Fasta(seq_file)
     rpos2base2count = {(i/100): defaultdict(lambda: 0) for i in range(101)}
-    for ccs in fq:
+    for ccs in fafile:
         qlen = len(ccs.seq)
         for i, base in enumerate(ccs.seq):
             pos = i
@@ -54,7 +55,7 @@ def dump_pos_base_distribution(
 
     o = open(out_file, "w")
     o.write("{}\t{}\t{}\t{}\n".format("qpos", "base", "count", "fraction"))
-    for rpos, base_lst in rpos2base2count.items():
+    for rpos in rpos2base2count:
         base_sum = 0
         for base in base_lst:
             count = rpos2base2count[rpos][base]    
