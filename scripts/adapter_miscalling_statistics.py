@@ -44,7 +44,7 @@ def is_misadapter_detection(qlen_lst):
     lower_len_limit = 0.5 * median_len
 
     counter = 0
-    for qlen in enumerate(qlen_lst):
+    for qlen in qlen_lst:
         if qlen < lower_len_limit:
             counter += 1 
         elif qlen > upper_len_limit:
