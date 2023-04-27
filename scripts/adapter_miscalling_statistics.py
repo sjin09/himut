@@ -67,7 +67,6 @@ def dump_adapter_miscalling_statistics(
         j = BAM(i)
         if state == 0: # init
             state = 1
-            zmw_counter += 1
             current_zmw = j.zmw
             subread_len_lst = [j.qlen]
         else:
