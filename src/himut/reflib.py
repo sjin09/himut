@@ -15,6 +15,9 @@ def get_chrom_tricount(
 ) -> Dict[str, Dict[str, int]]:
 
     tri2count = defaultdict(lambda: 0)
+    for tri in himut.mutlib.tri_lst: 
+        tri2count[tri] = 0
+        
     for i in range(len(seq)-2):
         base = seq[i]
         if base == "N":
