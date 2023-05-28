@@ -2,11 +2,13 @@
 
 import sys
 import gzip
+import math
+import scipy
 import pyfastx
 import argparse
 import pyabpoa as poa
 from collections import defaultdict
-
+prior_p = 0.1
 
 def parse_args(args):
     parser = argparse.ArgumentParser(
@@ -46,18 +48,21 @@ def msa2ccs_bq(msa_lst):
     for subread in msa_lst[1:]: # subreads
         for i, subread_base in enumerate(subread):
             idx2base2count[i][subread_base] += 1
-   
+  
     ccs_bq_lst = []
     subread_count = len(msa_lst[1:])
-    for i, j in enumerate(ccs_msa):
-        if j == "-":
+    for i, ccs_base in enumerate(ccs_msa):
+        if ccs_base == "-":
             ccs_bq_lst.append("-")
             continue
-        subread_base_count = idx2base2count[i][j] 
+        subread_base_count = idx2base2count[i][ccs_base] 
+        prior_likelihood  = prior_p ** subread_base_count
         if subread_count == subread_base_count:
             ccs_bq_lst.append("~")
         else:
-            ccs_bq_lst.append("!")
+            bq = -10 * math.log10(prior_likelihood * scipy.special.binom(subread_count, subread_base_count))
+            bq = math.floor(bq) 
+            ccs_bq_lst.append(chr(bq+33))
     ccs_bq = "".join(ccs_bq_lst).replace("-", "")
     return ccs_bq
 
