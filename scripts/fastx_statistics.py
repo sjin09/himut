@@ -40,10 +40,10 @@ def dump_fastx_statistics(
             qlen = len(seq)
             qlen_lst.append(qlen) 
     elif infile.endswith((".fastq", ".fastq.gz")):
-        for i in pyfastx.Fastx(infile):
-            qlen = len(i.seq)
+        for (name, seq, qual) in pyfastx.Fastx(infile):
+            qlen = len(seq)
             qlen_lst.append(qlen)
-            hbq_sum += i.qual.count("~")
+            hbq_sum += qual.count("~")
     seq_sum = sum(qlen_lst) 
     seq_cnt = len(qlen_lst)
     qlen_min = min(qlen_lst)
