@@ -123,6 +123,8 @@ def get_phased_vcf_header(
         region_param = "--region {}".format(region)
     elif region is not None and region_list is not None:
         region_param = "--region_list {}".format(region_list)
+    else:
+        regin_param = ""  
 
     cmdline = "##himut_command=himut phase -i {} --vcf {} {} --min_bq {} --min_mapq {} --min_p_value {} --min_phase_proportion {} --threads {} -o {}".format(
         bam_file,
@@ -628,7 +630,7 @@ def load_phased_hetsnps(
             if line.startswith("#"):
                 continue
             v = VCF(line)
-            if chrom == v.chrom and (v.sample_gt == "0|1" or v.sample_gt == "1|0"):
+            if (v.sample_gt == "0|1" or v.sample_gt == "1|0"):
                 chrom2phase_set2hpos_lst[v.chrom][v.sample_phase_set].append(v.pos)
                 chrom2phase_set2hetsnp_lst[v.chrom][v.sample_phase_set].append((v.pos, v.ref, v.alt))
                 chrom2phase_set2hbit_lst[v.chrom][v.sample_phase_set].append(v.sample_gt.split("|")[0])
