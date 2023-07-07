@@ -124,7 +124,7 @@ def get_phased_vcf_header(
     elif region is not None and region_list is not None:
         region_param = "--region_list {}".format(region_list)
     else:
-        regin_param = ""  
+        region_param = ""  
 
     cmdline = "##himut_command=himut phase -i {} --vcf {} {} --min_bq {} --min_mapq {} --min_p_value {} --min_phase_proportion {} --threads {} -o {}".format(
         bam_file,
