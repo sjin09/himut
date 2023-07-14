@@ -162,8 +162,10 @@ def is_low_bq(
     min_bq: int, 
     allele2bq_lst: Dict[str, List[int]]
 ) -> bool:
+    
     alt_bq_lst = allele2bq_lst[himut.util.base2idx[alt]]
-    if alt_bq_lst.count(min_bq) == 0:
+    alt_min_bq_count = sum([1 for alt_bq in alt_bq_lst if alt_bq >= min_bq])
+    if alt_min_bq_count == 0:
         return True
     else:
         return False
@@ -220,8 +222,8 @@ def get_somatic_substitutions(
     min_gq: int,
     min_bq: int,
     min_trim: float,
-    mismatch_window: int,
     max_mismatch_count: int,
+    mismatch_window_size: int,
     md_threshold: int,
     min_ref_count: int,
     min_alt_count: int,
@@ -312,7 +314,7 @@ def get_somatic_substitutions(
             if ccs.qname not in ccs_seen:
                 m.num_ccs += 1 
                 ccs_seen.add(ccs.qname)
-            ccs_somatic_tsbs_candidate_lst = ccs.get_tsbs_candidates(som_seen, min_trim, mismatch_window, max_mismatch_count)
+            ccs_somatic_tsbs_candidate_lst = ccs.get_tsbs_candidates(som_seen, min_trim, mismatch_window_size, max_mismatch_count)
             somatic_tsbs_candidate_lst.extend(ccs_somatic_tsbs_candidate_lst)
 
         for (tpos, ref, alt) in set(somatic_tsbs_candidate_lst): # iterate through substitutions
@@ -652,8 +654,8 @@ def call_somatic_substitutions(
     min_gq: int,
     min_bq: int,
     min_trim: float,
-    mismatch_window: int,
     max_mismatch_count: int,
+    mismatch_window_size: int,
     min_ref_count: int,
     min_alt_count: int,
     min_hap_count: int,
@@ -734,8 +736,8 @@ def call_somatic_substitutions(
         min_gq,
         min_bq,
         min_trim,
-        mismatch_window,
         max_mismatch_count,
+        mismatch_window_size,
         md_threshold,
         min_ref_count,
         min_alt_count,
@@ -780,8 +782,8 @@ def call_somatic_substitutions(
             min_gq,
             min_bq,
             min_trim,
-            mismatch_window,
             max_mismatch_count,
+            mismatch_window_size,
             md_threshold,
             min_ref_count,
             min_alt_count,
