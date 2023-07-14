@@ -7,6 +7,7 @@ import scipy
 import pyfastx
 import argparse
 import pyabpoa as poa
+from scipy.special import binom
 from collections import defaultdict
 prior_p = 0.1
 
@@ -60,7 +61,7 @@ def msa2ccs_bq(msa_lst):
         if subread_count == subread_base_count:
             ccs_bq_lst.append("~")
         else:
-            bq = -10 * math.log10(prior_likelihood * scipy.special.binom(subread_count, subread_base_count))
+            bq = -10 * math.log10(prior_likelihood * binom(subread_count, subread_base_count))
             bq = math.floor(bq) 
             ccs_bq_lst.append(chr(bq+33))
     ccs_bq = "".join(ccs_bq_lst).replace("-", "")
