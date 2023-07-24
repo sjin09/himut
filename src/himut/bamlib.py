@@ -44,10 +44,6 @@ class BAM:
     def cs2tpos2qbase(self):
         himut.cslib.cs2tpos2qbase(self)
 
-    def get_hq_base_proportion(self):
-        hq_base_proportion = self.bq_int_lst.count(93)/float(self.qlen)
-        return hq_base_proportion
-
     def get_blast_sequence_identity(self):
  
         match_count = 0

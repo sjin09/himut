@@ -237,7 +237,7 @@ def check_vcf_file(
 ):
     if vcf_file is None:
         print(
-            "Please provide the path to the VCF file for the following argument: {}".format(
+            "Please provide a to the VCF file for the following argument: {}".format(
                 param
             )
         )
@@ -423,13 +423,14 @@ def check_caller_input_exists(
     if non_human_sample:
         counter += check_ref_file(ref_file, chrom_lst)
         counter += check_vcf_file("--vcf", vcf_file, chrom_lst, tname2tsize)
-
+    # elif non_human_sample and create_panel_of_normals:
+    # elif not non_human_sample and create_panel_of_normals:
     elif not non_human_sample and not create_panel_of_normals:
-        counter += check_vcf_file("--common_snps", common_snps, chrom_lst, tname2tsize)
-        counter += check_vcf_file(
-            "--panel_of_normals", panel_of_normals, chrom_lst, tname2tsize
-        )
-
+        if check_vcf_file("--common_snps", common_snps, chrom_lst, tname2tsize):
+            print("Running himut against human sample without a VCF file with common SNPs")
+        if check_vcf_file("--panel_of_normals", panel_of_normals, chrom_lst, tname2tsize):
+            print("Running himut against human sample without a panel of normals")
+         
     if counter > 0:
         print("One or more inputs and parameters are missing")
         print("Please provide the correct inputs and parameters")

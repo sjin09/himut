@@ -152,18 +152,18 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         help="minimum proportion of bases to be trimmed from the start and end of the read",
     )
     parser_call.add_argument(
-        "--mismatch_window",
-        type=int,
-        default=20,
-        required=False,
-        help="mismatch window size",
-    )
-    parser_call.add_argument(
         "--max_mismatch_count",
         type=int,
         default=0,
         required=False,
         help="maximum number of mismatches within the mismatch window",
+    )
+    parser_call.add_argument(
+        "--mismatch_window_size",
+        type=int,
+        default=20,
+        required=False,
+        help="mismatch window size",
     )
     parser_call.add_argument(
         "--somatic_snv_prior",
@@ -429,13 +429,13 @@ def parse_args(program_version, arguments=sys.argv[1:]):
     parser_burden.add_argument(
         "--ref",
         type=str,
-        required=True,
+        required=False,
         help="reference FASTA file",
     )
     parser_burden.add_argument(
         "--tri",
         type=str,
-        required=True,
+        required=False,
         help="reference trinucleotide sequence context",
     )
     parser_burden.add_argument(
@@ -457,7 +457,7 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         "--output",
         type=str,
         required=True,
-        help="file to return normalised ation burden",
+        help="file to return mutation burden per cell",
     )
     # subcommands: tricount
     parser_tricount = subparsers.add_parser(
@@ -471,6 +471,12 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         type=str,
         required=True,
         help="reference FASTA file",
+    )
+    parser_tricount.add_argument(
+        "--tri",
+        type=str,
+        required=True,
+        help="reference trinucleotide counts",
     )
     parser_tricount.add_argument(
         "--region",
@@ -677,12 +683,12 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         action="store_true",
         help="human or non_human_sample",
     )
-    parser_normcounts.add_argument(
-        "--reference_sample",
-        required=False,
-        action="store_true",
-        help="reads from the sample has been used to create the reference genome",
-    )
+    # parser_normcounts.add_argument(
+    #     "--reference_sample",
+    #     required=False,
+    #     action="store_true",
+    #     help="reads from the sample has been used to create the reference genome",
+    # )
     parser_normcounts.add_argument(
         "-o",
         "--output",

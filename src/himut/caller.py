@@ -245,19 +245,21 @@ def get_somatic_substitutions(
     pon_sbs_set = set()
     common_snp_set = set()
     himut.gtlib.init(germline_snv_prior)
-    if (
-        not non_human_sample 
-        and not create_panel_of_normals 
-        and common_snps.endswith(".vcf")
-    ):
-        common_snp_set = himut.vcflib.load_common_snp(chrom, common_snps)
+    if common_snps is not None:
+        if (
+            not non_human_sample 
+            and not create_panel_of_normals 
+            and common_snps.endswith(".vcf")
+        ):
+            common_snp_set = himut.vcflib.load_common_snp(chrom, common_snps)
 
-    if (
-        not non_human_sample
-        and not create_panel_of_normals
-        and panel_of_normals.endswith(".vcf")
-    ):
-        pon_sbs_set = himut.vcflib.load_pon(chrom, panel_of_normals)
+    if panel_of_normals is not None:
+        if (
+            not non_human_sample
+            and not create_panel_of_normals
+            and panel_of_normals.endswith(".vcf")
+        ):
+            pon_sbs_set = himut.vcflib.load_pon(chrom, panel_of_normals)
 
     m = METRICS()
     somatic_tsbs_lst = []
@@ -265,25 +267,27 @@ def get_somatic_substitutions(
     alignments = pysam.AlignmentFile(bam_file, "rb")
     for (chrom, chunk_start, chunk_end) in chunkloci_lst: ## TODO
         if not non_human_sample and not create_panel_of_normals: 
-            if common_snps.endswith(".bgz"):
-                common_snp_set = himut.vcflib.load_bgz_common_snp(
-                    (
-                        chrom,
-                        (chunk_start - qlen_upper_limit),
-                        (chunk_end + qlen_upper_limit),
-                    ),
-                    common_snps,
-                )
-            if panel_of_normals.endswith(".bgz"):
-                pon_sbs_set = himut.vcflib.load_bgz_pon(
-                    (
-                        chrom,
-                        (chunk_start - qlen_upper_limit),
-                        (chunk_end + qlen_upper_limit),
-                    ),
-                    panel_of_normals,
-                )
-                
+            if common_snps is not None:
+                if common_snps.endswith(".bgz"):
+                    common_snp_set = himut.vcflib.load_bgz_common_snp(
+                        (
+                            chrom,
+                            (chunk_start - qlen_upper_limit),
+                            (chunk_end + qlen_upper_limit),
+                        ),
+                        common_snps,
+                    )
+            if panel_of_normals is not None:
+                if panel_of_normals.endswith(".bgz"):
+                    pon_sbs_set = himut.vcflib.load_bgz_pon(
+                        (
+                            chrom,
+                            (chunk_start - qlen_upper_limit),
+                            (chunk_end + qlen_upper_limit),
+                        ),
+                        panel_of_normals,
+                    )
+
         if phase:
             phase_set = str(chunk_start)
             hbit_lst = phase_set2hbit_lst[phase_set] 
@@ -615,7 +619,6 @@ def get_somatic_substitutions(
                         ".",
                     )
                 )
-                
     chrom2tsbs_lst[chrom] = natsort.natsorted(
         list(set(somatic_tsbs_lst + filtered_somatic_tsbs_lst))
     )

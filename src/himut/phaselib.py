@@ -270,7 +270,7 @@ def get_chrom_hblock(
     Dict[str, List[List[Tuple[int, int]]]], Dict[str, Tuple[int, int, int, int, int]]
 ]:
     cpu_start = time.time() / 60
-    print("himut is phasing hetsnps with {} threads".format(threads))
+    print("phasing hetsnps with {} threads".format(threads))
     himut.util.check_num_threads(threads)
     _, tname2tsize = himut.bamlib.get_tname2tsize(bam_file)
     chrom_lst, _ = himut.util.load_loci(region, region_list, tname2tsize)
@@ -297,9 +297,9 @@ def get_chrom_hblock(
     p.starmap(get_hblock, get_hblock_arg_lst)
     p.close()
     p.join()
-    print("himut finished phasing hetsnps")
+    print("finished phasing hetsnps")
 
-    print("himut is returning phased hetsnps")
+    print("returning phased hetsnps")
     himut.vcflib.dump_phased_hetsnps(
         bam_file,
         vcf_file,
@@ -316,8 +316,8 @@ def get_chrom_hblock(
         version,
         out_file,
     )
-    print("himut finished returning phased hetsnps")
+    print("finished returning phased hetsnps")
     cpu_end = time.time() / 60
     duration = cpu_end - cpu_start
-    print("himut haplotype phasing took {} minutes".format(duration))
+    print("haplotype phasing took {} minutes".format(duration))
     himut.util.exit()

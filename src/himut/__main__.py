@@ -31,8 +31,8 @@ def main():
             options.min_gq,  # minimum germline genotype quality score: int
             options.min_bq,  # minimum base quality score: int
             options.min_trim,  # float: 0.01 - 0.1
-            options.mismatch_window,  # mismatch window size
             options.max_mismatch_count,  # maximum number of mismatches within a window
+            options.mismatch_window_size,  # mismatch window size
             options.min_ref_count,  # number of reads supporting the reference base
             options.min_alt_count,  # number of reads supporting the alterantive base
             options.min_hap_count,  # number of reads supporting h0 and h1 haplotype
@@ -108,30 +108,30 @@ def main():
         else:
             pdf_file = "{}.pdf".format(options.output) 
         himut.mutlib.dump_sbs96_plt(options.output, sample, pdf_file)
-    # elif options.sub == "sbs1536":  # returns sbs96 counts
-    #     sample, tname2tsize = himut.vcflib.get_sample(options.input)
-    #     himut.util.check_mutpatterns_input_exists(
-    #         options.input,
-    #         options.ref,
-    #         options.region,
-    #         options.region_list,
-    #         tname2tsize,
-    #         options.output,
-    #     )
-    #     himut.mutlib.dump_sbs96_counts(
-    #         options.input,
-    #         options.ref,
-    #         options.region,
-    #         options.region_list,
-    #         tname2tsize, 
-    #         options.output,
-    #     )
-    #     if options.output.endswith(".tsv"):
-    #         pdf_file = options.output.replace(".tsv", ".pdf")
-    #     else:
-    #         pdf_file = "{}.pdf".format(options.output) 
-    #     himut.mutlib.dump_sbs1536_plt(options.output, sample, pdf_file)
-    elif options.sub == "burden":  # returns normalised sbs96 counts
+    elif options.sub == "sbs1536":  # returns sbs96 counts
+        sample, tname2tsize = himut.vcflib.get_sample(options.input)
+        himut.util.check_mutpatterns_input_exists(
+            options.input,
+            options.ref,
+            options.region,
+            options.region_list,
+            tname2tsize,
+            options.output,
+        )
+        himut.mutlib.dump_sbs1536_counts(
+            options.input,
+            options.ref,
+            options.region,
+            options.region_list,
+            tname2tsize, 
+            options.output,
+        )
+        if options.output.endswith(".tsv"):
+            pdf_file = options.output.replace(".tsv", ".pdf")
+        else:
+            pdf_file = "{}.pdf".format(options.output) 
+        # himut.mutlib.dump_sbs1536_plt(options.output, sample, pdf_file)
+    elif options.sub == "burden":  # returns mutation burden per cell
         himut.mutlib.get_burden_per_cell(
             options.input,
             options.ref,
