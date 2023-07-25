@@ -5,9 +5,9 @@
 pip install himut
 
 ## download and install the latest release
-wget https://github.com/sjin09/himut/archive/refs/tags/v1.0.1.tar.gz
-tar -zxvf v1.0.1.tar.gz
-cd himut-1.0.1
+wget https://github.com/sjin09/himut/archive/refs/tags/v1.0.2.tar.gz
+tar -zxvf v1.0.2.tar.gz
+cd himut-1.0.2
 bash install.sh
 
 ## use miniamp2 and samtools to align, sort (and merge) PacBio CCS read alignments
@@ -88,9 +88,9 @@ pip install himut
 Download and install the latest release:
 
 ```sh
-wget https://github.com/sjin09/himut/archive/refs/tags/v1.0.1.tar.gz
-tar -zxvf v1.0.1.tar.gz
-cd himut-1.0.1
+wget https://github.com/sjin09/himut/archive/refs/tags/v1.0.2.tar.gz
+tar -zxvf v1.0.2.tar.gz
+cd himut-1.0.2
 bash install.sh
 ```
 
