@@ -520,14 +520,13 @@ def check_normcounts_input_exists(
     if phase:
         counter += check_phased_vcf_file(phased_vcf_file, chrom_lst, tname2tsize)
 
-    if reference_sample:
+    if non_human_sample:
         counter += check_vcf_file("--vcf", vcf_file, chrom_lst, tname2tsize)
-
-    if not non_human_sample:
-        counter += check_vcf_file("--common_snps", common_snps, chrom_lst, tname2tsize)
-        counter += check_vcf_file(
-            "--panel_of_normals", panel_of_normals, chrom_lst, tname2tsize
-        )
+    else:
+        if check_vcf_file("--common_snps", common_snps, chrom_lst, tname2tsize):
+            print("Running himut against human sample without a VCF file with common SNPs")
+        if check_vcf_file("--panel_of_normals", panel_of_normals, chrom_lst, tname2tsize):
+            print("Running himut against human sample without a panel of normals")
 
     if out_file is None:
         counter += 1
