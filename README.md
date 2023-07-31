@@ -6,16 +6,16 @@ pip install himut
 
 ## download and install the latest release
 wget https://github.com/sjin09/himut/archive/refs/tags/v1.0.2.tar.gz
-tar -zxvf v1.0.2.tar.gz
-cd himut-1.0.2
+tar -zxvf v1.0.3.tar.gz
+cd himut-1.0.3
 bash install.sh
 
 ## use miniamp2 and samtools to align, sort (and merge) PacBio CCS read alignments
 minimap2 "@RG\tSM:sample" -ax map-hifi --cs ref.fa pacbio.ccs.fastq.gz | samtools sort -o aln.sorted.bam # SM tag must be provided to retrieve sample ID
+samtools merge *.sorted.bam | samtools sort -o aln.mergeSorted.bam - ## if there are multiple BAM files, merge and sort the BAM files 
 samtools view -bh -F 0x900 aln.sorted.bam > aln.primary_alignments.sorted.bam # select primary alignments
-samtools index aln.primary_alignments.sorted.bam
-samtools merge *.primary_alignments.sorted.bam | samtools sort -o aln.primary_alignments.mergeSorted.bam - ## if there are multiple BAM files, merge and sort the BAM files
-samtools index aln.primary_alignments.mergeSorted.bam 
+samtools index aln.sorted.bam
+samtools index aln.primary_alignments.sorted.bam 
 
 ## germline mutation detection and haplotype phasing
 deepvariant.simg /opt/deepvariant/bin/run_deepvariant --model_type=PACBIO --ref ref.fa --reads=aln.primary_alignments.sorted.bam --output_vcf=germline.vcf ## use deepvariant to call germline mutations 
@@ -88,7 +88,7 @@ pip install himut
 Download and install the latest release:
 
 ```sh
-wget https://github.com/sjin09/himut/archive/refs/tags/v1.0.2.tar.gz
+wget https://github.com/sjin09/himut/archive/refs/tags/v1.0.3.tar.gz
 tar -zxvf v1.0.2.tar.gz
 cd himut-1.0.2
 bash install.sh
