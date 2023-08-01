@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-__version__ = "1.0.0"
+__version__ = "1.0.4"
 __author__ = "Sangjin Lee"
 
 # modules
