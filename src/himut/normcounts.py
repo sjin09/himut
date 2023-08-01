@@ -246,16 +246,19 @@ def get_callable_tricounts(
     for tri in tri_lst:
         ccs_tri2count[tri] = 0
         ref_tri2count[tri] = 0
-    alignments = pysam.AlignmentFile(bam_file, "rb")
-    if not non_human_sample:
+
+    if common_snps is not None:
         if common_snps.endswith(".vcf"):
             common_snp_set = himut.vcflib.load_common_snp(chrom, common_snps)
+
+    if panel_of_normals is not None:
         if panel_of_normals.endswith(".vcf"):
             pon_sbs_set = himut.vcflib.load_pon(chrom, panel_of_normals)
 
     m = METRICS()
+    alignments = pysam.AlignmentFile(bam_file, "rb")
     for (_chrom, chunk_start, chunk_end) in chunkloci_lst: # traverse reads 
-        if not non_human_sample: # load
+        if common_snps is not None:
             if common_snps.endswith(".bgz"):
                 common_snp_set = himut.vcflib.load_bgz_common_snp(
                     (
@@ -265,6 +268,8 @@ def get_callable_tricounts(
                     ),
                     common_snps,
                 )
+
+        if panel_of_normals is not None:                    
             if panel_of_normals.endswith(".bgz"):
                 pon_sbs_set = himut.vcflib.load_bgz_pon(
                     (
@@ -282,7 +287,7 @@ def get_callable_tricounts(
             hetsnp_lst = phase_set2hetsnp_lst[phase_set] 
 
         rpos2count = defaultdict(lambda: 0) 
-        rpos2allelecounts, rpos2allele2bq_lst= init_allelecounts() 
+        rpos2allelecounts, rpos2allele2bq_lst = init_allelecounts() 
         rpos2hap2count = defaultdict(lambda: defaultdict(lambda: 0))
         for i in alignments.fetch(chrom, chunk_start, chunk_end): # iterate through reads 
             ccs = himut.bamlib.BAM(i)
