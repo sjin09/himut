@@ -227,6 +227,8 @@ def get_himut_vcf_header(
         region_param = "--region {}".format(region)
     elif region is not None and region_list is not None:
         region_param = "--region_list {}".format(region_list)
+    else:
+        region_param = ""
 
     if phase:
             param = "{} --min_qv {} --min_mapq {} --qlen_lower_limit {} --qlen_upper_limit {} --min_sequence_identity {} --min_gq {} --min_bq {} --min_trim {} --mismatch_window {} --max_mismatch_count {} --min_ref_count {} --min_alt_count {} --min_hap_count {} --somatic_snv_prior {} --germline_snv_prior {} --germline_indel_prior {} --threads {} -o {}".format(
