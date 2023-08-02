@@ -28,28 +28,32 @@ def parse_args(args):
     return parser.parse_args(args)
 
 
-def fastq2bq2count(
+def fastq2stat(
     seq_file: str,
     out_file: str
 ): 
 
-    bq2count = {i: 0 for i in range(1,94)}
-    for seq in pyfastx.Fastq(seq_file):
-        for bq_str in seq.qual:
-            bq_int = ord(bq_str) - 33
-            bq2count[bq_int] += 1
+    qlen_lst = [len(seq.seq) for seq in pyfastx.Fastq(seq_file)]
+    base_sum = sum(qlen_lst) 
+    read_count = len(qlen_lst)
+    qsmall = min(qlen_lst)
+    qbig = max(qlen_lst)
+    qlen_std = statistics.stdev(qlen_lst)
+    qlen_mean = base_sum/float(read_count)
 
     o = open(out_file, "w")
-    o.write("{}\t{}\n".format("bq", "count"))
-    for bq in range(1, 94):
-        o.write("{}\t{}\n".format(bq, bq2count[bq]))
+    o.write("read_count: {}\n".format(read_count))
+    o.write("base_sum: {}\n".format(base_sum))
+    o.write("smallest_length: {}\n".format(qsmall))
+    o.write("biggest_length: {}\n".format(qbig))
+    o.write("mean_length: {}\n".format(qlen_mean))
+    o.write("read_length_std: {}\n".format(qlen_std))
     o.close()
-  
 
 
 def main():
     options = parse_args(sys.argv)
-    fastq2bq2count(
+    fastq2stat(
         options.input, 
         options.output
     )

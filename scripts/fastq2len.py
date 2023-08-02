@@ -3,7 +3,6 @@
 import sys
 import pyfastx
 import argparse
-import statistics
 
 
 def parse_args(args):
@@ -33,19 +32,12 @@ def fastq2bq2count(
     out_file: str
 ): 
 
-    bq2count = {i: 0 for i in range(1,94)}
-    for seq in pyfastx.Fastq(seq_file):
-        for bq_str in seq.qual:
-            bq_int = ord(bq_str) - 33
-            bq2count[bq_int] += 1
-
     o = open(out_file, "w")
-    o.write("{}\t{}\n".format("bq", "count"))
-    for bq in range(1, 94):
-        o.write("{}\t{}\n".format(bq, bq2count[bq]))
+    o.write("{}\t{}\n".format("qname", "qlen"))
+    for seq in pyfastx.Fastq(seq_file):
+        o.write("{}\t{}\n".format(seq.name, len(seq.seq)))
     o.close()
   
-
 
 def main():
     options = parse_args(sys.argv)
