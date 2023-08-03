@@ -3,9 +3,7 @@
 import sys
 import tabix
 import cyvcf2
-import natsort
 import argparse
-import numpy as np 
 import himut.vcflib
 from collections import defaultdict
 from typing import Set, Dict, List, Tuple
