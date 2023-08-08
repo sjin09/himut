@@ -42,23 +42,23 @@ def bam2bq2count(
 ): 
 
     counter = 0
-    bq2count = {i: 0 for i in range(1,94)}
+    pq2count = {i: 0 for i in range(1,94)}
     alignments = pysam.AlignmentFile(bam_file, "rb")
     for line in alignments:
         ccs = himut.bamlib.BAM(line)
         if not ccs.is_primary:
             continue
         for bq_int in ccs.bq_int_lst:
-            bq2count[bq_int] += 1
+            pq2count[bq_int] += 1
         counter += 1 
         if counter > count_threshold:
             break
 
     o = open(out_file, "w")
-    o.write("{}\t{}\t{}\n".format("bq_int", "bq_str", "count"))
-    for bq_int in range(1, 94):
-        bq_str = chr(bq_int + 33)
-        o.write("{}\t{}\t{}\n".format(bq_int, bq_str, bq2count[bq_int]))
+    o.write("{}\t{}\t{}\n".format("pq_int", "pq_str", "count"))
+    for pq_int in range(1, 94):
+        pq_str = chr(pq_int + 33)
+        o.write("{}\t{}\t{}\n".format(pq_int, pq_str, pq2count[pq_int]))
     o.close()
   
 
