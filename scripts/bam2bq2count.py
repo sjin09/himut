@@ -55,10 +55,10 @@ def bam2bq2count(
             break
 
     o = open(out_file, "w")
-    o.write("{}\t{}\n".format("bq", "count"))
+    o.write("{}\t{}\t{}\n".format("bq_int", "bq_str", "count"))
     for bq_int in range(1, 94):
         bq_str = chr(bq_int + 33)
-        o.write("{}:{}\t{}\n".format(bq_int, bq_str, bq2count[bq_int]))
+        o.write("{}\t{}\t{}\n".format(bq_int, bq_str, bq2count[bq_int]))
     o.close()
   
 
