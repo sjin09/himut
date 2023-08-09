@@ -63,7 +63,10 @@ def msa2ccs_bq(msa_lst):
         else:
             bq = -10 * math.log10(prior_likelihood * binom(subread_count, subread_base_count))
             bq = math.floor(bq) 
-            ccs_bq_lst.append(chr(bq+33))
+            if bq <= 0:
+                ccs_bq_lst.append('"')
+            else:
+                ccs_bq_lst.append(chr(bq+33))
     ccs_bq = "".join(ccs_bq_lst).replace("-", "")
     return ccs_bq
 
