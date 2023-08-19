@@ -3,6 +3,7 @@
 import sys
 import tabix
 import cyvcf2
+import natsort
 import argparse
 import himut.vcflib
 from collections import defaultdict
@@ -66,8 +67,8 @@ def load_loci(
             arr = line.strip().split()
             chrom_lst.append(arr[0])
     else:
-        print("--region or --region_list parameter is required")
-        sys.exit()
+        print("--region or --region_list parameter has not been provided")
+        print("defaulting to all the contigs and chromosomes")
     return chrom_lst
 
 
@@ -196,6 +197,30 @@ def dump_vcf_statistics(vcf_file: str, region: str, region_list: str, outfile: s
 
     chrom_lst = load_loci(region, region_list)
     tname2tsize = get_tname2tsize(vcf_file)
+    tname_lst = natsort.natsorted(tname2tsize.keys())
+    if len(chrom_lst) == 0:
+        (
+            titv_ratio,
+            hetsnp_count,
+            homsnp_count,
+            snp_hethom_ratio,
+            hetindel_count,
+            homindel_count,
+            indel_hethom_ratio,
+            indel_ratio,
+        ) = get_vcf_statistics(vcf_file, tname_lst, tname2tsize)
+    else:
+        (
+            titv_ratio,
+            hetsnp_count,
+            homsnp_count,
+            snp_hethom_ratio,
+            hetindel_count,
+            homindel_count,
+            indel_hethom_ratio,
+            indel_ratio,
+        ) = get_vcf_statistics(vcf_file, chrom_lst, tname2tsize)
+
     o = open(outfile, "w")
     o.write(
         "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(
@@ -209,17 +234,6 @@ def dump_vcf_statistics(vcf_file: str, region: str, region_list: str, outfile: s
             "indel_ratio",
         )
     )
-    
-    (
-        titv_ratio,
-        hetsnp_count,
-        homsnp_count,
-        snp_hethom_ratio,
-        hetindel_count,
-        homindel_count,
-        indel_hethom_ratio,
-        indel_ratio,
-    ) = get_vcf_statistics(vcf_file, chrom_lst, tname2tsize)
     o.write(
         "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(
             titv_ratio,
