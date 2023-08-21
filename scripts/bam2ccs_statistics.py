@@ -90,17 +90,25 @@ def get_tname2tsize(bam_file: str) -> Tuple[List[str], Dict[str, int]]:
 def get_ccs_statistics(
     chrom: str,
     bam_file: str,
-    chrom2qlen_lst: Dict[str, List[int]] 
+    chrom2qlen_lst: Dict[str, List[int]],
+    chrom2q93_count: Dict[str, int],
 ):
 
+    counter = 0 
     qlen_lst = []
+    q93_count = 0
     alignments = pysam.AlignmentFile(bam_file, "rb")
     for line in alignments.fetch(chrom):
         ccs = himut.bamlib.BAM(line)
         if not ccs.is_primary:
             continue
         qlen_lst.append(ccs.qlen)
+        q93_count += ccs.bq_int_lst.count(93)
+        counter += 1
+        if counter > 100:
+            break
     chrom2qlen_lst[chrom] = qlen_lst
+    chrom2q93_count[chrom] = q93_count
 
 
 def dump_ccs_statistics(
@@ -121,11 +129,13 @@ def dump_ccs_statistics(
     p = mp.Pool(threads)
     manager = mp.Manager()
     chrom2qlen_lst = manager.dict()
+    chrom2q93_count = manager.dict()
     get_ccs_statistics_arg_lst = [
         (
             tgt,
             bam_file,
-            chrom2qlen_lst
+            chrom2qlen_lst,
+            chrom2q93_count
         )
         for tgt in tgt_lst
     ]
@@ -136,19 +146,22 @@ def dump_ccs_statistics(
     p.join()
  
     qsum = 0
+    q93_count = 0
     genome_qlen_lst = []
     o = open(out_file, "w")
     tsum = sum([tname2tsize[tgt] for tgt in tgt_lst])
-    o.write("{}\n".format("\t".join(["ccs_base", "assembly_base", "coverage", "qlen_mean", "qlen_std"])))
+    o.write("{}\n".format("\t".join(["Q93(%)", "ccs_base", "assembly_base", "coverage", "qlen_mean", "qlen_std"])))
     for tgt in tgt_lst:
         for p in chrom2qlen_lst[tgt]: 
             chrom_qlen_lst = chrom2qlen_lst[tgt]
             genome_qlen_lst.extend(chrom_qlen_lst)
+            q93_count += chrom2q93_count[tgt]
             qsum += sum(chrom_qlen_lst)
     coverage = qsum/tsum
+    q93_proportion = (q93_count/qsum) * 100
     qlen_mean = np.mean(genome_qlen_lst)
     qlen_std = np.std(genome_qlen_lst)
-    o.write("{}\t{}\t{}\t{}\t{}\n".format(qsum, tsum, coverage, qlen_mean, qlen_std))
+    o.write("{:.2f}\t{}\t{}\t{:.2f}\t{}\t{}\n".format(q93_proportion, qsum, tsum, coverage, qlen_mean, qlen_std))
     o.close() 
 
 
