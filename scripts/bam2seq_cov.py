@@ -90,28 +90,28 @@ def get_tname2tsize(bam_file: str) -> Tuple[List[str], Dict[str, int]]:
 def get_ccs_statistics(
     chrom: str,
     bam_file: str,
-    chrom2qlen_lst: Dict[str, List[int]],
-    chrom2q93_count: Dict[str, int],
+    chrom2ccs_len_lst: Dict[str, List[int]],
+    chrom2q93_base_count: Dict[str, int],
 ):
 
-    counter = 0 
-    qlen_lst = []
-    q93_count = 0
+    # counter = 0
+    ccs_len_lst = []
+    q93_base_count = 0
     alignments = pysam.AlignmentFile(bam_file, "rb")
     for line in alignments.fetch(chrom):
         ccs = himut.bamlib.BAM(line)
         if not ccs.is_primary:
             continue
-        qlen_lst.append(ccs.qlen)
-        q93_count += ccs.bq_int_lst.count(93)
-        counter += 1
-        if counter > 100:
-            break
-    chrom2qlen_lst[chrom] = qlen_lst
-    chrom2q93_count[chrom] = q93_count
+        # counter += 1
+        # if counter > 100:
+        #     break
+        ccs_len_lst.append(ccs.qlen)
+        q93_base_count += ccs.bq_int_lst.count(93)
+    chrom2ccs_len_lst[chrom] = ccs_len_lst
+    chrom2q93_base_count[chrom] = q93_base_count
 
 
-def dump_ccs_statistics(
+def dump_seq_cov(
     bam_file: str,
     region: str,
     region_file: str,
@@ -128,14 +128,14 @@ def dump_ccs_statistics(
 
     p = mp.Pool(threads)
     manager = mp.Manager()
-    chrom2qlen_lst = manager.dict()
-    chrom2q93_count = manager.dict()
+    chrom2ccs_len_lst = manager.dict()
+    chrom2q93_base_count = manager.dict()
     get_ccs_statistics_arg_lst = [
         (
             tgt,
             bam_file,
-            chrom2qlen_lst,
-            chrom2q93_count
+            chrom2ccs_len_lst,
+            chrom2q93_base_count
         )
         for tgt in tgt_lst
     ]
@@ -145,29 +145,29 @@ def dump_ccs_statistics(
     p.close()
     p.join()
  
-    qsum = 0
+    ccs_sum = 0
+    ccs_count = 0
     q93_count = 0
-    genome_qlen_lst = []
+    genome_ccs_len_lst = []
     o = open(out_file, "w")
-    tsum = sum([tname2tsize[tgt] for tgt in tgt_lst])
-    o.write("{}\n".format("\t".join(["Q93(%)", "ccs_base", "assembly_base", "coverage", "qlen_mean", "qlen_std"])))
+    tgt_sum = sum([tname2tsize[tgt] for tgt in tgt_lst])
     for tgt in tgt_lst:
-        for p in chrom2qlen_lst[tgt]: 
-            chrom_qlen_lst = chrom2qlen_lst[tgt]
-            genome_qlen_lst.extend(chrom_qlen_lst)
-            q93_count += chrom2q93_count[tgt]
-            qsum += sum(chrom_qlen_lst)
-    coverage = qsum/tsum
-    q93_proportion = (q93_count/qsum) * 100
-    qlen_mean = np.mean(genome_qlen_lst)
-    qlen_std = np.std(genome_qlen_lst)
-    o.write("{:.2f}\t{}\t{}\t{:.2f}\t{}\t{}\n".format(q93_proportion, qsum, tsum, coverage, qlen_mean, qlen_std))
+        ccs_len_lst = chrom2ccs_len_lst[tgt]
+        genome_ccs_len_lst.extend(ccs_len_lst)
+        q93_count += chrom2q93_base_count[tgt]
+        ccs_count += len(ccs_len_lst)
+        ccs_sum += sum(ccs_len_lst)
+    tgt_cov = ccs_sum/tgt_sum
+    q93_proportion = (q93_count/ccs_sum)
+    ccs_len_std = np.std(genome_ccs_len_lst)
+    ccs_mean_len = np.mean(genome_ccs_len_lst)
+    o.write("{:,}\t{:,}\t{:.2f} ± {:.2f}\t{:.2%}\t{:,}\t{:.2f}\n".format(ccs_count, ccs_sum, ccs_mean_len, ccs_len_std, q93_proportion, tgt_sum, tgt_cov))
     o.close() 
 
 
 def main():
     options = parse_args(sys.argv)
-    dump_ccs_statistics(
+    dump_seq_cov(
         options.bam, 
         options.region, 
         options.region_list,
