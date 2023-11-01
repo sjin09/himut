@@ -473,12 +473,6 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         help="reference FASTA file",
     )
     parser_tricount.add_argument(
-        "--tri",
-        type=str,
-        required=True,
-        help="reference trinucleotide counts",
-    )
-    parser_tricount.add_argument(
         "--region",
         type=str,
         required=False,
@@ -503,7 +497,7 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         "--output",
         type=str,
         required=True,
-        help="file to return normalised mutation burden",
+        help="file to return reference trinucleotide counts",
     )
     # subcommands: normcounts
     parser_normcounts = subparsers.add_parser(
