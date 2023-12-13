@@ -2115,7 +2115,7 @@ def load_sbs96_counts(
 ) -> Dict[str, int]:
 
     tname_lst = []
-    tname2sbs2counts = defaultdict()
+    tname2sbs96_counts = defaultdict()
     refseq = pyfastx.Fasta(ref_file)
     if vcf_file.endswith(".vcf"):
         for line in open(vcf_file).readlines():
@@ -2131,7 +2131,7 @@ def load_sbs96_counts(
             v = himut.vcflib.VCF(line)
             if v.is_snp and v.is_pass and v.is_biallelic:
                 sbs96 = get_sbs96(v.chrom, int(v.pos) - 1, v.ref, v.alt, refseq)
-                tname2sbs2counts[v.chrom][sbs96] += 1
+                tname2sbs96_counts[v.chrom][sbs96] += 1
     elif vcf_file.endswith(".vcf.bgz"):
         for line in cyvcf2.VCF(vcf_file).raw_header.split("\n"):
             if line.startswith("##"):
@@ -2141,18 +2141,18 @@ def load_sbs96_counts(
                 continue
             elif line.startswith("#CHROM"):
                 for tname in tname_lst:
-                    tname2sbs2counts[tname] = defaultdict(lambda: 0)
+                    tname2sbs96_counts[tname] = defaultdict(lambda: 0)
         for i in cyvcf2.VCF(vcf_file):
             v = himut.vcflib.VCF(str(i))
             if v.is_snp and v.is_pass and v.is_biallelic:
                 sbs96 = get_sbs96(v.chrom, int(v.pos) - 1, v.ref, v.alt, refseq)
-                tname2sbs2counts[v.chrom][sbs96] += 1
+                tname2sbs96_counts[v.chrom][sbs96] += 1
 
-    sbs2count = defaultdict(lambda: 0)
+    sbs96_counts = {sbs96: 0 for sbs96 in sbs96_lst}
     for chrom in chrom_lst:
-        for sbs, count in tname2sbs2counts[chrom].items():
-            sbs2count[sbs] += count
-    return sbs2count
+        for sbs96, count in tname2sbs96_counts[chrom].items():
+            sbs96_counts[sbs96] += count
+    return sbs96_counts
 
 
 def load_sbs1536_counts(
@@ -2160,7 +2160,7 @@ def load_sbs1536_counts(
 ) -> Dict[str, int]:
 
     tname_lst = []
-    tname2sbs2counts = defaultdict()
+    tname2sbs1536_counts = defaultdict()
     refseq = pyfastx.Fasta(ref_file)
     if vcf_file.endswith(".vcf"):
         for line in open(vcf_file).readlines():
@@ -2171,12 +2171,12 @@ def load_sbs1536_counts(
                 continue
             elif line.startswith("#CHROM"):
                 for tname in tname_lst:
-                    tname2sbs2counts[tname] = defaultdict(lambda: 0)
+                    tname2sbs1536_counts[tname] = defaultdict(lambda: 0)
                 continue
             v = himut.vcflib.VCF(line)
             if v.is_snp and v.is_pass and v.is_biallelic:
                 sbs1536 = get_sbs1536(v.chrom, int(v.pos) - 1, v.ref, v.alt, refseq)
-                tname2sbs2counts[v.chrom][sbs1536] += 1
+                tname2sbs1536_counts[v.chrom][sbs1536] += 1
     elif vcf_file.endswith(".vcf.bgz"):
         for line in cyvcf2.VCF(vcf_file).raw_header.split("\n"):
             if line.startswith("##"):
@@ -2186,18 +2186,18 @@ def load_sbs1536_counts(
                 continue
             elif line.startswith("#CHROM"):
                 for tname in tname_lst:
-                    tname2sbs2counts[tname] = defaultdict(lambda: 0)
+                    tname2sbs1536_counts[tname] = defaultdict(lambda: 0)
         for i in cyvcf2.VCF(vcf_file):
             v = himut.vcflib.VCF(str(i))
             if v.is_snp and v.is_pass and v.is_biallelic:
                 sbs1536 = get_sbs1536(v.chrom, int(v.pos) - 1, v.ref, v.alt, refseq)
-                tname2sbs2counts[v.chrom][sbs1536] += 1
+                tname2sbs1536_counts[v.chrom][sbs1536] += 1
 
-    sbs2count = defaultdict(lambda: 0)
+    sbs1536_counts = {sbs1536: 0 for sbs1536 in sbs1536_lst}
     for chrom in chrom_lst:
-        for sbs, count in tname2sbs2counts[chrom].items():
-            sbs2count[sbs] += count
-    return sbs2count
+        for sbs1536, count in tname2sbs1536_counts[chrom].items():
+            sbs1536_counts[sbs1536] += count
+    return sbs1536_counts
 
 
 def dump_sbs52_counts(
