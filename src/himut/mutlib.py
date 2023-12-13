@@ -2151,6 +2151,8 @@ def load_sbs96_counts(
     sbs96_counts = {sbs96: 0 for sbs96 in sbs96_lst}
     for chrom in chrom_lst:
         for sbs96, count in tname2sbs96_counts[chrom].items():
+            if sbs96.count("N") > 0:
+                continue
             sbs96_counts[sbs96] += count
     return sbs96_counts
 
@@ -2196,6 +2198,8 @@ def load_sbs1536_counts(
     sbs1536_counts = {sbs1536: 0 for sbs1536 in sbs1536_lst}
     for chrom in chrom_lst:
         for sbs1536, count in tname2sbs1536_counts[chrom].items():
+            if sbs1536.count("N") > 0:
+                continue 
             sbs1536_counts[sbs1536] += count
     return sbs1536_counts
 
