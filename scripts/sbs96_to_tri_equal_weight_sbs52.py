@@ -1,6 +1,8 @@
 import sys
 import natsort
 import argparse
+import pandas as pd
+from plotnine import *
 from collections import defaultdict
 
 
@@ -281,6 +283,32 @@ def load_tri_freq(sbs96_file):
     return tri_freq
 
 
+def dump_sbs52_plt(
+    infile: str, 
+    outfile: str
+):
+
+    df = pd.read_csv(infile, sep="\t")
+    plot = (
+        ggplot(df, aes(x="TRI", y="WEIGHTED_COUNT", fill="SUB"))
+        + geom_bar(stat="identity")
+        + theme_bw()
+        + facet_grid(". ~ SUB", scales="free")
+        + scale_fill_manual(
+            values=("#98D7EC", "#212121", "#FF003A", "#A6A6A6", "#83A603", "#F5ABCC")
+        )
+        + labs(x="\nTrinucleotide Context\n", y="\nCounts\n")
+        + theme(
+            text=element_text(size=10),
+            legend_title=element_blank(),
+            axis_text_x=element_text(
+                family="monospace", angle=90, ha="center"
+            ),
+        )
+    )
+    plot.save(outfile, width=22, height=12)
+
+
 def dump_sbs52_tri_equal_weights(
     sbs96_file: str,
     sbs52_file: str,
@@ -307,16 +335,16 @@ def dump_sbs52_tri_equal_weights(
             elif line.startswith("sub"):
                 continue
             (
-            _sub,
-            tri,
-            sbs96,
-            _count,
-            normcount,
-            _ref_tri_ratio,
-            _ref_ccs_tri_ratio,
-            _ref_tri_count,
-            _ref_callable_tri_count,
-            _ccs_callable_tri_count,
+                _sub,
+                tri,
+                sbs96,
+                _count,
+                normcount,
+                _ref_tri_ratio,
+                _ref_ccs_tri_ratio,
+                _ref_tri_count,
+                _ref_callable_tri_count,
+                _ccs_callable_tri_count,
             ) = line.strip().split()
             sbs52 = SBS96_TO_SBS52[sbs96]
             ## tri_equal_weight_normcounts = float(normcount)/(tri_freq[tri]/SBS52_TRI_WEIGHT)
@@ -340,6 +368,12 @@ def dump_sbs52_tri_equal_weights(
                 sep="\t",
                 file=outfile
             )
+            
+    if sbs52_file.endswith(".tsv"):
+        sbs52_pdf_file = sbs52_file.replace(".tsv", ".pdf")
+    else:
+        sbs52_pdf_file = sbs52_file + ".pdf"
+    dump_sbs52_plt(sbs52_file, sbs52_pdf_file)
 
 
 def main():
