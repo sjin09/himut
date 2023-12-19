@@ -49,61 +49,6 @@ tri_lst = [
     "TTT"
 ]
 
-sbs52_lst = [
-    "A[C>A]A",
-    "A[C>A]C",
-    "A[C>A]G",
-    "A[C>A]T",
-    "C[C>A]A",
-    "C[C>A]C",
-    "C[C>A]G",
-    "C[C>A]T",
-    "G[C>A]A",
-    "G[C>A]C",
-    "G[C>A]G",
-    "G[C>A]T",
-    "T[C>A]A",
-    "T[C>A]C",
-    "T[C>A]G",
-    "T[C>A]T",
-    "A[C>T]A",
-    "A[C>T]C",
-    "A[C>T]G",
-    "A[C>T]T",
-    "C[C>T]A",
-    "C[C>T]C",
-    "C[C>T]G",
-    "C[C>T]T",
-    "G[C>T]A",
-    "G[C>T]C",
-    "G[C>T]G",
-    "G[C>T]T",
-    "T[C>T]A",
-    "T[C>T]C",
-    "T[C>T]G",
-    "T[C>T]T",
-    "A[C>G]A",
-    "A[C>G]C",
-    "A[C>G]G",
-    "A[C>G]T",
-    "C[C>G]A",
-    "C[C>G]C",
-    "C[C>G]G",
-    "G[C>G]A",
-    "G[C>G]C",
-    "T[C>G]A",
-    "A[T>A]A",
-    "A[T>A]C",
-    "A[T>A]G",
-    "A[T>A]T",
-    "C[T>A]A",
-    "C[T>A]C",
-    "C[T>A]G",
-    "G[T>A]A",
-    "G[T>A]C",
-    "T[T>A]A"
-]
-
 sbs96_lst = [
     "A[C>A]A",
     "A[C>A]C",
@@ -1840,6 +1785,8 @@ sbs96_to_sbs52 = {
     "G[T>A]C": "G[T>A]C",
     "T[T>A]A": "T[T>A]A",
 }
+
+sbs52_lst = list(sbs96_to_sbs52.values())
 
 sbs96_to_sub = {
     "A[C>A]A": "C>A",
