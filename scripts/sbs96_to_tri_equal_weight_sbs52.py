@@ -297,7 +297,7 @@ def dump_sbs52_plt(
         + scale_fill_manual(
             values=("#98D7EC", "#212121", "#FF003A", "#A6A6A6", "#83A603", "#F5ABCC")
         )
-        + labs(x="\nTrinucleotide Context\n", y="\nCounts\n")
+        + labs(x="\nTrinucleotide Context\n", y="\nWeighted Count\n")
         + theme(
             text=element_text(size=10),
             legend_title=element_blank(),
