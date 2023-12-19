@@ -323,7 +323,7 @@ def dump_sbs52_tri_equal_weights(
                 sub,
                 SBS96_TO_TRI[sbs52],
                 sbs52,
-                count,
+                int(count),
                 sep="\t",
                 file=outfile
             )
