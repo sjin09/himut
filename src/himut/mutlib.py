@@ -1786,7 +1786,7 @@ sbs96_to_sbs52 = {
     "T[T>A]A": "T[T>A]A",
 }
 
-sbs52_lst = list(sbs96_to_sbs52.values())
+sbs52_lst = list(set(sbs96_to_sbs52.values()))
 
 sbs96_to_sub = {
     "A[C>A]A": "C>A",
