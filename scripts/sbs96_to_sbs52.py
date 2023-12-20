@@ -269,7 +269,7 @@ def dump_sbs52_plt(
         + theme_bw()
         + facet_grid(". ~ SUB", scales="free")
         + scale_fill_manual(
-            values=("#98D7EC", "#212121", "#FF003A", "#A6A6A6", "#83A603", "#F5ABCC")
+            values=("#98D7EC", "#212121", "#FF003A", "#A6A6A6", "#F5ABCC")
         )
         + labs(x="\nTrinucleotide Context\n", y="\nCounts\n")
         + theme(
@@ -288,7 +288,6 @@ def dump_sbs52_tri_equal_weights(
     sbs52_file: str,
 ) -> None:
 
-    outfile = open(sbs52_file, "w")
     with open(sbs52_file, "w") as outfile:
         print(
             "SUB",
