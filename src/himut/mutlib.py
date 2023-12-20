@@ -1986,6 +1986,7 @@ sbs96_to_tri = {
     "C[T>G]C": "CTC",
 }
 
+
 def get_sbs52(
     sbs96: str
 ) -> str:
@@ -2070,7 +2071,7 @@ def load_sbs96_counts(
                 continue
             elif line.startswith("#CHROM"):
                 for tname in tname_lst:
-                    tname2sbs2counts[tname] = defaultdict(lambda: 0)
+                    tname2sbs96_counts[tname] = defaultdict(lambda: 0)
                 continue
             v = himut.vcflib.VCF(line)
             if v.is_snp and v.is_pass and v.is_biallelic:
@@ -2227,6 +2228,37 @@ def dump_sbs1536_counts(
             "{}\t{}\t{}\t{}\t{}\t{}\n".format(sub, tri, penta, sbs1536, tri_sub_count, tri_sub_proportion)
         )
     o.close()
+
+
+def dump_sbs52_plt(infile: str, sample: str, outfile: str) -> None:
+
+    if sample is None:
+        print(
+            "Sample cannot be None\nBAM or VCF file might be missing sample information"
+        )
+        himut.util.exit()
+
+    df = pd.read_csv(infile, sep="\t")
+    plot = (
+        ggplot(df, aes(x="TRI", y="COUNT", fill="SUB"))
+        + geom_bar(stat="identity")
+        + theme_bw()
+        + facet_grid(". ~ SUB", scales="free")
+        + scale_fill_manual(
+            values=("#98D7EC", "#212121", "#FF003A", "#A6A6A6", "#F5ABCC")
+        )
+        + labs(x="\nTrinucleotide Context\n", y="\nCount\n")
+        + ggtitle("\n{}\n".format(sample))
+        + theme(
+            text=element_text(size=10),
+            legend_title=element_blank(),
+            axis_text_x=element_text(
+                family="monospace", angle=90, ha="center"
+            ),
+        )
+    )
+    plot.save(outfile, width=22, height=12)
+
 
 
 def dump_sbs96_plt(infile: str, sample: str, outfile: str) -> None:

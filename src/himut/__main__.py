@@ -84,7 +84,7 @@ def main():
             pdf_file = options.output.replace(".tsv", ".pdf")
         else:
             pdf_file = "{}.pdf".format(options.output) 
-        himut.mutlib.dump_sbs96_plt(options.output, sample, pdf_file)
+        himut.mutlib.dump_sbs52_plt(options.output, sample, pdf_file)
     elif options.sub == "sbs96":  # returns sbs96 counts
         sample, tname2tsize = himut.vcflib.get_sample(options.input)
         himut.util.check_mutpatterns_input_exists(
