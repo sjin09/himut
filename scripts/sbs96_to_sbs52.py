@@ -286,8 +286,24 @@ def dump_sbs52_plt(
 def dump_sbs52_tri_equal_weights(
     sbs96_file: str,
     sbs52_file: str,
-) -> None:
+):
 
+
+    sbs52_counts = defaultdict(lambda: 0)
+    for line in open(sbs96_file).readlines():
+        if line.startswith("#"):
+            continue
+        elif line.startswith("SUB"):
+            continue
+        (
+            _sub,
+            _tri,
+            sbs96,
+            count,
+        ) = line.strip().split()
+        sbs52 = SBS96_TO_SBS52[sbs96]
+        sbs52_counts[sbs52] += float(count)
+        
     with open(sbs52_file, "w") as outfile:
         print(
             "SUB",
@@ -298,26 +314,10 @@ def dump_sbs52_tri_equal_weights(
             file=outfile
         )
        
-        sbs52_count = defaultdict(lambda: 0)
-        for line in open(sbs96_file).readlines():
-            if line.startswith("#"):
-                continue
-            elif line.startswith("sub"):
-                continue
-            (
-                _sub,
-                _tri,
-                sbs96,
-                count,
-            ) = line.strip().split()
-            sbs52 = SBS96_TO_SBS52[sbs96]
-            sbs52_count[sbs52] += float(count)
-       
         for sbs52 in SBS52_LST:
             _ubase, _, ref, _, alt, _, _dbase = list(sbs52)
             sub = f"{ref}>{alt}"
-            tri = SBS96_TO_TRI[sbs52]
-            count = sbs52_count[sbs52]
+            count = sbs52_counts[sbs52]
             print(
                 sub,
                 SBS96_TO_TRI[sbs52],
