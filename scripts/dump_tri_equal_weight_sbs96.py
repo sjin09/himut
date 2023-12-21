@@ -9,6 +9,34 @@ import sys
 from plotnine import *
 
 
+def parse_args(args):
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument(
+        "-i",
+        "--input",
+        type=str,
+        required=True,
+        help="file to read SBS96 counts"
+    )
+    parser.add_argument(
+        "--tri",
+        type=str,
+        required=True,
+        help="target chromosome trinucleotide sequence context counts"
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        type=str,
+        required=True,
+        help="file to return trinucleotide sequence context weighted SBS96 counts"
+    )
+    args = args[1:]
+    return parser.parse_args(args)
+
+
 NTS = ["A", "T", "C", "G"]
 PURINE = set(["A", "G"])
 PYRIMIDINE = set(["C", "T"])
@@ -113,34 +141,6 @@ SBS96_LST = [
     "T[T>G]G",
     "T[T>G]T",
 ]
-
-
-def parse_args(args):
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
-    parser.add_argument(
-        "-i",
-        "--input",
-        type=str,
-        required=True,
-        help="file to read SBS96 counts"
-    )
-    parser.add_argument(
-        "--tri",
-        type=str,
-        required=True,
-        help="target chromosome trinucleotide sequence context counts"
-    )
-    parser.add_argument(
-        "-o",
-        "--output",
-        type=str,
-        required=True,
-        help="file to return trinucleotide sequence context weighted SBS96 counts"
-    )
-    args = args[1:]
-    return parser.parse_args(args)
 
 
 def load_sbs96_counts(
