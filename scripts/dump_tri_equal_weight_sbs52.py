@@ -484,7 +484,7 @@ def dump_weighted_sbs52_counts(
             sbs52_tri_sum = sum([trinucleotide_counts[tri] for tri in sbs52_tri_lst])
             sbs52_tri_freq = sbs52_tri_sum/float(trinucleotide_sum)
             sbs52_tri_weight = 1/(sbs52_tri_freq/TRI_WEIGHT)
-            sbs52_count =sbs52_counts[sbs52]
+            sbs52_count = sbs52_counts[sbs52]
             weighted_sbs52_count = sbs52_count * sbs52_tri_weight
             print(
                 sub,
