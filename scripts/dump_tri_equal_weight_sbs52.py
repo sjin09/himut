@@ -501,6 +501,7 @@ def dump_weighted_sbs52_counts(
     else:
         weighted_sbs52_count_barplot_file = weighted_sbs52_count_file + ".pdf" 
     draw_sbs52_barplot(weighted_sbs52_count_file, weighted_sbs52_count_barplot_file)
+   
     
 def main():
     options = parse_args(sys.argv)
