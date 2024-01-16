@@ -2,7 +2,6 @@ import argparse
 from collections import defaultdict
 from pathlib import Path
 import sys
-from typing import List
 
 import natsort
 import pandas as pd
@@ -136,7 +135,7 @@ def parse_args(args):
         "--input",
         type=Path,
         required=True,
-        help="file to read HDP signature exposure per sample",
+        help="file to read hdp signature exposure per sample",
     )
     args = args[1:]
     return parser.parse_args(args)
@@ -161,7 +160,9 @@ def get_hdp_signatures(
     hdp_signatures = open(
         hdp_exposure_csv_path
     ).readline().strip().split(",")[1:]
-    hdp_signatures = [f"X{hdp_sig}" for hdp_sig in hdp_signatures]
+    hdp_signatures = [
+        hdp_sig.replace("X", "HDP") for hdp_sig in hdp_signatures
+    ]
     return hdp_signatures
 
 
@@ -174,7 +175,9 @@ def write_hdp_exposures(
     hdp_signatures = open(
         hdp_exposure_csv_path
     ).readline().strip().split(",")[1:]
-    hdp_signatures = [f"X{hdp_sig}" for hdp_sig in hdp_signatures]
+    hdp_signatures = [
+        f"HDP{hdp_sig}" for hdp_sig in hdp_signatures
+    ]
     with open(hdp_exposure_tsv_path, "w") as outfile:
         print(
             "SAMPLE",
@@ -194,25 +197,25 @@ def write_hdp_exposures(
 
 
 def load_hdp_exposures(
-    hdp_exposure_csv_path: Path,
     hdp_exposure_tsv_path: Path,
 ):
-    hdp_signatures = get_hdp_signatures(hdp_exposure_csv_path)
     df = pd.read_csv(hdp_exposure_tsv_path, sep="\t")
+    hdp_signatures = natsort.natsorted(list(set(df["HDP_SIGNATURE"])))
     df["HDP_SIGNATURE"] = pd.Categorical(
-        df["HDP_SIGNATURE"], categories=hdp_signatures, ordered=True
+        df["HDP_SIGNATURE"],
+        categories=hdp_signatures,
+        ordered=True
     )
+    df["SIGNATURE_EXPOSURE"] *= 100   # TODO
     return df
 
 
 def get_hdp_exposure_p9_barplot(
     df: pd.DataFrame,
-    samples: List[str],
 ):
-    df_subset = df[df["SAMPLE"].isin(samples)]
     plot = (
         p9.ggplot(
-            df_subset,
+            df,
             p9.aes(
                 x="SAMPLE",
                 y="SIGNATURE_EXPOSURE",
@@ -222,15 +225,15 @@ def get_hdp_exposure_p9_barplot(
         + p9.scale_fill_manual(values=BARPLOT_FILL_VALUE)
         + p9.geom_bar(stat="identity")
         + p9.theme_bw()
-        + p9.labs(x="\nSamples\n", y="\nHDP Signature Exposure\n")
+        + p9.labs(x="\nSamples\n", y="\nhdp Signature Exposure\n")
         + p9.geom_label(
             p9.aes(label="HDP_SIGNATURE"),
-            position="fill",
+            position="stack",
             size=8,
             format_string='{}'
         )
         + p9.theme(
-            figure_size=(26, 14),
+            figure_size=(24, 14),
             text=p9.element_text(size=10),
             legend_title=p9.element_blank(),
         )
@@ -245,20 +248,20 @@ def draw_hdp_exposure_p9_barplot(hdp_exposure_csv_path: Path):
     hdp_exposure_tsv_path = f"{hdp_exposure_csv_path.stem}.tsv"
     hdp_exposure_pdf_path = f"{hdp_exposure_csv_path.stem}.pdf"
     write_hdp_exposures(hdp_exposure_csv_path, hdp_exposure_tsv_path)
-    df = load_hdp_exposures(hdp_exposure_csv_path, hdp_exposure_tsv_path)
+    df = load_hdp_exposures(hdp_exposure_tsv_path)
     # collect
     hdp_exposure_plots = []
     for op_jdx in range(0, sample_count, 15)[:-1]:
         sample_subset = samples[op_jdx:(op_jdx + 15)]
+        df_subset = df[df["SAMPLE"].isin(sample_subset)]
         hdp_exposure_plot = get_hdp_exposure_p9_barplot(
-            df,
-            sample_subset,
+            df_subset,
         )
         hdp_exposure_plots.append(hdp_exposure_plot)
     sample_subset = samples[(op_jdx + 15):sample_count]
+    df_subset = df[df["SAMPLE"].isin(sample_subset)]
     hdp_exposure_plot = get_hdp_exposure_p9_barplot(
-        df,
-        sample_subset,
+        df_subset,
     )
     hdp_exposure_plots.append(hdp_exposure_plot)
     # draw

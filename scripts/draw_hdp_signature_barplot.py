@@ -77,25 +77,31 @@ def get_hdp_signature_p9_plot(
 
 
 def load_hdp_signatures(hdp_signature_csv_path: Path):
-    signatures = open(hdp_signature_csv_path).readline().strip().split(",")[1:]
-    hdp_signatures = {sig: [] for sig in signatures}
+    hdp_idxes = open(hdp_signature_csv_path).readline().strip().split(",")[1:]
+    hdp_signatures = [hdp_idx.replace("X", "HDP") for hdp_idx in hdp_idxes]
+    hdp_sig_mutational_probabilities = {
+        hdp_sig: [] for hdp_sig in hdp_signatures
+    }
     for line in open(hdp_signature_csv_path).readlines()[1:]:
         fields = line.rstrip().split(",")
         for op_idx, mutational_probability in enumerate(fields[1:]):
-            hdp_signatures[signatures[op_idx]].append(
+            hdp_sig = hdp_signatures[op_idx]
+            hdp_sig_mutational_probabilities[hdp_sig].append(
                 "{:.3}".format(float(mutational_probability)*100)
             )
-    return hdp_signatures
+    return hdp_sig_mutational_probabilities
 
 
 def write_and_draw_transformed_hdp_signatures(
     hdp_signature_csv_path: Path,
 ):
     hdp_signature_plots = []
-    hdp_signatures = load_hdp_signatures(hdp_signature_csv_path)
+    hdp_sig_mutational_probabilities = load_hdp_signatures(
+        hdp_signature_csv_path
+    )
     hdp_signature_plots_pdf_path = f"{hdp_signature_csv_path.stem}.pdf"
-    for hdp_signature, mutational_probabilities in hdp_signatures.items():
-        hdp_signature_tsv_path = Path(f"{hdp_signature}.hdp_signature.tsv")
+    for hdp_sig, mprobs in hdp_sig_mutational_probabilities.items():
+        hdp_signature_tsv_path = f"{hdp_sig}.mutational_probabilities.tsv"
         with open(hdp_signature_tsv_path, "w") as outfile:
             print(
                 "SUB",
@@ -105,7 +111,7 @@ def write_and_draw_transformed_hdp_signatures(
                 sep="\t",
                 file=outfile
             )
-            for op_idx, mprob in enumerate(mutational_probabilities):
+            for op_idx, mprob in enumerate(mprobs):
                 sbs96 = SBS96_LST[op_idx]
                 ubase, _, ref, _, alt, _, dbase = list(sbs96)
                 sub = f"{ref}>{alt}"
@@ -119,7 +125,7 @@ def write_and_draw_transformed_hdp_signatures(
                     file=outfile
                 )
         hdp_signature_plot = get_hdp_signature_p9_plot(
-            hdp_signature,
+            hdp_sig,
             hdp_signature_tsv_path
         )
         hdp_signature_plots.append(hdp_signature_plot)
