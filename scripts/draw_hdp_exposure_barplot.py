@@ -225,7 +225,7 @@ def get_hdp_exposure_p9_barplot(
         + p9.scale_fill_manual(values=BARPLOT_FILL_VALUE)
         + p9.geom_bar(stat="identity")
         + p9.theme_bw()
-        + p9.labs(x="\nSamples\n", y="\nhdp Signature Exposure\n")
+        + p9.labs(x="\nSamples\n", y="\nHDP Signature Exposure (%)\n")
         + p9.geom_label(
             p9.aes(label="HDP_SIGNATURE"),
             position="stack",
