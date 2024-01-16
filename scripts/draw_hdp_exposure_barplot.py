@@ -124,6 +124,8 @@ BARPLOT_FILL_VALUE = [
     "#800000",
 ]
 
+RANGE_STEP = 15
+
 
 def parse_args(args):
     parser = argparse.ArgumentParser(
@@ -251,19 +253,25 @@ def draw_hdp_exposure_p9_barplot(hdp_exposure_csv_path: Path):
     df = load_hdp_exposures(hdp_exposure_tsv_path)
     # collect
     hdp_exposure_plots = []
-    for op_jdx in range(0, sample_count, 15)[:-1]:
-        sample_subset = samples[op_jdx:(op_jdx + 15)]
+    if sample_count < RANGE_STEP:
+        hdp_exposure_plot = get_hdp_exposure_p9_barplot(
+            df,
+        )
+        hdp_exposure_plots.append(hdp_exposure_plot)
+    else:
+        for op_jdx in range(0, sample_count, 15)[:-1]:
+            sample_subset = samples[op_jdx:(op_jdx + 15)]
+            df_subset = df[df["SAMPLE"].isin(sample_subset)]
+            hdp_exposure_plot = get_hdp_exposure_p9_barplot(
+                df_subset,
+            )
+            hdp_exposure_plots.append(hdp_exposure_plot)
+        sample_subset = samples[(op_jdx + 15):sample_count]
         df_subset = df[df["SAMPLE"].isin(sample_subset)]
         hdp_exposure_plot = get_hdp_exposure_p9_barplot(
             df_subset,
         )
         hdp_exposure_plots.append(hdp_exposure_plot)
-    sample_subset = samples[(op_jdx + 15):sample_count]
-    df_subset = df[df["SAMPLE"].isin(sample_subset)]
-    hdp_exposure_plot = get_hdp_exposure_p9_barplot(
-        df_subset,
-    )
-    hdp_exposure_plots.append(hdp_exposure_plot)
     # draw
     p9.save_as_pdf_pages(hdp_exposure_plots, hdp_exposure_pdf_path)
 
