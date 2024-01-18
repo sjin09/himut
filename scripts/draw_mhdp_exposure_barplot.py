@@ -246,6 +246,7 @@ def get_mhdp_exposure_p9_barplot(
             figure_size=(24, 14),
             text=p9.element_text(size=10),
             legend_title=p9.element_blank(),
+            axis_text_x=p9.element_text(rotation=45, hjust=1)
         )
     )
     return plot
