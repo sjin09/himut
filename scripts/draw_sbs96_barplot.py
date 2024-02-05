@@ -217,12 +217,11 @@ def draw_sbs96_barplot(
     plot.save(sbs96_pdf_file, width=22, height=12)
 
 
-def dump_sbs96_counts(
+def write_sbs96_counts(
     vcf_file_path: Path,
     ref_file_path: Path,
     region: Path,
     region_list: Path,
-    # sbs96_file: Path
 ):
 
     sample = get_sample(vcf_file_path)
@@ -257,7 +256,7 @@ def dump_sbs96_counts(
 
 def main():
     options = parse_args(sys.argv)
-    dump_sbs96_counts(options.input, options.ref, options.region, options.region_list)
+    write_sbs96_counts(options.input, options.ref, options.region, options.region_list)
     sys.exit(0)
 
 

@@ -359,7 +359,7 @@ def draw_sbs52_barplot(
     plot.save(sbs52_pdf_file, width=22, height=12)
 
 
-def dump_sbs52_counts(
+def write_sbs52_counts(
     vcf_file_path: Path,
     ref_file_path: Path,
     region: Path,
@@ -399,7 +399,7 @@ def dump_sbs52_counts(
 
 def main():
     options = parse_args(sys.argv)
-    dump_sbs52_counts(options.input, options.ref, options.region, options.region_list)
+    write_sbs52_counts(options.input, options.ref, options.region, options.region_list)
     sys.exit(0)
 
 
