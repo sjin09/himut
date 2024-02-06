@@ -86,7 +86,7 @@ def parse_args(args):
     )
     parser.add_argument(
         "-i",
-        "--input",
+        "--vcf",
         type=Path,
         required=True,
         help="VCF file to read"
@@ -256,7 +256,7 @@ def write_sbs96_counts(
 
 def main():
     options = parse_args(sys.argv)
-    write_sbs96_counts(options.input, options.ref, options.region, options.region_list)
+    write_sbs96_counts(options.vcf, options.ref, options.region, options.region_list)
     sys.exit(0)
 
 
