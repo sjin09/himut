@@ -227,7 +227,7 @@ def parse_args(args):
         help="target chromosome"
     )
     parser.add_argument(
-        "--region_list",
+        "--region-list",
         type=Path,
         required=False,
         help="list of target chromosomes separated by new line"
@@ -368,7 +368,10 @@ def write_sbs52_counts(
 
     sample = get_sample(vcf_file_path)
     chrom_lst = load_loci(region, region_list)
-    sbs52_file_prefix = str(vcf_file_path).replace(".vcf", "").replace(".bgz", "")
+    if str(vcf_file_path).endswith(".vcf"):
+        sbs52_file_prefix = str(vcf_file_path).replace(".vcf", "")
+    elif str(vcf_file_path).endswith(".vcf.bgz"):
+        sbs52_file_prefix = str(vcf_file_path).replace(".vcf.bgz", "")
     sbs52_file_path = Path(f"{sbs52_file_prefix}.sbs52.tsv")
     sbs52_pdf_file_path = Path(f"{sbs52_file_prefix}.sbs52.pdf")
     sbs52_counts = load_sbs52_counts(chrom_lst, vcf_file_path, ref_file_path)
