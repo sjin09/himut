@@ -61,6 +61,12 @@ def parse_args(args):
         required=True,
         help="SigProfiler SBS192 file to read"
     )
+    parser.add_argument(
+        "--sample",
+        type=Path,
+        required=True,
+        help="sample id"
+    )
     args = args[1:]
     return parser.parse_args(args)
 
@@ -114,9 +120,8 @@ def draw_sbs192_barplot(
 
 def write_sbs192_counts(
     sigprofiler_sbs192_file_path: Path,
+    sample: str,
 ):
-
-    sample = open(sigprofiler_sbs192_file_path, "r").readline().split()[1]
     sbs192_tsv_file_path = Path(str(sigprofiler_sbs192_file_path).replace(".SBS288.all", ".himut_unphased.sbs192.tsv"))
     sbs192_pdf_file_path = Path(str(sigprofiler_sbs192_file_path).replace(".SBS288.all", ".himut_unphased.sbs192.pdf"))
     sbs192_counts = load_sbs192_counts(sigprofiler_sbs192_file_path)
@@ -151,7 +156,7 @@ def write_sbs192_counts(
 
 def main():
     options = parse_args(sys.argv)
-    write_sbs192_counts(options.input)
+    write_sbs192_counts(options.input, options.sample)
     sys.exit(0)
 
 
