@@ -59,27 +59,27 @@ def parse_args(args):
         "--input",
         type=Path,
         required=True,
-        help="SigProfiler SBS288 file to read"
+        help="SigProfiler SBS192 file to read"
     )
     args = args[1:]
     return parser.parse_args(args)
 
 
-def load_sbs288_counts(
-    sbs288_file_path: Path,
+def load_sbs192_counts(
+    sbs192_file_path: Path,
 ) -> Dict[str, int]:
 
-    sbs288_counts = {sbs288_state: defaultdict(lambda: 0) for sbs288_state in ["T", "U", "N"]}
-    for line in open(sbs288_file_path, "r").readlines()[1:]:
-        sbs288, count = line.split()
-        sbs288_state, sbs96 = sbs288.split(":")
-        if sbs288_state == "N":
+    sbs192_counts = {sbs192_state: defaultdict(lambda: 0) for sbs192_state in ["T", "U", "N"]}
+    for line in open(sbs192_file_path, "r").readlines()[1:]:
+        sbs192, count = line.split()
+        sbs192_state, sbs96 = sbs192.split(":")
+        if sbs192_state == "N":
             continue
-        sbs288_counts[sbs288_state][sbs96] = int(count)
-    return sbs288_counts
+        sbs192_counts[sbs192_state][sbs96] = int(count)
+    return sbs192_counts
 
 
-def draw_sbs288_barplot(
+def draw_sbs192_barplot(
     sbs96_file: Path,
     sample: str,
     sbs96_pdf_file: str
@@ -112,15 +112,15 @@ def draw_sbs288_barplot(
     plot.save(sbs96_pdf_file, width=22, height=12)
 
 
-def write_sbs288_counts(
-    sigprofiler_sbs288_file_path: Path,
+def write_sbs192_counts(
+    sigprofiler_sbs192_file_path: Path,
 ):
 
-    sample = open(sigprofiler_sbs288_file_path, "r").readline().split()[1]
-    sbs288_file_path = Path(f"{sample}.himut_unphased.sbs288.tsv")
-    sbs288_pdf_file_path = Path(f"{sample}.himut_unphased.sbs288.pdf")
-    sbs288_counts = load_sbs288_counts(sigprofiler_sbs288_file_path)
-    with open(sbs288_file_path, "w") as outfile:
+    sample = open(sigprofiler_sbs192_file_path, "r").readline().split()[1]
+    sbs192_tsv_file_path = Path(str(sigprofiler_sbs192_file_path).replace(".SBS288.all", ".himut_unphased.sbs192.tsv"))
+    sbs192_pdf_file_path = Path(str(sigprofiler_sbs192_file_path).replace(".SBS288.all", ".himut_unphased.sbs192.pdf"))
+    sbs192_counts = load_sbs192_counts(sigprofiler_sbs192_file_path)
+    with open(sbs192_tsv_file_path, "w") as outfile:
         print(
             "SUB",
             "TRI",
@@ -130,12 +130,12 @@ def write_sbs288_counts(
             sep="\t",
             file=outfile
         )
-        for sbs288_state in ["T", "U"]:
-            sbs96_counts = sbs288_counts[sbs288_state]
+        for sbs192_state in ["T", "U"]:
+            sbs96_counts = sbs192_counts[sbs192_state]
             for sbs96 in SORTED_SBS96_LST:
                 ubase, _, ref, _, alt, _, dbase = list(sbs96)
                 sub = f"{ref}>{alt}"
-                transcriptional_strand_bias = f"{sbs288_state}:{ref}>{alt}"
+                transcriptional_strand_bias = f"{sbs192_state}:{ref}>{alt}"
                 tri = f"{ubase}{ref}{dbase}"
                 print(
                     sub,
@@ -146,12 +146,12 @@ def write_sbs288_counts(
                     sep="\t",
                     file=outfile
                 )
-    draw_sbs288_barplot(sbs288_file_path, sample, sbs288_pdf_file_path)
+    draw_sbs192_barplot(sbs192_tsv_file_path, sample, sbs192_pdf_file_path)
 
 
 def main():
     options = parse_args(sys.argv)
-    write_sbs288_counts(options.input)
+    write_sbs192_counts(options.input)
     sys.exit(0)
 
 
