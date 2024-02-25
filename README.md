@@ -4,8 +4,18 @@
 ## pip installation
 pip install himut
 
+## Create a conda environment for himut
+wget https://github.com/sjin09/himut/archive/refs/tags/v1.0.3.tar.gz
+tar -zxvf v1.0.3.tar.gz
+cd himut-1.0.3
+conda env create --file environment.yml  # create conda environment
+conda activate himut
+poetry install  # install the package to the virtual environment
+poetry install --with dev  # to install with development dependencies
+poetry install --extras "scripts"  # to install additional dependencies required for the scripts
+
 ## download and install the latest release
-wget https://github.com/sjin09/himut/archive/refs/tags/v1.0.2.tar.gz
+wget https://github.com/sjin09/himut/archive/refs/tags/v1.0.3.tar.gz
 tar -zxvf v1.0.3.tar.gz
 cd himut-1.0.3
 bash install.sh
@@ -83,6 +93,19 @@ Use pip to install himut:
 
 ```sh
 pip install himut
+```
+
+Create a conda environment for himut
+
+```
+wget https://github.com/sjin09/himut/archive/refs/tags/v1.0.3.tar.gz
+tar -zxvf v1.0.3.tar.gz
+cd himut-1.0.3
+conda env create --file environment.yml  # create conda environment
+conda activate himut
+poetry install  # install the package to the virtual environment
+poetry install --with dev  # to install with development dependencies
+poetry install --extras "scripts"  # to install additional dependencies required for the scripts
 ```
 
 Download and install the latest release:
