@@ -2,7 +2,10 @@
 import argparse
 import sys
 import warnings
+
 from pathlib import Path
+
+from . import __version__
 
 
 def make_wide(formatter, w=120, h=36):
@@ -24,17 +27,18 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         add_help=True,
         formatter_class=make_wide(argparse.ArgumentDefaultsHelpFormatter),
         description="""
-        himut identifies high-confidence single molecule somatic single-base substitutions from PacBio CCS reads
+            himut identifies high-confidence single molecule somatic single-base substitutions
+            from Pacific Biosciences circular consensus sequence reads
         """
     )
-    parser.add_argument("--force", action="store_true", version="force overwriting of exisiting files")
+    parser.add_argument("--force", action="store_true", help="force overwriting of exisiting files")
     parser.add_argument("--region", type=str, required=False, help="target chromosome")
     parser.add_argument(
         "--region-list", type=Path, required=False, help="a file with list of target chromosomes separated by new line"
     )
     parser.add_argument("-t", "--threads", type=int, default=1, required=False, help="number of threads to use")
     parser.add_argument(
-        "-v", "--version", action="version", version="%(prog)s {version}".format(version=program_version)
+        "-v", "--version", action="version", version="%(prog)s {version}".format(version=__version__)
     )
     # subcommands: initialize
     subparsers = parser.add_subparsers(dest="subcommand", metavar="")
@@ -76,7 +80,7 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         "--min-hap-count", type=int, default=3, required=False, help="minimum h1 and h2 haplotype count"
     )
     parser_call.add_argument(
-        "--min-trim", type=float, default=0.01, required=False,
+        "--min-trim-proportion", type=float, default=0.01, required=False,
         help="minimum proportion of bases to be trimmed from the start and end of the read"
     )
     parser_call.add_argument(
@@ -173,7 +177,7 @@ def parse_args(program_version, arguments=sys.argv[1:]):
     # subcommands: tricount
     parser_tricount = subparsers.add_parser(
         "CountTrinucleotides",
-        help="counts and returns reference trinucletide context counts",
+        help="counts and returns reference trinucletide sequence context counts",
         formatter_class=make_wide(argparse.ArgumentDefaultsHelpFormatter, w=180, h=60)
     )
     parser_tricount.add_argument("-i", "--ref-fasta", type=Path, required=True, help="reference FASTA file")
@@ -181,7 +185,7 @@ def parse_args(program_version, arguments=sys.argv[1:]):
     parser_normcounts = subparsers.add_parser(
         "NormaliseSomaticSubstitutionCounts",
         formatter_class=make_wide(argparse.ArgumentDefaultsHelpFormatter, w=180, h=60),
-        help="returns normalised SBS96 mutation counts based on genome and read trinucletide context counts"
+        help="returns normalised SBS96 mutation counts based on genome and read trinucletide sequence context counts"
     )
     parser_normcounts.add_argument("-i", "--bam", type=str, required=True, help="minimap2 BAM file")
     parser_normcounts.add_argument("--ref-fasta", type=str, required=True, help="reference FASTA file")
@@ -221,7 +225,7 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         "--min-hap-count", type=int, default=3, required=False, help="minimum h1 and h2 haplotype count"
     )
     parser_normcounts.add_argument(
-        "--min-trim", type=float, default=0.01, required=False,
+        "--min-trim-proportion", type=float, default=0.01, required=False,
         help="minimum proportion of bases to be trimmed from the start and end of the read"
     )
     parser_normcounts.add_argument(
@@ -253,8 +257,4 @@ def parse_args(program_version, arguments=sys.argv[1:]):
     parser_normcounts.add_argument(
         "-o", "--output", type=str, required=True, help="file to return normalised SBS96 counts",
     )
-    if len(arguments) == 0:
-        parser.print_help()
-        parser.exit()
-    else:
-        return parser, parser.parse_args(arguments)
+    return parser
