@@ -1,39 +1,40 @@
 #!/usr/bin/env python
 
 import argparse
+import logging
+import multiprocessing as mp
+import sys
 from collections import defaultdict
 from typing import Dict, List
-import sys
 
 import natsort
 import pandas as pd
-from pathlib import Path
 import plotnine as p9
+import psutil
 import pysam
-
+from pathlib import Path
 
 PUR_SET = set(["A", "G"])
 NTS = ["A", "C", "G", "T"]
 SUB_LST = ["C>A", "C>G", "C>T", "T>A", "T>C", "T>G"]
 COMPLEMENTARY_BASE_LOOKUP = {"A": "T", "T": "A", "G": "C", "C": "G", "N": "N"}
 
-SBS96_TRI_SET = set()
-SORTED_SBS96_LST = []
-SUB_TO_SBS96_LST = {sub: [] for sub in SUB_LST}
+SBS96_LST = []
 for sub in SUB_LST:
-    ref, alt = sub.split(">")
     for nti in NTS:
         for ntj in NTS:
-            tri = f"{nti}{ref}{ntj}"
             sbs96 = f"{nti}[{sub}]{ntj}"
-            SBS96_TRI_SET.add(tri)
-            SUB_TO_SBS96_LST[sub].append(sbs96)
-    SUB_TO_SBS96_LST[sub] = natsort.natsorted(SUB_TO_SBS96_LST[sub])
-    SORTED_SBS96_LST.extend(SUB_TO_SBS96_LST[sub])
-SORTED_SBS96_LST.append("N[N>N]N")
-SBS96_TRI_LST = natsort.natsorted(list(SBS96_TRI_SET))
-SBS96_TRI_COUNT = len(SBS96_TRI_LST)
-SBS96_TRI_WEIGHT = 1/float(SBS96_TRI_COUNT)
+            SBS96_LST.append(sbs96)
+
+TRI_LST = []
+for nti in NTS:
+    for ntj in ["C", "G"]:
+        for ntk in NTS:
+            tri = "{}{}{}".format(nti, ntj, ntk)
+            TRI_LST.append(tri)
+
+TRI_COUNT = len(TRI_LST)
+TRI_WEIGHT = 1/float(TRI_COUNT)
 SBS96_MUTSIG_FILL_COLOURS = ("#98D7EC", "#212121", "#FF003A", "#A6A6A6", "#83A603", "#F5ABCC")
 
 
@@ -113,8 +114,23 @@ def parse_args(args):
         required=False,
         help="list of target chromosomes separated by new line"
     )
+    parser.add_argument(
+        "-t",
+        "--threads",
+        type=int,
+        default=1,
+        required=False,
+        help="number of threads"
+    )
     args = args[1:]
     return parser.parse_args(args)
+
+
+def check_num_threads(thread_count: int):
+    system_thread_count = psutil.cpu_count()
+    if thread_count > system_thread_count:
+        logging.info("Operating system does not have {} threads".format(thread_count))
+        sys.exit()
 
 
 def get_sample(vcf_file_path: Path):
@@ -171,21 +187,21 @@ def load_sbs96_counts(
     vcf_file = pysam.VariantFile(vcf_file_path)
     reference_sequence_lookup = pysam.FastaFile(ref_file_path)
     if vcf_file_path.suffix == ".vcf":
-        sbs96_per_chrom = defaultdict(lambda: {sbs96: 0 for sbs96 in SORTED_SBS96_LST})
+        sbs96_per_chrom = defaultdict(lambda: {sbs96: 0 for sbs96 in SBS96_LST})
         for variant in vcf_file:
             xvariant = ExpandedVariantRecord(variant)
             if xvariant.is_pass and xvariant.is_biallelic_snp:
                 sbs96 = get_sbs96(xvariant, reference_sequence_lookup)
                 sbs96_per_chrom[variant.chrom][sbs96] += 1
     elif vcf_file_path.suffix == ".bgz":
-        sbs96_per_chrom = {chrom: {sbs96: 0 for sbs96 in SORTED_SBS96_LST} for chrom in chromosomes}
+        sbs96_per_chrom = {chrom: {sbs96: 0 for sbs96 in SBS96_LST} for chrom in chromosomes}
         for chrom in chromosomes:
             for variant in vcf_file.fetch(chrom):
                 xvariant = ExpandedVariantRecord(variant)
                 if xvariant.is_pass and xvariant.is_biallelic_snp:
                     sbs96 = get_sbs96(xvariant, reference_sequence_lookup)
                     sbs96_per_chrom[chrom][sbs96] += 1
-    sbs96_counts = {sbs96: 0 for sbs96 in SORTED_SBS96_LST}
+    sbs96_counts = {sbs96: 0 for sbs96 in SBS96_LST}
     for chrom in chromosomes:
         for sbs96, count in sbs96_per_chrom[chrom].items():
             if sbs96.count("N") != 0:
@@ -194,22 +210,49 @@ def load_sbs96_counts(
     return sbs96_counts
 
 
-def load_sbs96_tri_counts(
-    chromosomes: List[str],
-    ref_file_path: Path
+def get_tricounts_per_target(
+    chrom: str,
+    sequence: str,
+    tricount_lookup_per_chrom: Dict[str, Dict[str, int]],
 ):
-    sbs96_tri_counts = defaultdict(lambda: 0)
+    tricount_lookup = defaultdict(lambda: 0)
+    for seq_idx, _ in enumerate(sequence[:-2]):
+        trinucleotide = sequence[seq_idx:seq_idx+3]
+        if trinucleotide.count("N") != 0:
+            continue
+        if trinucleotide[1] in PUR_SET:
+            trinucleotide = "".join([COMPLEMENTARY_BASE_LOOKUP[nt] for nt in trinucleotide[::-1]])
+        tricount_lookup[trinucleotide] += 1
+    tricount_lookup_per_chrom[chrom] = dict(tricount_lookup)
+
+
+def get_target_tricounts(
+    chromosomes: List[str],
+    ref_file_path: Path,
+    threads: int
+) -> Dict[str, Dict[str, int]]:
+
+    p = mp.Pool(threads)
+    manager = mp.Manager()
+    tricount_lookup_per_chrom = manager.dict()
     reference_sequence_lookup = pysam.FastaFile(ref_file_path)
+    get_tricounts_per_target_arg_lst = [
+        (
+            chrom,
+            str(reference_sequence_lookup[chrom]),
+            tricount_lookup_per_chrom
+        )
+        for chrom in chromosomes
+    ]
+    p.starmap(get_tricounts_per_target, get_tricounts_per_target_arg_lst)
+    p.close()
+    p.join()
+
+    tricount_lookup = defaultdict(lambda: 0)
     for chrom in chromosomes:
-        seq = reference_sequence_lookup[chrom]
-        for seq_idx, base in enumerate(seq[:-2]):
-            if base == "N":
-                continue
-            tri = seq[seq_idx:seq_idx+3]
-            if tri[1] in PUR_SET:
-                tri = "".join([COMPLEMENTARY_BASE_LOOKUP[tri_base] for tri_base in tri[::-1]])
-            sbs96_tri_counts[tri] += 1
-    return sbs96_tri_counts
+        for tri, count in tricount_lookup_per_chrom[chrom].items():
+            tricount_lookup[tri] += count
+    return tricount_lookup
 
 
 def draw_sbs96_barplot(
@@ -245,18 +288,19 @@ def write_tri_equal_weight_sbs96_counts(
     ref_file_path: Path,
     region: Path,
     region_list: Path,
+    threads: int
 ):
 
     sample = get_sample(vcf_file_path)
     chromosomes = load_loci(region, region_list)
     sbs96_counts = load_sbs96_counts(chromosomes, vcf_file_path, ref_file_path)
-    sbs96_tri_counts = load_sbs96_tri_counts(chromosomes, ref_file_path)
-    sbs96_tri_total = sum(sbs96_tri_counts.values())
-    sbs96_tri_freq = {tri: tri_count/sbs96_tri_total for tri, tri_count in sbs96_tri_counts.items()}
+    tricount_lookup = get_target_tricounts(chromosomes, ref_file_path, threads)
+    tri_sum = sum(tricount_lookup.values())
+    tri_frequencies_lookup = {tri: tricount/tri_sum for tri, tricount in tricount_lookup.items()}
     sbs96_file_prefix = str(vcf_file_path).replace(".vcf", "").replace(".bgz", "")
-    sbs96_file_path = Path(f"{sbs96_file_prefix}.tri_equal_weight.sbs96.tsv")
+    sbs96_tsv_file_path = Path(f"{sbs96_file_prefix}.tri_equal_weight.sbs96.tsv")
     sbs96_pdf_file_path = Path(f"{sbs96_file_prefix}.tri_equal_weight.sbs96.pdf")
-    with open(sbs96_file_path, "w") as outfile:
+    with open(sbs96_tsv_file_path, "w") as outfile:
         print(
             "SUB",
             "TRI",
@@ -267,13 +311,13 @@ def write_tri_equal_weight_sbs96_counts(
             sep="\t",
             file=outfile
         )
-        for sbs96 in SORTED_SBS96_LST:
+        for sbs96 in SBS96_LST:
             if sbs96.count("N") != 0:
                 continue
             ubase, _, ref, _, alt, _, dbase = list(sbs96)
             sub = f"{ref}>{alt}"
             tri = f"{ubase}{ref}{dbase}"
-            sbs96_tri_weight = 1/(sbs96_tri_freq[tri]/SBS96_TRI_WEIGHT)
+            sbs96_tri_weight = 1/(tri_frequencies_lookup[tri]/TRI_WEIGHT)
             sbs96_count = sbs96_counts[sbs96]
             normalised_sbs96_count = sbs96_count * sbs96_tri_weight
             print(
@@ -286,12 +330,12 @@ def write_tri_equal_weight_sbs96_counts(
                 sep="\t",
                 file=outfile
             )
-    draw_sbs96_barplot(sbs96_file_path, sample, sbs96_pdf_file_path)
+    draw_sbs96_barplot(sbs96_tsv_file_path, sample, sbs96_pdf_file_path)
 
 
 def main():
     options = parse_args(sys.argv)
-    write_tri_equal_weight_sbs96_counts(options.vcf, options.ref, options.region, options.region_list)
+    write_tri_equal_weight_sbs96_counts(options.vcf, options.ref, options.region, options.region_list, options.threads)
     sys.exit(0)
 
 
