@@ -1,40 +1,12 @@
 #!/usr/bin/env python
 
 import argparse
-import itertools
 import sys
-import natsort
 from pathlib import Path
-from collections import defaultdict
-from typing import Set, Dict, List, Tuple
+from typing import Dict, List
 
 from numpy import dot
 from numpy.linalg import norm
-
-
-PUR_SET = set(["A", "G"])
-NTS = ["A", "C", "G", "T"]
-SUB_LST = ["C>A", "C>G", "C>T", "T>A", "T>C", "T>G"]
-COMPLEMENTARY_BASE_LOOKUP = {"A": "T", "T": "A", "G": "C", "C": "G", "N": "N"}
-
-SBS96_TRI_SET = set()
-SORTED_SBS96_LST = []
-SUB_TO_SBS96_LST = {sub: [] for sub in SUB_LST}
-for sub in SUB_LST:
-    ref, alt = sub.split(">")
-    for nti in NTS:
-        for ntj in NTS:
-            tri = f"{nti}{ref}{ntj}"
-            sbs96 = f"{nti}[{sub}]{ntj}"
-            SBS96_TRI_SET.add(tri)
-            SUB_TO_SBS96_LST[sub].append(sbs96)
-    SUB_TO_SBS96_LST[sub] = natsort.natsorted(SUB_TO_SBS96_LST[sub])
-    SORTED_SBS96_LST.extend(SUB_TO_SBS96_LST[sub])
-SORTED_SBS96_LST.append("N[N>N]N")
-SBS96_TRI_LST = natsort.natsorted(list(SBS96_TRI_SET))
-SBS96_TRI_COUNT = len(SBS96_TRI_LST)
-SBS96_TRI_WEIGHT = 1/float(SBS96_TRI_COUNT)
-SBS96_MUTSIG_FILL_COLOURS = ("#98D7EC", "#212121", "#FF003A", "#A6A6A6", "#83A603", "#F5ABCC")
 
 
 def parse_args(args):
@@ -42,13 +14,13 @@ def parse_args(args):
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument(
-        "--hdp_matrix",
+        "--hdp-matrix",
         type=Path,
         required=True,
-        help="file to read matrix for HDP mutational signatures"
+        help="file to read matrix for HDP mutational signature extraction"
     )
     parser.add_argument(
-        "--hdp_mutsig",
+        "--hdp-mutsig",
         type=Path,
         required=True,
         help="file to read HDP mutational signatures"
@@ -76,42 +48,42 @@ def parse_args(args):
     return parser.parse_args(args)
 
 
-def get_rTOL_filtered_samples(mutsig_exposure_path: Path, artefactual_mutsig_path: Path):
-    samples = set()
-    filtered_samples = set()
-    rTOL_mutsigs = [line.strip() for line in open(artefactual_mutsig_path).readlines()]
-    header = open(mutsig_exposure_path).readline().rstrip().split(",")
-    mutsigs = ["HDP{}".format(i) for i in header]
-    for line in open(mutsig_exposure_path).readlines()[1:]:
-        rTOL_sum = 0
+def load_sbs96(hdp_matrix_file_path: Path) -> List[str]:
+    sbs96_lst = []
+    fields = open(hdp_matrix_file_path).readline().rstrip().split()
+    for i in fields:
+        sub, tri = i.split(",")
+        ubase, _, dbase = list(tri)
+        sbs96 = "{}[{}]{}".format(ubase, sub, dbase)
+        sbs96_lst.append(sbs96)
+    return sbs96_lst
+
+
+def load_mutsigs(hdp_mutsig_file_path: Path) -> Dict[str, List[float]]:
+    header = open(hdp_mutsig_file_path).readline().rstrip().split(",")
+    mutsigs = ["HDP{}".format(i.replace("X", "")) for i in header[1:]]
+    mutprobs_per_mutsig = {mutsig: [] for mutsig in mutsigs}
+    for line in open(hdp_mutsig_file_path).readlines()[1:]:
         fields = line.rstrip().split(",")
-        for rTOL in rTOL_mutsigs:
-            rTOL_sum += float(fields[mutsigs.index(rTOL)])
-        sample = fields[0]
-        print(sample, rTOL_sum)
-        if rTOL_sum > 0.5:
-            filtered_samples.add(sample)
+        for mutsig_idx, mutprob in enumerate(fields[1:]):
+            mutsig = mutsigs[mutsig_idx]
+            mutprobs_per_mutsig[mutsig].append(float(mutprob))
+    return mutprobs_per_mutsig
+
+
+def load_mutcounts(mutcount_file_path: Path, sbs96_lst: List[str]) -> List[float]:
+    mutcount_per_sbs96 = {}
+    for line in open(mutcount_file_path).readlines():
+        if line.startswith("#"):
             continue
-        samples.add(sample)
-    return samples
-
-
-def write_rTOL_filtered_matrix(
-    matrix_infile_path: Path,
-    mutsig_exposure_path: Path,
-    artefactual_mutsig_path: Path,
-    matrix_outfile_path: Path,
-):
-    samples = get_rTOL_filtered_samples(mutsig_exposure_path, artefactual_mutsig_path)
-    with open(matrix_outfile_path, "w") as outfile:
-        for line in open(matrix_infile_path).readlines():
-            if line.startswith("C>A"):
-                outfile.write(line)
-            else:
-                fields = line.rstrip().split()
-                sample = fields[0]
-                if sample in samples:
-                    outfile.write(line)
+        elif line.startswith("sub"):
+            continue
+        fields = line.rstrip().split()
+        sbs96 = fields[2]
+        mutcount = fields[4]
+        mutcount_per_sbs96[sbs96] = float(mutcount)
+    mutcounts = [mutcount_per_sbs96[sbs96] for sbs96 in sbs96_lst]
+    return mutcounts
 
 
 def get_cosine_similarity(va, vb) -> float:
@@ -119,45 +91,43 @@ def get_cosine_similarity(va, vb) -> float:
     return cosine_similarity
 
 
-# def load_sbs96_cnt(infile):
-
-#     sbs2cnt = {}
-#     for line in open(infile).readlines():
-#         if line.startswith("sub"):
-#             continue
-#         arr = line.strip().split()
-#         sbs2cnt[arr[2]] = arr[3]
-#     cnt_lst = [float(sbs2cnt[sbs]) for sbs in sbs_lst]
-#     return cnt_lst
-
-
-# def dump_cos_sim(target, query):
-#     """
-#     measures and returns cosine similarity
-#     """
-    
-#     query_sbs96_cnt = load_sbs96_cnt(query)
-#     target_sbs96_cnt = load_sbs96_cnt(target)
-#     cos_sim = get_cos_sim(target_sbs96_cnt, query_sbs96_cnt)
-#     print("target:{}\tquery:{}\tsim:{}".format(target, query, cos_sim))
+def get_rTOL_mutsigs(
+    mutprobs_per_hdp_mutsig: Dict[str, List[float]],
+    cord_blood_mutcounts: List[float],
+    dtol_mutcounts: List[float]
+) -> List[str]:
+    rTOL_mutsigs = []
+    for hdp_mutsig, mutprobs in mutprobs_per_hdp_mutsig.items():
+        cord_blood_cos_sim = get_cosine_similarity(mutprobs, cord_blood_mutcounts)
+        dtol_cos_sim = get_cosine_similarity(mutprobs, dtol_mutcounts)
+        if cord_blood_cos_sim > 0.85:
+            rTOL_mutsigs.append(hdp_mutsig)
+        if dtol_cos_sim > 0.85:
+            rTOL_mutsigs.append(hdp_mutsig)
+    return rTOL_mutsigs
 
 
 def write_rTOL_mutsig(
     hdp_matrix_file_path: Path,
     hdp_mutsig_file_path: Path,
-    cord_blood_mutspectrum_file_path: Path,
-    dtol_mutspectrum_file_path: Path,
-    rtol_mutsig_file_path: Path 
+    cord_blood_mutcount_file_path: Path,
+    dtol_mutcount_file_path: Path,
+    rtol_mutsig_file_path: Path
 ):
-    
+    sbs96_lst = load_sbs96(hdp_matrix_file_path)
+    mutprobs_per_hdp_mutsig = load_mutsigs(hdp_mutsig_file_path)
+    cord_blood_mutcounts = load_mutcounts(cord_blood_mutcount_file_path, sbs96_lst)
+    dtol_mutcounts = load_mutcounts(dtol_mutcount_file_path, sbs96_lst)
+    rTOL_mutsigs = get_rTOL_mutsigs(mutprobs_per_hdp_mutsig, cord_blood_mutcounts, dtol_mutcounts)
+    with open(rtol_mutsig_file_path, "w") as outfile:
+        print("\n".join(rTOL_mutsigs), file=outfile)
 
 
 def main():
     options = parse_args(sys.argv)
-    write_rTOL_mutsig(options.mutsig, options.cord_blood, options.library_error, options.output)
+    write_rTOL_mutsig(options.hdp_matrix, options.hdp_mutsig, options.cord_blood, options.library_error, options.output)
     sys.exit(0)
 
 
 if __name__ == "__main__":
     main()
-
