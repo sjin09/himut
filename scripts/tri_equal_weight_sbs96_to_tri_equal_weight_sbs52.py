@@ -227,7 +227,7 @@ def write_tri_equal_weight_sbs52_counts(
     output_path: Path
 ):
     sbs52_counts = load_sbs52_counts(input_path)
-    sbs52_pdf_file_path = Path("{}.pdf".format(output_path.stem))
+    sbs52_pdf_file_path = Path("{}/{}.pdf".format(output_path.parent, output_path.stem))
     with open(output_path, "w") as outfile:
         print(
             "SUB",
