@@ -4,7 +4,7 @@ import argparse
 import sys
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict
 
 import natsort
 import pandas as pd
@@ -110,49 +110,17 @@ SBS96_TO_SBS52 = {
     "T[T>A]A": "T[T>A]A",
 }
 
-
-PUR_SET = set(["A", "G"])
-NTS = ["A", "C", "G", "T"]
-SBS52_SUB_LST = ["C>A", "C>G", "C>T", "T>A", "T>G"]
-SBS96_SUB_LST = ["C>A", "C>G", "C>T", "T>A", "T>C", "T>G"]
-COMPLEMENTARY_BASE_LOOKUP = {"A": "T", "T": "A", "G": "C", "C": "G", "N": "N"}
-
-SBS96_LST = []
-for sbs96_sub in SBS96_SUB_LST:
-    for nti in NTS:
-        for ntj in NTS:
-            sbs96 = f"{nti}[{sbs96_sub}]{ntj}"
-            SBS96_LST.append(sbs96)
-
-SBS96_TRI_LST = []
-for nti in NTS:
-    for ntj in ["C", "G"]:
-        for ntk in NTS:
-            tri = "{}{}{}".format(nti, ntj, ntk)
-            SBS96_TRI_LST.append(tri)
-
 SBS52_TO_SBS96_LST = defaultdict(list)
+SBS52_SUB_LST = ["C>A", "C>G", "C>T", "T>A", "T>G"]
 for SBS96, SBS52 in SBS96_TO_SBS52.items():
     SBS52_TO_SBS96_LST[SBS52].append(SBS96)
 
-SBS52_TO_SBS96_TRI_LST = defaultdict(set)
-for SBS96, SBS52 in SBS96_TO_SBS52.items():
-    SBS52_TO_SBS96_LST[SBS52].append(SBS96)
-    ubase, _, ref, _, alt, _, dbase = list(SBS96)
-    tri = f"{ubase}{ref}{dbase}"
-    SBS52_TO_SBS96_TRI_LST[SBS52].add(tri)
-
-SBS52_TRI_SET = set()
 SUB_TO_SBS52_LST = defaultdict(list)
 for SBS52 in set(list(SBS96_TO_SBS52.values())):
     ubase, _, ref, _, alt, _, dbase = list(SBS52)
     sub = "{}>{}".format(ref, alt)
     tri = "{}{}{}".format(ubase, ref, dbase)
     SUB_TO_SBS52_LST[sub].append(SBS52)
-    SBS52_TRI_SET.add(tri)
-SBS52_TRI_LST = natsort.natsorted(list(SBS52_TRI_SET))
-SBS52_TRI_LST = natsort.natsorted(SBS52_TRI_LST)
-SBS52_TRI_WEIGHT = len(SBS52_TRI_LST)
 
 SBS52_LST = []
 for sbs52_sub in SBS52_SUB_LST:
