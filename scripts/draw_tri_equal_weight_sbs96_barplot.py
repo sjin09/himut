@@ -25,6 +25,7 @@ for sub in SUB_LST:
         for ntj in NTS:
             sbs96 = f"{nti}[{sub}]{ntj}"
             SBS96_LST.append(sbs96)
+SBS96_LST.append("N[N>N]N")
 
 TRI_LST = []
 for nti in NTS:
