@@ -86,7 +86,7 @@ class ExpandedVariantRecord:
         return str(list(self.variant.filter)[0])
 
     @property
-    def format(self) -> str:
+    def format(self):
         return self.variant.format
 
     @property
@@ -107,19 +107,32 @@ class ExpandedVariantRecord:
             return self.is_snp(self.alts[0])
         return False
 
+    @property
+    def samples(self):
+        return self.variant.samples
+
+    @property
+    def get_sample_gts(self) -> str:
+        sample_gts = []
+        for sample in self.samples:
+            sample_gt = "/".join([str(gt) for gt in self.samples[sample]["GT"]])
+            sample_gts.append(sample_gt)
+        return sample_gts
+
 
 def load_chromosomes(tgt_path: Path):
     chroms = [line.strip() for line in open(tgt_path)]
     return chroms
 
 
-def load_mutation_counts(chroms: List[str], vcf_path: Path, sample: str):
+def load_mutation_counts(chroms: List[str], vcf_path: Path):
     ti_count = 0
     tv_count = 0
     snp_count = 0
     del_count = 0
     ins_count = 0
     variant_records = pysam.VariantFile(vcf_path)
+    sample = variant_records.header.samples[0]
     for chrom in chroms:
         for variant in variant_records.fetch(chrom):
             xvariant = ExpandedVariantRecord(variant)
@@ -142,23 +155,24 @@ def load_mutation_counts(chroms: List[str], vcf_path: Path, sample: str):
     titv_ratio = ti_count/float(tv_count) if tv_count != 0 else 0.0
     indel_count = del_count + ins_count
     indel_ratio = ins_count/float(del_count) if del_count != 0 else 0.0
-    return snp_count, ti_count, tv_count, titv_ratio, del_count, ins_count, indel_count, indel_ratio
+    return sample, snp_count, ti_count, tv_count, titv_ratio, del_count, ins_count, indel_count, indel_ratio
 
 
-def load_het_mutation_counts(chroms: List[str], vcf_path: Path, sample: str):
-
+def load_het_mutation_counts(chroms: List[str], vcf_path: Path):
     ti_count = 0
     tv_count = 0
     snp_count = 0
     del_count = 0
     ins_count = 0
     variant_records = pysam.VariantFile(vcf_path)
+    sample = variant_records.header.samples[0]
     for chrom in chroms:
         for variant in variant_records.fetch(chrom):
             xvariant = ExpandedVariantRecord(variant)
             if not xvariant.is_pass:
                 continue
-            sample_gt = xvariant.format[sample]["GT"]
+            sample_gts = xvariant.get_sample_gts
+            sample_gt = sample_gts[0]
             if sample_gt != "0/1":
                 continue
             if xvariant.is_snp:
@@ -173,26 +187,29 @@ def load_het_mutation_counts(chroms: List[str], vcf_path: Path, sample: str):
                     del_count += 1
                 elif len(xvariant.ref) < len(xvariant.alt):  # insertion
                     ins_count += 1
+    variant_records.close()
     titv_ratio = ti_count/float(tv_count) if tv_count != 0 else 0.0
     indel_count = del_count + ins_count
     indel_ratio = ins_count/float(del_count) if del_count != 0 else 0.0
-    return snp_count, ti_count, tv_count, titv_ratio, del_count, ins_count, indel_count, indel_ratio
+    return sample, snp_count, ti_count, tv_count, titv_ratio, del_count, ins_count, indel_count, indel_ratio
 
 
-def load_hom_mutation_counts(chroms: List[str], vcf_path: Path, sample: str):
+def load_hom_mutation_counts(chroms: List[str], vcf_path: Path):
     ti_count = 0
     tv_count = 0
     snp_count = 0
     del_count = 0
     ins_count = 0
     variant_records = pysam.VariantFile(vcf_path)
+    sample = variant_records.header.samples[0]
     for chrom in chroms:
         for variant in variant_records.fetch(chrom):
             xvariant = ExpandedVariantRecord(variant)
             if not xvariant.is_pass:
                 continue
-            sample_gt = xvariant.format[sample]["GT"]
-            if sample_gt != "0/1":
+            sample_gts = xvariant.get_sample_gts
+            sample_gt = sample_gts[0]
+            if sample_gt != "1/1":
                 continue
             if xvariant.is_snp:
                 snp_count += 1
@@ -206,10 +223,11 @@ def load_hom_mutation_counts(chroms: List[str], vcf_path: Path, sample: str):
                     del_count += 1
                 elif len(xvariant.ref) < len(xvariant.alt):  # insertion
                     ins_count += 1
+    variant_records.close()
     titv_ratio = ti_count/float(tv_count) if tv_count != 0 else 0.0
     indel_count = del_count + ins_count
     indel_ratio = ins_count/float(del_count) if del_count != 0 else 0.0
-    return snp_count, ti_count, tv_count, titv_ratio, del_count, ins_count, indel_count, indel_ratio
+    return sample, snp_count, ti_count, tv_count, titv_ratio, del_count, ins_count, indel_count, indel_ratio
 
 
 def write_germline_mutation_statistics(
@@ -223,12 +241,10 @@ def write_germline_mutation_statistics(
     reference_sequence_lookup = pysam.FastaFile(ref_path)
     chroms = load_chromosomes(tgt_path)
     genome_sum = sum([len(reference_sequence_lookup[chrom]) for chrom in chroms])
-    variant_records = pysam.VariantFile(vcf_path)
-    sample = variant_records.header.samples[0]
     with open(out_path, "w") as outfile:
-        # outfile.write("SAMPLE\tSNP_COUNT\tSNP_DENSIY\tTI_COUNT\tTV_COUNT\tTITV\tDEL_COUNT\tDEL_DENSITY\tINS_COUNT\tINS_DENSITY\tINDEL_COUNT\tINDEL_DENSITY\n")
-        if hymenoptera_sample and sample_is_reference_sample:
+        if hymenoptera_sample and sample_is_reference_sample:  # only heterozygous mutations are considered
             (
+                sample,
                 het_snp_count,
                 het_ti_count,
                 het_tv_count,
@@ -237,8 +253,71 @@ def write_germline_mutation_statistics(
                 het_ins_count,
                 het_indel_count,
                 het_indel_ratio
-            ) = load_het_mutation_counts(chroms, vcf_path, sample)
+            ) = load_het_mutation_counts(chroms, vcf_path)
+            het_snp_density = het_snp_count/genome_sum
+            het_del_density = het_del_count/genome_sum
+            het_ins_density = het_ins_count/genome_sum
+            het_indel_density = het_indel_count/genome_sum
+            outfile.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(
+                sample,
+                het_snp_count,
+                het_snp_density,
+                het_ti_count,
+                het_tv_count,
+                het_titv_ratio,
+                het_del_count,
+                het_del_density,
+                het_ins_count,
+                het_ins_density,
+                het_indel_count,
+                het_indel_density,
+                het_indel_ratio
+            ))
+        elif not hymenoptera_sample and sample_is_reference_sample:  # male is haploid # female is diploid
             (
+                sample,
+                het_snp_count,
+                het_ti_count,
+                het_tv_count,
+                het_titv_ratio,
+                het_del_count,
+                het_ins_count,
+                het_indel_count,
+                het_indel_ratio
+            ) = load_het_mutation_counts(chroms, vcf_path)
+            het_snp_density = het_snp_count/genome_sum
+            het_del_density = het_del_count/genome_sum
+            het_ins_density = het_ins_count/genome_sum
+            het_indel_density = het_indel_count/genome_sum
+            outfile.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(
+                sample,
+                het_snp_count,
+                het_snp_density,
+                het_ti_count,
+                het_tv_count,
+                het_titv_ratio,
+                het_del_count,
+                het_del_density,
+                het_ins_count,
+                het_ins_density,
+                het_indel_count,
+                het_indel_density,
+                het_indel_ratio
+            ))
+        elif hymenoptera_sample and not sample_is_reference_sample:  # male is haploid # male is diploid
+            (
+                sample,
+                het_snp_count,
+                het_ti_count,
+                het_tv_count,
+                het_titv_ratio,
+                het_del_count,
+                het_ins_count,
+                het_indel_count,
+                het_indel_ratio
+            ) = load_het_mutation_counts(chroms, vcf_path)
+            (
+                sample,
                 hom_snp_count,
                 hom_ti_count,
                 hom_tv_count,
@@ -286,97 +365,9 @@ def write_germline_mutation_statistics(
                 hom_indel_density,
                 hom_indel_ratio
             ))
-        elif not hymenoptera_sample and sample_is_reference_sample:
+        elif not hymenoptera_sample and not sample_is_reference_sample:  # both het and hom mutations are considered
             (
-                het_snp_count,
-                het_ti_count,
-                het_tv_count,
-                het_titv_ratio,
-                het_del_count,
-                het_ins_count,
-                het_indel_count,
-                het_indel_ratio
-            ) = load_het_mutation_counts(chroms, vcf_path, sample)
-            het_snp_density = het_snp_count/genome_sum
-            het_del_density = het_del_count/genome_sum
-            het_ins_density = het_ins_count/genome_sum
-            het_indel_density = het_indel_count/genome_sum
-            outfile.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(
                 sample,
-                het_snp_count,
-                het_snp_density,
-                het_ti_count,
-                het_tv_count,
-                het_titv_ratio,
-                het_del_count,
-                het_del_density,
-                het_ins_count,
-                het_ins_density,
-                het_indel_count,
-                het_indel_density,
-                het_indel_ratio
-            ))
-        elif hymenoptera_sample and not sample_is_reference_sample:
-            (
-                het_snp_count,
-                het_ti_count,
-                het_tv_count,
-                het_titv_ratio,
-                het_del_count,
-                het_ins_count,
-                het_indel_count,
-                het_indel_ratio
-            ) = load_het_mutation_counts(chroms, vcf_path, sample)
-            (
-                hom_snp_count,
-                hom_ti_count,
-                hom_tv_count,
-                hom_titv_ratio,
-                hom_del_count,
-                hom_ins_count,
-                hom_indel_count,
-                hom_indel_ratio
-            ) = load_hom_mutation_counts(chroms, vcf_path, sample)
-            het_snp_density = het_snp_count/genome_sum
-            het_del_density = het_del_count/genome_sum
-            het_ins_density = het_ins_count/genome_sum
-            het_indel_density = het_indel_count/genome_sum
-            hom_snp_density = hom_snp_count/genome_sum
-            hom_del_density = hom_del_count/genome_sum
-            hom_ins_density = hom_ins_count/genome_sum
-            hom_indel_density = hom_indel_count/genome_sum
-            outfile.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(
-                sample,
-                het_snp_count,
-                het_snp_density,
-                het_ti_count,
-                het_tv_count,
-                het_titv_ratio,
-                het_del_count,
-                het_del_density,
-                het_ins_count,
-                het_ins_density,
-                het_indel_count,
-                het_indel_density,
-                het_indel_ratio
-            ))
-            outfile.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(
-                sample,
-                hom_snp_count,
-                hom_snp_density,
-                hom_ti_count,
-                hom_tv_count,
-                hom_titv_ratio,
-                hom_del_count,
-                hom_del_density,
-                hom_ins_count,
-                hom_ins_density,
-                hom_indel_count,
-                hom_indel_density,
-                hom_indel_ratio
-            ))
-        elif not hymenoptera_sample and not sample_is_reference_sample:
-            (
                 snp_count,
                 ti_count,
                 tv_count,
@@ -385,7 +376,7 @@ def write_germline_mutation_statistics(
                 ins_count,
                 indel_count,
                 indel_ratio
-            ) = load_mutation_counts(chroms, vcf_path, sample)
+            ) = load_mutation_counts(chroms, vcf_path)
             snp_density = snp_count/genome_sum
             del_density = del_count/genome_sum
             ins_density = ins_count/genome_sum
