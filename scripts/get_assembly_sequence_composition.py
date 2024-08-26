@@ -48,8 +48,8 @@ def write_assembly_sequence_composition(seq_path: Path, out_path: Path):
     count_per_nt = get_sequence_composition(seq_path)
     nts_sum = sum(count_per_nt.values())
     with open(out_path, "w") as outfile:
-        outfile.write("SAMPLE\tA\tC\tG\tT\tN\n")
-        cols = [seq_path.stem]
+        outfile.write("SEQUENCE\tA\tC\tG\tT\tN\n")
+        cols = [seq_path]
         for nt in NTS:
             nt_proportion = (count_per_nt[nt]/float(nts_sum)) * 100
             nt_proportion = "{:.2f}".format(nt_proportion)
